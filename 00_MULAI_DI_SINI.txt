@@ -1,0 +1,27 @@
+PAKET PEMINDAHAN YOUTUBE CONTENT HUB v4.37.0
+
+Mulai dari sini:
+1. Ekstrak ZIP ini.
+2. Buat repository di akun GitHub baru. Unggah SEMUA isi folder hasil ekstrak,
+   bukan file ZIP-nya. Dockerfile, package.json, server.mjs dan railway.json
+   harus berada di bagian paling atas repository.
+3. Pada Railway baru, buat project dari repository GitHub tersebut.
+4. Tambahkan PostgreSQL, volume aplikasi /data, dan variabel konfigurasi.
+   Contohnya ada di MIGRASI/VARIABEL_RAILWAY.txt.
+5. Buka domain aplikasi baru dan login memakai ADMIN_PASSWORD yang Anda tetapkan.
+6. Pindahkan data dari backup aplikasi lama, kemudian hubungkan ulang layanan.
+
+Panduan lengkap: MIGRASI/PANDUAN_LENGKAP.md
+
+ISI ZIP:
+- Seluruh 142 file kode dan konfigurasi dari rilis v4.37.0.
+- Dockerfile, railway.json, .env.example, package-lock.json, public, test, docs.
+- Panduan GitHub baru, Railway baru, PostgreSQL, backup/restore dan koneksi Google.
+
+DATA LAMA BELUM TERMASUK:
+Database produksi, naskah pribadi/konten tersimpan di server, video upload,
+password, API key dan token login tidak terdapat pada ZIP kode ini.
+Unduh data dari menu Data & Backup di aplikasi lama sebelum menutup akun lama.
+File backup data jangan diunggah ke repository GitHub.
+
+Tidak ada perubahan pada aplikasi atau akun lama saat paket ini dibuat.

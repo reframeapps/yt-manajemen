@@ -1,0 +1,31 @@
+# CONTOH SAJA — isi nilai asli hanya di Variables service APLIKASI pada Railway baru.
+# Ganti placeholder sebelum deploy. Jangan menaruh password/API key asli di GitHub.
+
+APP_URL=https://DOMAIN-RAILWAY-BARU
+APP_SECRET=GANTI_DENGAN_SECRET_ACAK_MINIMAL_32_KARAKTER
+ADMIN_PASSWORD=GANTI_DENGAN_PASSWORD_ADMIN_BARU
+DATA_DIR=/data
+
+# Contoh jika service PostgreSQL baru bernama persis Postgres.
+# Gunakan Add Reference dari database yang benar bila namanya berbeda.
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+
+# Biarkan false sampai pemulihan dan pemeriksaan antrean selesai.
+WORKER_ENABLED=false
+RADAR_AUTO_SYNC=false
+
+# Isi sesuai OAuth client yang Anda kelola; redirect URI harus memakai domain baru.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Opsional: isi key provider yang dipakai, tanpa menyalin sesi/login lama.
+AI_PROVIDER=groq
+GROQ_API_KEY=
+GROQ_MODEL=openai/gpt-oss-120b
+GROQ_MODELS=openai/gpt-oss-20b
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+GEMINI_API_KEY=
+AI_AUTO_FALLBACK=true
+AI_FALLBACK_ORDER=openai,groq,gemini
+AI_DAILY_LIMIT=50
