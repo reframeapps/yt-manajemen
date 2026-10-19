@@ -1187,7 +1187,7 @@ const server = http.createServer(async (req, res) => {
         scope: (includeDrive?[DRIVE_SCOPE]:includeAnalytics ? [...ANALYTICS_SCOPES,...(monetary?[MONETARY_SCOPE]:[])] : [YOUTUBE_SCOPE]).join(' '),
         access_type: 'offline',
         prompt: 'select_account consent',
-        include_granted_scopes: includeDrive?'false':'true',
+        include_granted_scopes: 'false',
         state
       });
       const secure = APP_URL.startsWith('https://') ? '; Secure' : '';
