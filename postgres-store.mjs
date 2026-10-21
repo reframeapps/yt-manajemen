@@ -17,7 +17,8 @@ export class PostgresStorage {
   constructor(pool,{backupDir,now=Date.now}={}) {this.pool=pool;this.backupDir=backupDir;this.now=now;this.mode='postgresql';this.backupChain=Promise.resolve();this.backupWarning=null;}
   static async connect(url,options) {
     const {Pool}=await import('pg');
-    const pool=new Pool({connectionString:url,max:5,connectionTimeoutMillis:15000,idleTimeoutMillis:30000});
+    const ssl = (url.includes('supabase') || url.includes('neon') || url.includes('sslmode')) ? { rejectUnauthorized: false } : undefined;
+    const pool=new Pool({connectionString:url,max:5,connectionTimeoutMillis:15000,idleTimeoutMillis:30000,...(ssl?{ssl}:{})});
     pool.on('error',()=>console.error('Storage: PostgreSQL connection unavailable'));
     return new PostgresStorage(pool,options);
   }
