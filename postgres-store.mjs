@@ -65,7 +65,7 @@ export class PostgresStorage {
   }
   async read(key){
     const cached=this.docCache?.get(key);
-    if(cached&&(this.now()-cached.cachedAt<5000))return structuredClone(cached.data);
+    if(cached&&(this.now()-cached.cachedAt<120000))return structuredClone(cached.data);
     const {rows}=await this.pool.query('SELECT data FROM app_documents WHERE key=$1',[key]);
     if(!rows.length)throw storageError();
     const data=rows[0].data;
@@ -78,8 +78,12 @@ export class PostgresStorage {
       const {rows}=await client.query('SELECT data FROM app_documents WHERE key=$1 FOR UPDATE',[key]);
       if(!rows.length)throw storageError();
       const data=structuredClone(rows[0].data),before=JSON.stringify(data),result=await fn(data),after=JSON.stringify(data);
-      if(after!==before)await client.query('UPDATE app_documents SET data=$2::jsonb,revision=revision+1,updated_at=now() WHERE key=$1',[key,after]);
-      this.docCache?.delete(key);
+      if(after!==before){
+        await client.query('UPDATE app_documents SET data=$2::jsonb,revision=revision+1,updated_at=now() WHERE key=$1',[key,after]);
+        this.docCache?.set(key,{data:structuredClone(data),cachedAt:this.now()});
+      }else{
+        this.docCache?.set(key,{data:structuredClone(rows[0].data),cachedAt:this.now()});
+      }
       return structuredClone(result);
     });
   }

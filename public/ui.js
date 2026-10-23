@@ -21,7 +21,8 @@ const HUB_ICONS = {
   paperclip:'<path d="m8 13 7-7a3 3 0 0 1 4 4L9 20a5 5 0 0 1-7-7L13 2m3 7-8 8a1 1 0 0 1-2-2l8-8"/>',
   logout:'<path d="M9 4H4v16h5m7-13 5 5-5 5M8 12h13"/>',
   spark:'<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/>',
-  chevron:'<path d="m9 5 7 7-7 7"/>'
+  chevron:'<path d="m9 5 7 7-7 7"/>',
+  trash:'<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2m-6 5v6m4-6v6"/>'
 };
 function hubIcon(name, className=''){return `<svg class="hub-icon ${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${HUB_ICONS[name]||HUB_ICONS.text}</svg>`}
 document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=hubIcon(el.dataset.icon));

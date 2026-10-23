@@ -105,7 +105,7 @@ function checkBoardRevision(db, revision) {
   if (!Number.isInteger(revision) || revision !== db.boardRevision) throw fail('Kolom berubah di tab lain. Muat versi terbaru.',409);
 }
 function snapshot(content) {
-  const { history, ...rest } = content;
+  const { history, sources, assets, publicationLinks, youtubePublication, richText, ...rest } = content;
   return rest;
 }
 export class ContentStore {
@@ -174,7 +174,7 @@ export class ContentStore {
       await guard(item, updated);
       const comparable = c => JSON.stringify(Object.fromEntries(Object.keys(blank()).map(k => [k, c[k]])));
       if (comparable(item) === comparable(updated)) return item;
-      const result = { ...updated, revision: item.revision + 1, updatedAt: new Date().toISOString(), history: [snapshot(item), ...item.history].slice(0, 30) };
+      const result = { ...updated, revision: item.revision + 1, updatedAt: new Date().toISOString(), history: [snapshot(item), ...item.history].slice(0, 3) };
       db.contents[db.contents.indexOf(item)] = result; return result;
     });
   }
@@ -186,7 +186,7 @@ export class ContentStore {
     if(db.contents.some(c=>c.id!==id&&c.youtubeVideoId===video.id))throw fail('Video sudah terhubung ke konten produksi lain.',409);
     const next={...item,youtubeVideoId:video.id,youtubePublication:publicationFromVideo(video)};
     // Status polling must not consume writing history or conflict with editor saves.
-    if(item.youtubeVideoId!==video.id){next.revision++;next.updatedAt=new Date().toISOString();next.history=[snapshot(item),...item.history].slice(0,30);}
+    if(item.youtubeVideoId!==video.id){next.revision++;next.updatedAt=new Date().toISOString();next.history=[snapshot(item),...item.history].slice(0,3);}
     return {item,next};
   }
   recordPublication(id,revision,video,guard=()=>{}) {
@@ -216,7 +216,7 @@ export class ContentStore {
         const item=db.contents[i];if(item.archived)continue;
         const result=fillContentWithEngine(item);if(!Object.keys(result.fields).length)continue;
         const next=normalize(result.fields,db,item);
-        db.contents[i]={...next,revision:item.revision+1,updatedAt:now,history:[snapshot(item),...item.history].slice(0,30)};updated++;
+        db.contents[i]={...next,revision:item.revision+1,updatedAt:now,history:[snapshot(item),...item.history].slice(0,3)};updated++;
       }
       db.contentEngineVersion=CONTENT_ENGINE_VERSION;return {updated};
     });
@@ -234,7 +234,7 @@ export class ContentStore {
     return this.mutate(async db => {
       const item = db.contents.find(c => c.id === id);
       if (!item) throw fail('Konten tidak ditemukan', 404);
-      if (revision !== item.revision) throw fail('Konten berubah. Muat versi terbaru.', 409);
+      if (revision !== undefined && revision !== item.revision) throw fail('Konten berubah. Muat versi terbaru.', 409);
       await guard(item); db.contents = db.contents.filter(c => c.id !== id); return { ok: true };
     });
   }
@@ -277,7 +277,7 @@ export class ContentStore {
       if(db.columns.length===1)throw fail('Sisakan setidaknya satu kolom');
       if(body.moveTo===id||!db.columns.some(c=>c.id===body.moveTo))throw fail('Pilih kolom tujuan yang valid');
       let moved=0;const now=new Date().toISOString();
-      for(let i=0;i<db.contents.length;i++){const item=db.contents[i];if(item.stage!==id)continue;db.contents[i]={...item,stage:body.moveTo,revision:item.revision+1,updatedAt:now,history:[snapshot(item),...item.history].slice(0,30)};moved++;}
+      for(let i=0;i<db.contents.length;i++){const item=db.contents[i];if(item.stage!==id)continue;db.contents[i]={...item,stage:body.moveTo,revision:item.revision+1,updatedAt:now,history:[snapshot(item),...item.history].slice(0,3)};moved++;}
       db.columns=db.columns.filter(c=>c.id!==id);db.boardRevision++;
       return {columns:db.columns,boardRevision:db.boardRevision,moved};
     });
