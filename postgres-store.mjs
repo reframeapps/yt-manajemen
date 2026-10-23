@@ -14,11 +14,11 @@ const storageError = () => Object.assign(Error('PostgreSQL belum tersedia. Penyi
 export const encodeBackup=bundle=>({encoding:'gzip-base64',payload:gzipSync(JSON.stringify(bundle)).toString('base64')});
 export const decodeBackup=bundle=>bundle?.encoding==='gzip-base64'?JSON.parse(gunzipSync(Buffer.from(bundle.payload,'base64'))):bundle;
 export class PostgresStorage {
-  constructor(pool,{backupDir,now=Date.now}={}) {this.pool=pool;this.backupDir=backupDir;this.now=now;this.mode='postgresql';this.backupChain=Promise.resolve();this.backupWarning=null;}
+  constructor(pool,{backupDir,now=Date.now}={}) {this.pool=pool;this.backupDir=backupDir;this.now=now;this.mode='postgresql';this.backupChain=Promise.resolve();this.backupWarning=null;this.docCache=new Map();}
   static async connect(url,options) {
     const {Pool}=await import('pg');
     const ssl = (url.includes('supabase') || url.includes('neon') || url.includes('sslmode')) ? { rejectUnauthorized: false } : undefined;
-    const pool=new Pool({connectionString:url,max:5,connectionTimeoutMillis:15000,idleTimeoutMillis:30000,...(ssl?{ssl}:{})});
+    const pool=new Pool({connectionString:url,max:10,connectionTimeoutMillis:15000,idleTimeoutMillis:120000,keepAlive:true,keepAliveInitialDelayMillis:10000,...(ssl?{ssl}:{})});
     pool.on('error',()=>console.error('Storage: PostgreSQL connection unavailable'));
     return new PostgresStorage(pool,options);
   }
@@ -63,9 +63,27 @@ export class PostgresStorage {
     if(!documents||DOCUMENT_KEYS.some(k=>!documents[k])||Object.keys(documents).some(k=>!DOCUMENT_KEYS.includes(k)))throw Error('Struktur backup tidak valid');
     if(!Array.isArray(documents.uploads.jobs)||!Array.isArray(documents.contents.contents)||!Array.isArray(documents.contents.pillars)||!Array.isArray(documents.contents.columns)||!Array.isArray(documents.notes.notes)||!Array.isArray(documents.notes.categories)||!documents.analytics.channels)throw Error('Model data backup tidak valid');
   }
-  async read(key){const {rows}=await this.pool.query('SELECT data FROM app_documents WHERE key=$1',[key]);if(!rows.length)throw storageError();return structuredClone(rows[0].data);}
-  async mutate(key,fn){return this.transaction(async client=>{const {rows}=await client.query('SELECT data FROM app_documents WHERE key=$1 FOR UPDATE',[key]);if(!rows.length)throw storageError();const data=structuredClone(rows[0].data),before=JSON.stringify(data),result=await fn(data),after=JSON.stringify(data);if(after!==before)await client.query('UPDATE app_documents SET data=$2::jsonb,revision=revision+1,updated_at=now() WHERE key=$1',[key,after]);return structuredClone(result);});}
-  async write(key,data){await this.mutate(key,document=>{for(const k of Object.keys(document))delete document[k];Object.assign(document,structuredClone(data));});}
+  async read(key){
+    const cached=this.docCache?.get(key);
+    if(cached&&(this.now()-cached.cachedAt<5000))return structuredClone(cached.data);
+    const {rows}=await this.pool.query('SELECT data FROM app_documents WHERE key=$1',[key]);
+    if(!rows.length)throw storageError();
+    const data=rows[0].data;
+    this.docCache?.set(key,{data,cachedAt:this.now()});
+    return structuredClone(data);
+  }
+  async mutate(key,fn){
+    this.docCache?.delete(key);
+    return this.transaction(async client=>{
+      const {rows}=await client.query('SELECT data FROM app_documents WHERE key=$1 FOR UPDATE',[key]);
+      if(!rows.length)throw storageError();
+      const data=structuredClone(rows[0].data),before=JSON.stringify(data),result=await fn(data),after=JSON.stringify(data);
+      if(after!==before)await client.query('UPDATE app_documents SET data=$2::jsonb,revision=revision+1,updated_at=now() WHERE key=$1',[key,after]);
+      this.docCache?.delete(key);
+      return structuredClone(result);
+    });
+  }
+  async write(key,data){this.docCache?.delete(key);await this.mutate(key,document=>{for(const k of Object.keys(document))delete document[k];Object.assign(document,structuredClone(data));});}
   backup(kind='manual',options={}) {
     // Serialize the database snapshot and filesystem mirror together locally.
     // The advisory lock also guards manual cooldown across database clients.
@@ -103,5 +121,5 @@ export class PostgresStorage {
   async maintain(){await this.pool.query('VACUUM (TRUNCATE ON) app_documents');await this.pool.query('VACUUM (TRUNCATE ON) app_backups');this.capacityCache=null;return {ready:true};}
   async capacity(fresh=false){if(!fresh&&this.capacityCache&&this.now()-this.capacityCache.checkedMs<300000)return this.capacityCache.value;try{const row=(await this.pool.query('SELECT pg_database_size(current_database()) AS database_bytes, (SELECT COALESCE(sum(size),0) FROM pg_ls_waldir()) AS wal_bytes')).rows[0],databaseBytes=Number(row.database_bytes),walBytes=Number(row.wal_bytes),budgetBytes=Number(process.env.DATABASE_VOLUME_MB||0)*1024*1024,estimateBytes=databaseBytes+walBytes,ratio=budgetBytes?estimateBytes/budgetBytes:null;const value={databaseBytes,walBytes,estimateBytes,budgetBytes:budgetBytes||null,estimated:true,level:ratio===null?'unknown':ratio>=.9?'critical':ratio>=.75?'warning':'ready',note:'Estimasi database aktif + WAL, bukan pembacaan ruang bebas volume. Ukuran fisik tidak langsung turun setelah penghapusan; PostgreSQL memakai ulang ruang.'};this.capacityCache={checkedMs:this.now(),value};return value;}catch{return {level:'unknown',note:'Ukuran database belum dapat diperiksa.'};}}
   async status(){const migration=(await this.pool.query('SELECT id,applied_at FROM app_migrations ORDER BY applied_at DESC LIMIT 1')).rows[0],backups=await this.listBackups();await Promise.all(backups.map(async b=>{try{const stat=await fs.stat(path.join(this.backupDir,b.id+'.json.gz'));b.volumeCopy='ready';b.fileBytes=stat.size;}catch{b.volumeCopy='missing';b.fileBytes=null;}}));const last=backups.find(b=>b.kind==='manual'),usage=await databaseUsage(this.pool).catch(()=>({available:false,error:'Rincian kategori belum dapat diperiksa.'}));return {usage:{...usage,backups:backupUsage(backups)},capacity:await this.capacity(true),backupEncoding:'gzip',mode:this.mode,ready:true,migratedAt:migration?.applied_at||null,backups,backupWarning:backups.some(b=>b.volumeCopy==='missing')?'Backup tetap tersimpan di PostgreSQL dan bisa diunduh. Ada salinan di volume yang belum tersedia.':null,manualAvailableAt:last?new Date(Date.parse(last.createdAt)+60000).toISOString():null};}
-  async restore(bundle,digest){this.validate(bundle?.documents);if(bundle.version!==1||checksum(bundle)!==digest)throw Error('Backup rusak atau checksum tidak cocok');return this.transaction(async client=>{await client.query('SELECT key FROM app_documents ORDER BY key FOR UPDATE');for(const key of DOCUMENT_KEYS)await client.query('UPDATE app_documents SET data=$2::jsonb,revision=revision+1,updated_at=now() WHERE key=$1',[key,JSON.stringify(bundle.documents[key])]);});}
+  async restore(bundle,digest){this.docCache?.clear();this.validate(bundle?.documents);if(bundle.version!==1||checksum(bundle)!==digest)throw Error('Backup rusak atau checksum tidak cocok');return this.transaction(async client=>{await client.query('SELECT key FROM app_documents ORDER BY key FOR UPDATE');for(const key of DOCUMENT_KEYS)await client.query('UPDATE app_documents SET data=$2::jsonb,revision=revision+1,updated_at=now() WHERE key=$1',[key,JSON.stringify(bundle.documents[key])]);});}
 }

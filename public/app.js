@@ -75,11 +75,29 @@ function statusBadge(kind,value){
   const accessible=(production?'Tahap produksi: ':'Status publikasi: ')+meta.label;
   return `<span class="status-badge status-${production?'production':'publication'} status-tone-${meta.tone}" ${colorStyle} data-status-kind="${production?'production':'publication'}" data-status-value="${esc(value||'not_uploaded')}" title="${esc(accessible)}" aria-label="${esc(accessible)}">${statusIcon(meta.icon)}<span>${esc(meta.label)}</span></span>`;
 }
-async function boot(){const sess=await api('/api/session');if(!sess.authenticated){$('#loginView').classList.remove('hide');if(sess.configMissing?.length){$('#configWarning').classList.remove('hide');$('#configWarning').textContent='Cloud belum lengkap: '+sess.configMissing.join(', ')}return}$('#appView').classList.remove('hide');await refresh();setInterval(refresh,4000)}
+let _lastServerSig='';
+let _refreshTimer=null;
+function scheduleNextRefresh(){
+  clearTimeout(_refreshTimer);
+  const hasActive=state.server?.jobs?.some(j=>['receiving','queued_upload','uploading_youtube'].includes(j.status));
+  _refreshTimer=setTimeout(async()=>{await refresh();scheduleNextRefresh();},hasActive?4000:12000);
+}
+async function boot(){const sess=await api('/api/session');if(!sess.authenticated){$('#loginView').classList.remove('hide');if(sess.configMissing?.length){$('#configWarning').classList.remove('hide');$('#configWarning').textContent='Cloud belum lengkap: '+sess.configMissing.join(', ')}return}$('#appView').classList.remove('hide');await refresh();scheduleNextRefresh()}
 $('#loginBtn').onclick=async()=>{try{await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#loginPassword').value})});location.reload()}catch(e){toast(e.message)}};
 $('#loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click()});
 $('#logoutBtn').onclick=async()=>{await api('/api/logout',{method:'POST',body:'{}'});location.reload()};
-async function refresh(){try{state.server=await api('/api/state');renderServer();window.onHubState?.()}catch(e){if(e.message==='Silakan login')location.reload()}}
+async function refresh(){
+  try{
+    state.server=await api('/api/state');
+    renderServer();
+    const sig=JSON.stringify([state.server?.youtubeConnected,state.server?.youtubeAuth,state.server?.channel?.id,state.server?.jobs?.map(j=>[j.id,j.status,j.youtubeVideoId,j.receivedBytes])]);
+    if(sig!==_lastServerSig||!window._hubLoadedOnce){
+      _lastServerSig=sig;
+      window._hubLoadedOnce=true;
+      window.onHubState?.();
+    }
+  }catch(e){if(e.message==='Silakan login')location.reload()}
+}
 function renderServer(){const s=state.server;if(s.youtubeConnected&&s.channel){$('#channelDot').classList.add('on');$('#channelName').textContent=s.channel.title;$('#channelInfo').textContent='Channel terhubung. Status upload diperiksa saat proses berjalan.';$('#connectBtn').classList.add('hide');$('#disconnectBtn').classList.remove('hide')}else{$('#channelDot').classList.remove('on');$('#channelName').textContent=s.youtubeAuth==='reconnect_required'?'Izin YouTube perlu diperbarui':'Belum terhubung';$('#channelInfo').textContent=s.youtubeAuth==='reconnect_required'?'Izin Google kedaluwarsa atau dicabut. Hubungkan ulang; data tetap tersimpan.':'Hubungkan akun YouTube.';$('#connectBtn').textContent=s.youtubeAuth==='reconnect_required'?'Hubungkan ulang YouTube':'Hubungkan YouTube';$('#connectBtn').classList.remove('hide');$('#disconnectBtn').classList.add('hide')}$('#oauthHint').textContent=`OAuth callback: ${s.redirectUri}`;const active=s.jobs.filter(j=>!['published','cancelled'].includes(j.status)).length;$('#sumQueue').textContent=active;const box=$('#jobs');if(!s.jobs.length){box.innerHTML='<div class="hint">Belum ada pekerjaan.</div>';return}box.innerHTML=s.jobs.slice(0,30).map(j=>{const pct=j.fileSize?Math.round((j.receivedBytes||0)/j.fileSize*100):0;return `<div class="job"><div class="jobTop"><div><div class="jobTitle" title="${esc(j.title)}">${esc(j.title)}</div><div class="jobMeta">Tayang ${fmtDate(j.scheduledAt)}</div></div>${statusBadge('publication',j.status)}</div><div class="jobMeta">${j.youtubeVideoId?`YouTube: ${esc(j.youtubeVideoId)}`:`Cloud: ${pct}%`}${j.error?` • ${esc(j.error)}`:''}</div>${j.status==='receiving'?`<div class="progress"><i style="width:${pct}%"></i></div>`:''}<div class="jobActions">${j.status==='failed'&&s.youtubeAuth!=='reconnect_required'?`<button class="btn mini" data-retry="${j.id}">Retry</button>`:''}${!['published','scheduled_youtube','uploading_youtube','cancelled'].includes(j.status)?`<button class="btn mini" data-cancel="${j.id}">Batalkan</button>`:''}${s.youtubeAuth==='reconnect_required'?'<a class="btn mini" href="/auth/google">Hubungkan ulang YouTube</a>':''}${j.youtubeVideoId?`<a class="btn mini" target="_blank" href="https://youtu.be/${encodeURIComponent(j.youtubeVideoId)}">Buka</a>`:''}${j.youtubeVideoId&&j.relatedVideoId?`<button class="btn mini" data-related-studio="${j.id}">Atur Video Terkait</button>`:''}</div></div>`}).join('')}
 $('#jobs').onclick=async e=>{try{if(e.target.dataset.retry){await api(`/api/jobs/${e.target.dataset.retry}/retry`,{method:'POST',body:'{}'});await refresh()}if(e.target.dataset.cancel){await api(`/api/jobs/${e.target.dataset.cancel}/cancel`,{method:'POST',body:'{}'});await refresh()}if(e.target.dataset.relatedStudio){const j=state.server.jobs.find(x=>x.id===e.target.dataset.relatedStudio);if(j?.relatedVideoUrl){try{await navigator.clipboard.writeText(j.relatedVideoUrl)}catch{}window.open(`https://studio.youtube.com/video/${encodeURIComponent(j.youtubeVideoId)}/edit`,'_blank');toast('YouTube Studio dibuka. Pilih Video Terkait: '+(j.relatedVideoTitle||j.relatedVideoId));}}}catch(err){toast(err.message)}};
 $('#connectBtn').onclick=()=>location.href='/auth/google';
