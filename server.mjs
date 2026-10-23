@@ -118,21 +118,29 @@ if(process.env.DATABASE_URL){
     console.log('Storage:',JSON.stringify({mode:'postgresql',migrationVerified:true}));
   }catch(e){console.error('Storage initialization failed. Original files preserved; refusing empty fallback.',e.code||'migration_error');process.exit(1);}
 }
-const radarBefore=await contentStore.read();
-if(radarBefore.radar && radarBefore.radar.clusteringVersion!==RADAR_METHOD.version){
- if(storage)await storage.backup('manual');
- else{const prior=radarBefore.radar.clusteringVersion,backupVersion=Number.isInteger(prior)&&prior>0&&prior<100?prior:1;try{await fsp.copyFile(contentStore.file,path.join(DATA_DIR,'contents.radar-v'+backupVersion+'.backup.json'),fs.constants.COPYFILE_EXCL)}catch(error){if(error.code!=='EEXIST')throw error;}}
- console.log('Radar methodology:',JSON.stringify(await radarStore.recluster()));
+async function initBackground() {
+  try {
+    const radarBefore=await contentStore.read();
+    if(radarBefore.radar && radarBefore.radar.clusteringVersion!==RADAR_METHOD.version){
+      if(storage)await storage.backup('manual');
+      else{const prior=radarBefore.radar.clusteringVersion,backupVersion=Number.isInteger(prior)&&prior>0&&prior<100?prior:1;try{await fsp.copyFile(contentStore.file,path.join(DATA_DIR,'contents.radar-v'+backupVersion+'.backup.json'),fs.constants.COPYFILE_EXCL)}catch(error){if(error.code!=='EEXIST')throw error;}}
+      console.log('Radar methodology:',JSON.stringify(await radarStore.recluster()));
+    }
+    console.log('Radar status:',JSON.stringify({methodology:RADAR_METHOD.version,...(await radarStore.read({includeResearchPlans:false})).radarSummary}));
+    const policyStatus=await radarRetention.status(),driveStatus=await driveBackup.status();
+    console.log('Storage policy:',JSON.stringify({retentionDays:policyStatus.days,retentionEnabled:policyStatus.enabled,lastCleanupAt:policyStatus.lastRunAt||null,lastCleanupResult:policyStatus.lastResult||null,driveConnected:driveStatus.connected,lastBackupVerifiedAt:driveStatus.lastVerifiedAt||null}));
+    if(radarBefore.contentEngineVersion!==CONTENT_ENGINE_VERSION){
+      if(radarBefore.contents.length){
+        if(storage)await storage.backup('manual');
+        else await fsp.copyFile(contentStore.file,path.join(DATA_DIR,'contents.before-engine-v1.backup.json'),fs.constants.COPYFILE_EXCL).catch(e=>{if(e.code!=='EEXIST')throw e;});
+      }
+      console.log('Content engine:',JSON.stringify(await contentStore.fillEmptyWithEngine()));
+    }
+  } catch(e) {
+    console.warn('Background radar init warning:', e.message);
+  }
 }
-console.log('Radar status:',JSON.stringify({methodology:RADAR_METHOD.version,...(await radarStore.read({includeResearchPlans:false})).radarSummary}));
-const policyStatus=await radarRetention.status(),driveStatus=await driveBackup.status();console.log('Storage policy:',JSON.stringify({retentionDays:policyStatus.days,retentionEnabled:policyStatus.enabled,lastCleanupAt:policyStatus.lastRunAt||null,lastCleanupResult:policyStatus.lastResult||null,driveConnected:driveStatus.connected,lastBackupVerifiedAt:driveStatus.lastVerifiedAt||null}));
-if(radarBefore.contentEngineVersion!==CONTENT_ENGINE_VERSION){
- if(radarBefore.contents.length){
-  if(storage)await storage.backup('manual');
-  else await fsp.copyFile(contentStore.file,path.join(DATA_DIR,'contents.before-engine-v1.backup.json'),fs.constants.COPYFILE_EXCL).catch(e=>{if(e.code!=='EEXIST')throw e;});
- }
- console.log('Content engine:',JSON.stringify(await contentStore.fillEmptyWithEngine()));
-}
+initBackground().catch(e => console.warn('Background init:', e.message));
 let backupBusy=false;
 async function backupTick(){if(!storage||backupBusy)return;backupBusy=true;try{await storage.backup('daily');const drive=await driveBackup.status();await radarRetention.tick();if(drive.connected)await driveBackup.run();}catch(e){console.error('Backup:',e.code||'backup_pending')}finally{backupBusy=false}}
 setInterval(backupTick,3600000).unref();

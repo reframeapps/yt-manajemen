@@ -57,7 +57,7 @@ export class PostgresStorage {
       await fs.writeFile(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2),{mode:0o600,flag:'wx'});
       await client.query('INSERT INTO app_migrations(id,manifest) VALUES($1,$2::jsonb)',[id,JSON.stringify(manifest)]);
     });
-    await this.backup('daily');
+    this.backup('daily').catch(e=>console.warn('Daily backup notice:',e.message));
   }
   validate(documents) {
     if(!documents||DOCUMENT_KEYS.some(k=>!documents[k])||Object.keys(documents).some(k=>!DOCUMENT_KEYS.includes(k)))throw Error('Struktur backup tidak valid');
@@ -65,7 +65,7 @@ export class PostgresStorage {
   }
   async read(key){
     const cached=this.docCache?.get(key);
-    if(cached&&(this.now()-cached.cachedAt<120000))return structuredClone(cached.data);
+    if(cached)return structuredClone(cached.data);
     const {rows}=await this.pool.query('SELECT data FROM app_documents WHERE key=$1',[key]);
     if(!rows.length)throw storageError();
     const data=rows[0].data;
@@ -107,6 +107,10 @@ export class PostgresStorage {
       return {id,created_at:bundle.createdAt,digest,bundle,kind};
     });
     // Re-create a missing filesystem mirror after a restart, even for today's backup.
+    if(entry.existing){
+      const target=path.join(this.backupDir,entry.id+'.json.gz');
+      try{await fs.access(target);return {id:entry.id,createdAt:entry.created_at,kind,digest:entry.digest||'',mirror:'ready'};}catch{}
+    }
     const full=entry.bundle?entry:await this.getBackup(entry.id),target=path.join(this.backupDir,full.id+'.json.gz');
     const tmp=target+'.'+crypto.randomUUID()+'.tmp';let mirror='ready';
     try{
