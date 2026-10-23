@@ -186,8 +186,14 @@ function isAuthed(req) {
   const c = parseCookies(req).yt_admin;
   return c ? safeEqual(c, sessionValue()) : false;
 }
-function sessionCookie(value, maxAge = 60 * 60 * 24 * 30) {
-  const secure = APP_URL.startsWith('https://') ? '; Secure' : '';
+function isRequestHttps(req) {
+  if (!req) return APP_URL.startsWith('https://');
+  const proto = req.headers?.['x-forwarded-proto'];
+  if (proto) return proto === 'https';
+  return Boolean(req.socket?.encrypted);
+}
+function sessionCookie(value, maxAge = 60 * 60 * 24 * 30, req = null) {
+  const secure = isRequestHttps(req) ? '; Secure' : '';
   return `yt_admin=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
 }
 // Bound request bytes to server capacity; writing fields themselves have no character cap.
@@ -895,11 +901,11 @@ const server = http.createServer(async (req, res) => {
         return json(res, 503, { error: 'ADMIN_PASSWORD / APP_SECRET belum dikonfigurasi di cloud' });
       if (!safeEqual(body.password || '', ADMIN_PASSWORD))
         return json(res, 401, { error: 'Password salah' });
-      return json(res, 200, { ok: true }, { 'set-cookie': sessionCookie(sessionValue()) });
+      return json(res, 200, { ok: true }, { 'set-cookie': sessionCookie(sessionValue(), undefined, req) });
     }
 
     if (req.method === 'POST' && pathname === '/api/logout')
-      return json(res, 200, { ok: true }, { 'set-cookie': sessionCookie('', 0) });
+      return json(res, 200, { ok: true }, { 'set-cookie': sessionCookie('', 0, req) });
 
     if(pathname==='/api/storage/transfer'&&transferAuthorized(req,{token:process.env.BACKUP_EXPORT_TOKEN,until:process.env.BACKUP_EXPORT_UNTIL})){
       if(!storage)return json(res,409,{error:'Backup PostgreSQL belum tersedia'});
@@ -1198,7 +1204,7 @@ const server = http.createServer(async (req, res) => {
         include_granted_scopes: 'false',
         state
       });
-      const secure = APP_URL.startsWith('https://') ? '; Secure' : '';
+      const secure = isRequestHttps(req) ? '; Secure' : '';
       return redirect(res, `https://accounts.google.com/o/oauth2/v2/auth?${p}`, {
         'set-cookie': `yt_oauth_state=${encodeURIComponent(state)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${secure}`
       });
@@ -1234,7 +1240,7 @@ const server = http.createServer(async (req, res) => {
         if(!granted.has(DRIVE_SCOPE)||!tok.refresh_token)return redirect(res,'/?view=storage&oauth=drive_permission_required');
         driveTokenGeneration++;refreshPromises.delete('drive');await saveToken(tok,driveTokenGeneration,'drive');
         await contentStore.mutate(db=>{db.storageBackup={connectedAt:nowIso()};});
-        void backupTick();return redirect(res,'/?view=storage&oauth=drive_ok',{'set-cookie':'yt_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'+(APP_URL.startsWith('https://')?'; Secure':'')});
+        void backupTick();return redirect(res,'/?view=storage&oauth=drive_ok',{'set-cookie':'yt_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'+(isRequestHttps(req)?'; Secure':'')});
       }
       const db = await readDb();
       if (isAnalytics) {
@@ -1250,7 +1256,7 @@ const server = http.createServer(async (req, res) => {
         tok.channel_id = db.channel.id;
         analyticsTokenGeneration++; refreshPromises.delete('analytics'); analytics.clear();
         await saveToken(tok, analyticsTokenGeneration, 'analytics');
-        return redirect(res, '/?oauth=ok&view=analytics', { 'set-cookie': 'yt_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + (APP_URL.startsWith('https://') ? '; Secure' : '') });
+        return redirect(res, '/?oauth=ok&view=analytics', { 'set-cookie': 'yt_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + (isRequestHttps(req) ? '; Secure' : '') });
       }
       if (!granted.has(YOUTUBE_SCOPE) && !granted.has('https://www.googleapis.com/auth/youtube'))
         return text(res, 400, 'Izin pengelolaan YouTube belum diberikan. Koneksi sebelumnya dipertahankan. Ulangi dan centang izin upload serta Analytics yang diminta.');
@@ -1270,7 +1276,7 @@ const server = http.createServer(async (req, res) => {
       await writeDb(db);
       console.log('YouTube OAuth: connected');
       void publicationTick(true).catch(()=>{});
-      return redirect(res, '/?oauth=ok' + returnTo, { 'set-cookie': 'yt_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + (APP_URL.startsWith('https://') ? '; Secure' : '') });
+      return redirect(res, '/?oauth=ok' + returnTo, { 'set-cookie': 'yt_oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + (isRequestHttps(req) ? '; Secure' : '') });
       } catch (e) {
         if(isDrive)return redirect(res,'/?view=storage&oauth=drive_connection_failed');
         if (isAnalytics) return redirect(res, '/?view=analytics&oauth=' + encodeURIComponent(e.code || 'connection_failed'));
