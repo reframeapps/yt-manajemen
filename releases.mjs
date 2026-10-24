@@ -1,6 +1,13 @@
-export const APP_VERSION='4.45.0';
+export const APP_VERSION='4.46.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.46.0',date:'2026-10-25',title:'Input Konten Kilat di Kanban: Enter Simpan Otomatis, Top Composer, & Shortcut',changes:[
+    {type:'feature',text:'Simpan Kilat dengan Tombol Enter: Mengetik judul kartu di Kanban kini cukup tekan Enter untuk langsung menyimpan seketika tanpa perlu mengarahkan mouse dan mengklik tombol "Tambahkan kartu" (Shift+Enter untuk baris baru, Escape untuk menutup).'},
+    {type:'feature',text:'Rapid-Fire Continuous Input: Setelah menekan Enter, input langsung dikosongkan dan kursor tetap aktif di kolom input sehingga pengguna dapat mengetik daftar ide berturut-turut dengan super cepat layaknya to-do list.'},
+    {type:'feature',text:'Top Column Composer & Quick Header Button: Composer pembuatan kartu kini langsung muncul di bagian ATAS kolom (bukan di dasar kolom), dan tombol "+" cepat ditambahkan langsung di header setiap kolom tanpa perlu scroll.'},
+    {type:'feature',text:'Keyboard Shortcut N / C & Tombol + Konten Baru Kanban: Menekan tombol "N" atau "C" pada keyboard saat berada di Kanban langsung membuka input kartu baru seketika. Tombol utama "+ Konten Baru" di toolbar papan dibuat menonjol.'},
+    {type:'feature',text:'Prefix Kilat di Telegram: Menambahkan dukungan sintaks instan "+ [Judul Ide]" dan "ide: [Judul Ide]" pada bot Telegram untuk pencatatan ide tanpa format panjang.'}
+  ]},
   {version:'4.45.0',date:'2026-10-25',title:'Studio Visual & Perancang Thumbnail YouTube Otomatis',changes:[
     {type:'feature',text:'Studio Visual & Thumbnail (/thumbnail, /gambar): Bot kini memiliki modul art director yang mampu merancang komposisi visual 16:9, mood pencahayaan dramatis, pilihan teks thumbnail high-CTR, serta menghasilkan prompt AI berbahasa Inggris siap pakai untuk Midjourney, Ideogram, dan Bing Image Creator.'},
     {type:'feature',text:'Optimalisasi Model Gemini 3.5 Flash: Menggunakan model aktif tercepat dengan otentikasi header x-goog-api-key dan multi-level fallback (gemini-3.5-flash-lite, gemini-3.1-flash-lite) untuk respon instan di Telegram.'}

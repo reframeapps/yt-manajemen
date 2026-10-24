@@ -233,7 +233,7 @@ function renderKanban(body){
   const vertical=Object.fromEntries([...body.querySelectorAll('.kanban-column')].map(el=>[el.dataset.column,el.querySelector('.kanban-cards')?.scrollTop||0]));
   const focused=document.activeElement,wasComposer=focused?.matches('[name="cardTitle"]'),selection=wasComposer?[focused.selectionStart,focused.selectionEnd]:null;
   hub.boardSignature=signature;
-  body.innerHTML=`<div class="board-shell"><div class="board-toolbar"><div class="board-title-group"><h2>Papan Produksi</h2><span class="board-pill">${hubIcon('board')} Papan</span><span class="board-count">${items.length} kartu · ${hub.data.columns.length} tahap</span></div><div class="board-actions"><button data-manage-columns aria-label="Atur kolom Kanban">${hubIcon('layers')}<span class="board-new-label">Kolom</span></button><button data-board-filter aria-expanded="${hub.boardFilters}" aria-controls="hubFilters">${hubIcon('filter')} Filter</button><button data-add-card="${hub.data.columns[0].id}" aria-label="Tambah kartu baru">${hubIcon('plus')}<span class="board-new-label">Kartu baru</span></button></div></div><div class="kanban" aria-label="Papan produksi, geser horizontal untuk melihat semua tahap">${Object.entries(STAGE_NAMES).map(([stage,label])=>{const cards=items.filter(c=>c.stage===stage),composer=hub.composer?.stage===stage;return `<section class="kanban-column" data-column="${stage}" aria-label="${esc(label)}"><div class="column-head"><strong class="column-name">${statusBadge('production',stage)}</strong><span class="column-count">${cards.length}</span><button class="icon-button" data-column-menu="${stage}" aria-label="Menu kolom ${esc(label)}" aria-expanded="${hub.columnMenu===stage}">${hubIcon('more')}</button></div>${hub.columnMenu===stage?`<div class="column-menu"><button data-add-card="${stage}">${hubIcon('plus')} Tambah kartu</button><button data-edit-column="${stage}">${hubIcon('layers')} Ubah kolom</button><button data-stage-library="${stage}">${hubIcon('folder')} Lihat di Semua Konten</button></div>`:''}<div class="kanban-cards">${cards.map(kanbanCard).join('')}</div>${composer?`<form class="card-composer" data-composer="${stage}"><textarea name="cardTitle" aria-label="Judul kartu baru" placeholder="Masukkan judul untuk kartu ini…" rows="3" required${hub.composer.saving?' disabled':''}>${esc(hub.composer.title)}</textarea>${hub.composer.error?`<div class="composer-error" role="alert">${esc(hub.composer.error)}</div>`:''}<div class="composer-actions"><button class="btn primary"${hub.composer.saving?' disabled':''}>${hub.composer.saving?'Menyimpan…':'Tambahkan kartu'}</button><button type="button" class="icon-button" data-cancel-composer aria-label="Batal tambah kartu"${hub.composer.saving?' disabled':''}>${hubIcon('close')}</button></div></form>`:`<button class="board-add" data-add-card="${stage}">${hubIcon('plus')} Tambahkan kartu</button>`}</section>`}).join('')}<button class="board-add-column" data-manage-columns>${hubIcon('plus')} Tambah kolom</button></div><p class="hub-footer">Geser papan untuk melihat semua tahap. Tarik kartu atau gunakan tombol pindah pada kartu untuk mengubah tahap.</p></div>`;
+  body.innerHTML=`<div class="board-shell"><div class="board-toolbar"><div class="board-title-group"><h2>Papan Produksi</h2><span class="board-pill">${hubIcon('board')} Papan</span><span class="board-count">${items.length} kartu · ${hub.data.columns.length} tahap</span></div><div class="board-actions"><button data-manage-columns aria-label="Atur kolom Kanban">${hubIcon('layers')}<span class="board-new-label">Kolom</span></button><button data-board-filter aria-expanded="${hub.boardFilters}" aria-controls="hubFilters">${hubIcon('filter')} Filter</button><button data-add-card="${hub.data.columns[0].id}" aria-label="Tambah konten baru" style="background:#0c66e4;font-weight:700;padding:7px 14px">${hubIcon('plus')}<span class="board-new-label">+ Konten Baru (N)</span></button></div></div><div class="kanban" aria-label="Papan produksi, geser horizontal untuk melihat semua tahap">${Object.entries(STAGE_NAMES).map(([stage,label])=>{const cards=items.filter(c=>c.stage===stage),composer=hub.composer?.stage===stage;return `<section class="kanban-column" data-column="${stage}" aria-label="${esc(label)}"><div class="column-head"><strong class="column-name">${statusBadge('production',stage)}</strong><span class="column-count">${cards.length}</span><button class="icon-button" data-add-card="${stage}" aria-label="Tambah kartu di ${esc(label)}" title="Tambah kartu (${esc(label)})">${hubIcon('plus')}</button><button class="icon-button" data-column-menu="${stage}" aria-label="Menu kolom ${esc(label)}" aria-expanded="${hub.columnMenu===stage}">${hubIcon('more')}</button></div>${hub.columnMenu===stage?`<div class="column-menu"><button data-add-card="${stage}">${hubIcon('plus')} Tambah kartu</button><button data-edit-column="${stage}">${hubIcon('layers')} Ubah kolom</button><button data-stage-library="${stage}">${hubIcon('folder')} Lihat di Semua Konten</button></div>`:''}${composer?`<form class="card-composer" data-composer="${stage}" style="margin-bottom:8px"><textarea name="cardTitle" aria-label="Judul kartu baru" placeholder="Ketik judul, tekan Enter untuk simpan kilat…" rows="2" required${hub.composer.saving?' disabled':''}>${esc(hub.composer.title)}</textarea>${hub.composer.error?`<div class="composer-error" role="alert">${esc(hub.composer.error)}</div>`:''}<div class="composer-actions"><button class="btn primary mini"${hub.composer.saving?' disabled':''}>${hub.composer.saving?'Menyimpan…':'Simpan (Enter)'}</button><button type="button" class="icon-button" data-cancel-composer aria-label="Batal tambah kartu"${hub.composer.saving?' disabled':''}>${hubIcon('close')}</button><span style="font-size:10px;color:#626f86;margin-left:auto;white-space:nowrap">↵ Simpan · Esc Batal</span></div></form>`:''}<div class="kanban-cards">${cards.map(kanbanCard).join('')}</div>${!composer?`<button class="board-add" data-add-card="${stage}">${hubIcon('plus')} Tambahkan kartu</button>`:''}</section>`}).join('')}<button class="board-add-column" data-manage-columns>${hubIcon('plus')} Tambah kolom</button></div><p class="hub-footer">Geser papan untuk melihat semua tahap. Tarik kartu atau gunakan tombol pindah pada kartu untuk mengubah tahap.</p></div>`;
   body.querySelector('.kanban').scrollLeft=scroll;
   body.querySelectorAll('.kanban-column').forEach(el=>el.querySelector('.kanban-cards').scrollTop=vertical[el.dataset.column]||0);
   if(wasComposer&&hub.composer&&!hub.composer.saving){const input=body.querySelector('[name="cardTitle"]');input?.focus({preventScroll:true});if(selection)input?.setSelectionRange(...selection)}
@@ -302,10 +302,48 @@ $('#hubBody').onsubmit=async e=>{
     e.preventDefault();const composer=hub.composer;if(!composer||composer.saving)return;
     composer.title=e.target.elements.cardTitle.value;const title=composer.title.trim();if(!title)return;
     composer.saving=true;composer.error='';renderHub();
-    try{const result=await api('/api/contents',{method:'POST',body:JSON.stringify({title,stage:composer.stage,pillarId:$('#pillarFilter').value,format:$('#formatFilter').value||'shorts',archived:$('#archiveFilter').checked})});hub.data.contents.unshift(contentSummary(result.content));hub.composer=null;renderHub();toast('Kartu ditambahkan.');void loadHub()}
+    try{
+      const result=await api('/api/contents',{method:'POST',body:JSON.stringify({title,stage:composer.stage,pillarId:$('#pillarFilter').value,format:$('#formatFilter').value||'shorts',archived:$('#archiveFilter').checked})});
+      hub.data.contents.unshift(contentSummary(result.content));
+      saveHubCache();
+      composer.title='';
+      composer.saving=false;
+      renderHub();
+      toast('Kartu ditambahkan.');
+      const input=$('#hubBody [name="cardTitle"]');
+      input?.focus();
+      void loadHub();
+    }
     catch(err){composer.saving=false;composer.error=err.message;renderHub();$('#hubBody [name="cardTitle"]')?.focus()}return;
   }
   if(!e.target.matches('.pillar-setting'))return;e.preventDefault();const form=e.target;try{await api('/api/pillars',{method:'POST',body:JSON.stringify({id:form.dataset.pillar||undefined,name:form.elements.name.value,color:form.elements.color.value})});await loadHub();toast('Pilar tersimpan.')}catch(err){toast(err.message)}};
+$('#hubBody').onkeydown=e=>{
+  if(e.target.matches('.card-composer [name="cardTitle"]')){
+    if(e.key==='Enter'&&!e.shiftKey){
+      e.preventDefault();
+      if(!e.target.value.trim()){
+        hub.composer=null;
+        renderHub();
+        return;
+      }
+      e.target.closest('form')?.requestSubmit();
+    }else if(e.key==='Escape'){
+      e.preventDefault();
+      hub.composer=null;
+      renderHub();
+    }
+  }
+};
+document.addEventListener('keydown',e=>{
+  if(hub.view==='kanban'&&!hub.editing&&!document.querySelector('dialog[open]')){
+    const tag=(document.activeElement?.tagName||'').toLowerCase();
+    if(['input','textarea','select'].includes(tag))return;
+    if((e.key==='n'||e.key==='N'||e.key==='c'||e.key==='C')&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+      e.preventDefault();
+      showComposer(hub.data.columns[0]?.id||'idea');
+    }
+  }
+});
 $('#hubBody').oninput=e=>{if(e.target.name==='cardTitle'&&hub.composer){hub.composer.title=e.target.value;hub.composer.error=''}};
 $('#hubBody').onclick=async e=>{
   if(e.target.closest('[data-select]')||e.target.id==='selectAllContent'){e.stopPropagation();return}

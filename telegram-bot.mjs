@@ -776,17 +776,18 @@ async function handleMessage(msg) {
 
   // --- SMART NATURAL LANGUAGE HANDLING ---
 
-  // 1. Natural action: Simpan/Tambah ide
-  const ideaMatch = text.match(/^(?:simpan|tambah(?:kan)?|masukkan)\s+ide(?:\s*:\s*|\s+)(.+)$/i);
+  // 1. Natural action: Simpan/Tambah ide kilat (+ [Judul] atau ide: [Judul])
+  const ideaMatch = text.match(/^(?:(?:\+\s*)|(?:(?:simpan|tambah(?:kan)?|masukkan)\s+)?ide(?:\s*:\s*|\s+))(.+)$/i);
   if (ideaMatch) {
     const title = ideaMatch[1].trim();
     if (title) {
       try {
         const cookie = await getCookie();
+        const format = /shorts/i.test(title) ? 'shorts' : 'video';
         const res = await fetch(`${LOCAL_API}/api/contents`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Cookie: cookie },
-          body: JSON.stringify({ title, stage: 'idea', format: 'shorts' })
+          body: JSON.stringify({ title, stage: 'idea', format })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Gagal menyimpan');
