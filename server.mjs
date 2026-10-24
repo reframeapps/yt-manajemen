@@ -1206,6 +1206,17 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && pathname === '/api/contents')
       return json(res, 201, { content: await contentStore.create(await readJson(req,WRITING_PAYLOAD_BYTES),{fillEngine:true}) });
+    if (req.method === 'POST' && pathname === '/api/contents/batch') {
+      const body = await readJson(req, WRITING_PAYLOAD_BYTES);
+      const db = await readDb();
+      const activeContentIds = new Set(db.jobs.filter(j => !['cancelled', 'failed'].includes(j.status)).map(j => j.contentId));
+      const result = await contentStore.batch(body, async item => {
+        if (body.action === 'delete' && activeContentIds.has(item.id)) {
+          throw Object.assign(new Error(`Konten "${item.title}" terhubung ke antrean upload YouTube. Batalkan antrean sebelum menghapus.`), { status: 409 });
+        }
+      });
+      return json(res, 200, result);
+    }
     if (req.method === 'POST' && pathname === '/api/pillars')
       return json(res, 200, { pillar: await contentStore.savePillar(await readJson(req)) });
     if(pathname==='/api/contents/engine-preview'&&req.method==='POST'){

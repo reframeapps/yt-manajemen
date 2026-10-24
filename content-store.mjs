@@ -238,6 +238,55 @@ export class ContentStore {
       await guard(item); db.contents = db.contents.filter(c => c.id !== id); return { ok: true };
     });
   }
+  batch(body, guard = () => {}) {
+    return this.mutate(async db => {
+      if (!body || typeof body !== 'object') throw fail('Payload batch tidak valid');
+      const { action, ids, stage, pillarId, archived } = body;
+      if (!Array.isArray(ids) || !ids.length) throw fail('Pilih setidaknya satu konten');
+      const idSet = new Set(ids);
+      const targetItems = db.contents.filter(c => idSet.has(c.id));
+      if (!targetItems.length) throw fail('Konten yang dipilih tidak ditemukan');
+      const now = new Date().toISOString();
+      if (action === 'delete') {
+        for (const item of targetItems) await guard(item);
+        db.contents = db.contents.filter(c => !idSet.has(c.id));
+        return { ok: true, count: targetItems.length, action };
+      }
+      if (action === 'move') {
+        if (!stage || !db.columns.some(col => col.id === stage)) throw fail('Pilih tahap yang valid');
+        let moved = 0;
+        for (const item of targetItems) {
+          if (item.stage !== stage) {
+            item.stage = stage;
+            item.revision++;
+            item.updatedAt = now;
+            moved++;
+          }
+        }
+        return { ok: true, count: targetItems.length, moved, action, stage };
+      }
+      if (action === 'pillar') {
+        const validPillar = !pillarId || db.pillars.some(p => p.id === pillarId);
+        if (!validPillar) throw fail('Pilar tidak valid');
+        for (const item of targetItems) {
+          item.pillarId = pillarId || '';
+          item.revision++;
+          item.updatedAt = now;
+        }
+        return { ok: true, count: targetItems.length, action, pillarId };
+      }
+      if (action === 'archive') {
+        const isArchive = Boolean(archived);
+        for (const item of targetItems) {
+          item.archived = isArchive;
+          item.revision++;
+          item.updatedAt = now;
+        }
+        return { ok: true, count: targetItems.length, action, archived: isArchive };
+      }
+      throw fail('Aksi batch tidak dikenali');
+    });
+  }
   savePillar(body) {
     return this.mutate(db => {
       if (!body || typeof body !== 'object' || Array.isArray(body)) throw fail('Data pilar tidak valid');
