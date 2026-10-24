@@ -1,6 +1,10 @@
-export const APP_VERSION='4.46.0';
+export const APP_VERSION='4.47.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.47.0',date:'2026-10-25',title:'Optimalisasi Efisiensi Sistem & Penonaktifan Modul Bot Telegram',changes:[
+    {type:'perf',text:'Penonaktifan Modul Bot Telegram (yt-telegram): Menghapus proses bot dari PM2 VPS untuk membebaskan alokasi memori RAM dan menjaga arsitektur server tetap ramping (lean), fokus pada performa web application mandiri.'},
+    {type:'feature',text:'Fokus Ekosistem Web Mandiri: Seluruh alur kerja produksi (Kanban instan, Naskah, Teleprompter, Radar 153 isu, dan YouTube API) berjalan penuh dan terpusat di dashboard web responsive mobile.'}
+  ]},
   {version:'4.46.0',date:'2026-10-25',title:'Input Konten Kilat di Kanban: Enter Simpan Otomatis, Top Composer, & Shortcut',changes:[
     {type:'feature',text:'Simpan Kilat dengan Tombol Enter: Mengetik judul kartu di Kanban kini cukup tekan Enter untuk langsung menyimpan seketika tanpa perlu mengarahkan mouse dan mengklik tombol "Tambahkan kartu" (Shift+Enter untuk baris baru, Escape untuk menutup).'},
     {type:'feature',text:'Rapid-Fire Continuous Input: Setelah menekan Enter, input langsung dikosongkan dan kursor tetap aktif di kolom input sehingga pengguna dapat mengetik daftar ide berturut-turut dengan super cepat layaknya to-do list.'},
