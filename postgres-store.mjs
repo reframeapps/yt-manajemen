@@ -18,7 +18,7 @@ export class PostgresStorage {
   static async connect(url,options) {
     const {Pool}=await import('pg');
     const ssl = (url.includes('supabase') || url.includes('neon') || url.includes('sslmode')) ? { rejectUnauthorized: false } : undefined;
-    const pool=new Pool({connectionString:url,max:10,connectionTimeoutMillis:15000,idleTimeoutMillis:120000,keepAlive:true,keepAliveInitialDelayMillis:10000,...(ssl?{ssl}:{})});
+    const pool=new Pool({connectionString:url,max:5,connectionTimeoutMillis:15000,idleTimeoutMillis:30000,keepAlive:true,keepAliveInitialDelayMillis:10000,...(ssl?{ssl}:{})});
     pool.on('error',()=>console.error('Storage: PostgreSQL connection unavailable'));
     return new PostgresStorage(pool,options);
   }
@@ -102,8 +102,8 @@ export class PostgresStorage {
       const documents=Object.fromEntries((await client.query('SELECT key,data FROM app_documents ORDER BY key')).rows.map(r=>[r.key,r.data]));this.validate(documents);
       const bundle={version:1,createdAt:new Date(this.now()).toISOString(),documents},id=crypto.randomUUID(),digest=checksum(bundle);
       await client.query('INSERT INTO app_backups(id,kind,digest,bundle,created_at) VALUES($1,$2,$3,$4::jsonb,$5)',[id,kind,digest,JSON.stringify(encodeBackup(bundle)),bundle.createdAt]);
-      // Keep 14 daily and 10 manual restore points. Files mirror those points.
-      await client.query(`DELETE FROM app_backups WHERE id IN (SELECT id FROM app_backups WHERE kind='daily' ORDER BY created_at DESC OFFSET 14) OR id IN (SELECT id FROM app_backups WHERE kind='manual' ORDER BY created_at DESC OFFSET 10)`);
+      // Keep 7 daily and 3 manual restore points. Files mirror those points.
+      await client.query(`DELETE FROM app_backups WHERE id IN (SELECT id FROM app_backups WHERE kind='daily' ORDER BY created_at DESC OFFSET 7) OR id IN (SELECT id FROM app_backups WHERE kind='manual' ORDER BY created_at DESC OFFSET 3)`);
       return {id,created_at:bundle.createdAt,digest,bundle,kind};
     });
     // Re-create a missing filesystem mirror after a restart, even for today's backup.

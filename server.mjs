@@ -151,8 +151,25 @@ setTimeout(compactTick,60000).unref();
 
 function json(res, status, data, headers = {}) {
   const body = JSON.stringify(data);
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'content-length': Buffer.byteLength(body), ...headers });
-  res.end(body);
+  const buf = Buffer.from(body);
+  const acceptGzip = res.req?.headers?.['accept-encoding']?.includes('gzip');
+  if (acceptGzip && buf.length > 1024) {
+    const gz = gzipSync(buf);
+    res.writeHead(status, {
+      'content-type': 'application/json; charset=utf-8',
+      'content-encoding': 'gzip',
+      'content-length': gz.length,
+      ...headers
+    });
+    res.end(gz);
+    return;
+  }
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'content-length': buf.length,
+    ...headers
+  });
+  res.end(buf);
 }
 function text(res, status, body, headers = {}) {
   res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', ...headers });
@@ -828,14 +845,69 @@ async function publicationTick(force=false){
 setInterval(publicationTick,5*60000).unref();
 setTimeout(async()=>{try{if((await readDb()).channel?.id&&await loadToken()){const r=await verifyYouTubeConnection();if(r.state==='ready')await publicationTick(true);}}catch{}},1500).unref();
 
+const staticCache = new Map();
+const STATIC_FILES = new Set([
+  'index.html', 'app.js', 'content.js', 'content.css', 'analytics.js', 'analytics.css',
+  'base.css', 'ui.css', 'ui.js', 'notes.js', 'board-settings.js', 'video-analytics.js',
+  'studio.js', 'history.js', 'storage.js', 'features.css', 'rich-text.js', 'rich-text.css',
+  'updates.js', 'storage.css', 'radar.js', 'radar.css', 'script-format.js', 'writing.css',
+  'preferences.js', 'preferences.css', 'hub-teleprompter.js', 'teleprompter.html',
+  'teleprompter.js', 'radar-trends.js', 'storyboard.js', 'storyboard.css',
+  'publication-links.mjs', 'publication-links-ui.js'
+]);
+
+async function getStaticAsset(rel) {
+  let asset = staticCache.get(rel);
+  if (!asset) {
+    const fullPath = path.join(PUBLIC_DIR, rel);
+    const raw = await fsp.readFile(fullPath);
+    const gz = gzipSync(raw);
+    const hash = crypto.createHash('md5').update(raw).digest('hex').slice(0, 16);
+    const etag = `"${hash}"`;
+    const type = (rel.endsWith('.js') || rel.endsWith('.mjs'))
+      ? 'text/javascript; charset=utf-8'
+      : rel.endsWith('.css')
+      ? 'text/css; charset=utf-8'
+      : 'text/html; charset=utf-8';
+    asset = { raw, gz, etag, type };
+    staticCache.set(rel, asset);
+  }
+  return asset;
+}
+
 async function serveStatic(res, pathname) {
   const rel = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-  if (!['index.html', 'app.js', 'content.js', 'content.css', 'analytics.js', 'analytics.css', 'base.css', 'ui.css', 'ui.js', 'notes.js', 'board-settings.js', 'video-analytics.js', 'studio.js', 'history.js', 'storage.js', 'features.css', 'rich-text.js', 'rich-text.css', 'updates.js', 'storage.css', 'radar.js', 'radar.css', 'script-format.js', 'writing.css', 'preferences.js', 'preferences.css', 'hub-teleprompter.js', 'teleprompter.html', 'teleprompter.js', 'radar-trends.js', 'storyboard.js', 'storyboard.css', 'publication-links.mjs', 'publication-links-ui.js'].includes(rel)) return false;
+  if (!STATIC_FILES.has(rel)) return false;
   try {
-    const data = await fsp.readFile(path.join(PUBLIC_DIR, rel));
-    const type = (rel.endsWith('.js')||rel.endsWith('.mjs')) ? 'text/javascript; charset=utf-8' : rel.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/html; charset=utf-8';
-    res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' });
-    res.end(data);
+    const asset = await getStaticAsset(rel);
+    const req = res.req;
+    if (req?.headers?.['if-none-match'] === asset.etag) {
+      res.writeHead(304, {
+        'etag': asset.etag,
+        'cache-control': 'public, max-age=3600, must-revalidate'
+      });
+      res.end();
+      return true;
+    }
+    const acceptGzip = req?.headers?.['accept-encoding']?.includes('gzip');
+    if (acceptGzip && asset.gz.length < asset.raw.length) {
+      res.writeHead(200, {
+        'content-type': asset.type,
+        'content-encoding': 'gzip',
+        'content-length': asset.gz.length,
+        'etag': asset.etag,
+        'cache-control': 'public, max-age=3600, must-revalidate'
+      });
+      res.end(asset.gz);
+    } else {
+      res.writeHead(200, {
+        'content-type': asset.type,
+        'content-length': asset.raw.length,
+        'etag': asset.etag,
+        'cache-control': 'public, max-age=3600, must-revalidate'
+      });
+      res.end(asset.raw);
+    }
     return true;
   } catch {
     return false;
