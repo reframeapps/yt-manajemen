@@ -1,6 +1,12 @@
-export const APP_VERSION='4.48.0';
+export const APP_VERSION='4.49.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.49.0',date:'2026-10-25',title:'Redesain UI/UX Radar Konten: Navigasi Sub-Tab Terstruktur & Executive Dashboard',changes:[
+    {type:'feature',text:'Navigasi Sub-Tab Terstruktur: Merombak halaman Radar menjadi dashboard editorial terpadu dengan 5 tab utama di bagian atas: "⚡ Intelijen Sosmed (Top 5)", "🔥 Hot Isu Investigasi", "📈 Tren & Eksekutif", "📺 Pantauan Channel", dan "📚 Referensi Tersimpan".'},
+    {type:'improvement',text:'Pemisahan Kontainer Bersih (Zero Clutter): Mengeliminasi tumpukan 8+ seksi vertikal yang membingungkan. Setiap tab kini menjadi ruang kerja mandiri yang fokus tanpa pergeseran tata letak (layout shift).'},
+    {type:'feature',text:'Tampilan Utama Intelijen Sosmed Default: Pengguna langsung disajikan Top 5 ide investigasi sosmed terkurasi 7 Pilar saat membuka Radar Konten, lengkap dengan status scan langsung dan konversi 1-klik ke Kanban Ide.'},
+    {type:'improvement',text:'Styling Segmented Tab Bar & Header Modern: Mengadopsi pill tab bar modern bergaya executive dashboard, hero header yang lebih rapi, dan kartu ide sosmed dengan tipografi kontras tinggi.'}
+  ]},
   {version:'4.48.0',date:'2026-10-25',title:'Radar Intelijen Sosmed & Ide Potensial (Top 5 Investigasi 7 Pilar)',changes:[
     {type:'feature',text:'Radar Intelijen Sosmed & Ide Potensial: Modul intelijen baru yang memantau percakapan panas dan tren viral di media sosial (X/Twitter, TikTok, Forum Publik) digabungkan dengan Google Trends Indonesia secara otomatis.'},
     {type:'feature',text:'Kurasi Top 5 Berdasarkan 7 Pilar Utama: Menganalisis dan menyaring sinyal viral dengan kecerdasan Gemini 3.5 Flash secara ketat berdasarkan 7 pilar REFRAME INVESTIGASI (Politik, Ekonomi, Geopolitik, Sisi Gelap, Hukum, Investigasi, Kebijakan), menghasilkan Top 5 ide konten paling potensial dan berbobot.'},
