@@ -60,3 +60,197 @@
 .radar-footer-detail{margin-top:8px}.radar-footer-detail>summary{cursor:pointer;font-weight:600}.radar-footer-detail .radar-ai-footer{margin-top:12px}
 .radar-executive-brief,.radar-card{align-items:stretch;scroll-margin-top:90px}#radarExecutiveFront,#radarTrends{scroll-margin-top:90px}
 .radar-prompt-template{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font:inherit;font-size:13px;padding:14px;background:#f6f8fc;border-radius:8px}
+
+
+/* Radar Intelijen Sosmed & Ide Potensial */
+.radar-social-front {
+  display: block;
+  padding: 20px;
+  margin: 16px 0;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.radar-social-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.radar-social-heading h3 {
+  margin: 4px 0;
+  font-size: 20px;
+  color: #0f172a;
+}
+.radar-social-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.radar-social-status {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+.radar-social-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+.radar-social-card {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.radar-social-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+}
+.radar-social-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+.radar-social-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.radar-social-rank {
+  font-size: 11px;
+  font-weight: 700;
+  background: #0f172a;
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.radar-social-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.badge-twitter {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.badge-tiktok {
+  background: #fce7f3;
+  color: #be185d;
+}
+.badge-forum {
+  background: #fef3c7;
+  color: #b45309;
+}
+.radar-social-pillar {
+  font-size: 11px;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+.radar-social-score {
+  font-size: 12px;
+  color: #eab308;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.radar-social-title {
+  font-size: 15px;
+  line-height: 1.45;
+  margin: 0 0 12px 0;
+  color: #1e293b;
+  font-weight: 700;
+}
+.radar-social-section {
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin-bottom: 10px;
+  color: #334155;
+}
+.radar-social-section p {
+  margin: 3px 0 0 0;
+}
+.radar-social-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #64748b;
+  display: block;
+}
+.angle-section {
+  background: #f8fafc;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 3px solid #3b82f6;
+}
+.angle-section .radar-social-label {
+  color: #1d4ed8;
+}
+.hook-section {
+  background: #faf5ff;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 3px solid #9333ea;
+}
+.hook-section .radar-social-label {
+  color: #7e22ce;
+}
+.radar-social-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+  gap: 8px;
+}
+.radar-social-source-link {
+  font-size: 11.5px;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+}
+.radar-social-source-link:hover {
+  text-decoration: underline;
+}
+.success-state {
+  background: #10b981 !important;
+  color: #fff !important;
+  cursor: default !important;
+  border: none !important;
+}
+.radar-social-loading {
+  text-align: center;
+  padding: 30px 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px dashed #94a3b8;
+}
+@media(max-width: 760px) {
+  .radar-social-heading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .radar-social-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .radar-social-grid {
+    grid-template-columns: 1fr;
+  }
+}

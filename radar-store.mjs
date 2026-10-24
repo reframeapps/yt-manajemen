@@ -49,7 +49,7 @@ export class RadarStore{
   return {...visible,channels:r.channels.map(c=>analyzeChannel(c,r.topics,issues,now)),lenses:LENSES,issues,hotIssues,rankedIssueIds:rankedIssues.map(i=>i.id),methodology:RADAR_METHOD,editorialMethodology:EDITORIAL_METHOD,focusMethodology:RADAR_FOCUS_METHOD,
    radarSummary:{groups:issues.length,ranked:rankedIssues.length,hot:hotIssues.length,belowThreshold:issues.filter(i=>!i.stats.isHot).length,ratedAt:new Date(now).toISOString()},
    linkedContents:db.contents.map(c=>({id:c.id,title:c.title,format:c.format,youtubeVideoId:c.youtubeVideoId||''})),
-   coverage:{YouTube:(r.sync.youtubeAt||r.channels.some(c=>c.enabled&&c.lastSyncAt))?'Dipantau':'Belum dipantau','Berita / Web':r.sync.newsAt?'Dipantau':'Belum dipantau',X:'Belum dipantau',Instagram:'Belum dipantau',TikTok:'Belum dipantau'}};
+   coverage:{YouTube:(r.sync.youtubeAt||r.channels.some(c=>c.enabled&&c.lastSyncAt))?'Dipantau':'Belum dipantau','Berita / Web':r.sync.newsAt?'Dipantau':'Belum dipantau',X:r.socialIntelligence?.lastScanAt?'Dipantau':'Belum dipantau',Instagram:'Belum dipantau',TikTok:r.socialIntelligence?.lastScanAt?'Dipantau':'Belum dipantau'}};
  }
  // Re-group only untouched machine imports. Editorial choices and IDs of saved/linked groups stay intact.
  async recluster(){

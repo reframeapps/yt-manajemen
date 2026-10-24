@@ -1,6 +1,13 @@
-export const APP_VERSION='4.47.0';
+export const APP_VERSION='4.48.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.48.0',date:'2026-10-25',title:'Radar Intelijen Sosmed & Ide Potensial (Top 5 Investigasi 7 Pilar)',changes:[
+    {type:'feature',text:'Radar Intelijen Sosmed & Ide Potensial: Modul intelijen baru yang memantau percakapan panas dan tren viral di media sosial (X/Twitter, TikTok, Forum Publik) digabungkan dengan Google Trends Indonesia secara otomatis.'},
+    {type:'feature',text:'Kurasi Top 5 Berdasarkan 7 Pilar Utama: Menganalisis dan menyaring sinyal viral dengan kecerdasan Gemini 3.5 Flash secara ketat berdasarkan 7 pilar REFRAME INVESTIGASI (Politik, Ekonomi, Geopolitik, Sisi Gelap, Hukum, Investigasi, Kebijakan), menghasilkan Top 5 ide konten paling potensial dan berbobot.'},
+    {type:'feature',text:'Dossier Investigasi Lengkap: Setiap kartu ide menyajikan platform asal, pilar kategori, ringkasan perbincangan netizen, skor potensi investigasi (1-5 bintang), sudut pandang investigasi tajam khas REFRAME, formula hook 5 detik pembuka video, dan tautan sinyal sumber.'},
+    {type:'feature',text:'Konversi 1-Klik ke Kanban (+ Jadikan Konten Kanban): Tombol instan pada setiap ide untuk langsung membuat kartu produksi di kolom Ide Kanban lengkap dengan brief mendalam, hook narasi, dan tag pilar otomatis.'},
+    {type:'feature',text:'Jadwal Otomatis 1x Sehari + Tombol Pindai Mandiri: Sistem menjalankan pemindaian otomatis di latar belakang setiap 24 jam dan menyediakan tombol [⚡ Pindai Sosmed Sekarang] di Dashboard Radar untuk pemindaian instan kapan saja.'}
+  ]},
   {version:'4.47.0',date:'2026-10-25',title:'Optimalisasi Efisiensi Sistem & Penonaktifan Modul Bot Telegram',changes:[
     {type:'perf',text:'Penonaktifan Modul Bot Telegram (yt-telegram): Menghapus proses bot dari PM2 VPS untuk membebaskan alokasi memori RAM dan menjaga arsitektur server tetap ramping (lean), fokus pada performa web application mandiri.'},
     {type:'feature',text:'Fokus Ekosistem Web Mandiri: Seluruh alur kerja produksi (Kanban instan, Naskah, Teleprompter, Radar 153 isu, dan YouTube API) berjalan penuh dan terpusat di dashboard web responsive mobile.'}

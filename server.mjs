@@ -33,6 +33,7 @@ import {transferAuthorized} from './storage-transfer.mjs';
 import { gzipSync } from 'node:zlib';
 import { APP_VERSION, RELEASES } from './releases.mjs';
 import {fillContentWithEngine,CONTENT_ENGINE_VERSION} from './content-engine.mjs';
+import {RadarSocial} from './radar-social.mjs';
 import {videoIdFromInput,authRequiredError,isYouTubeAuthError,syncLinkedPublications} from './youtube-publication.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -52,6 +53,7 @@ const radarWorkspace=new RadarWorkspace(radarStore);
 const radarAcquire=new RadarAcquire(radarStore,{captions:async source=>{const generation=tokenGeneration,db=await readDb();if(Date.parse(db.youtubeWorker?.retryAt)>Date.now())throw Object.assign(new Error('Kuota YouTube sedang dibatasi. Gunakan impor manual.'),{status:429});const result=await acquireCaptions(source,{youtube:youtubeFetch,channelId:db.channel?.id});if(generation!==tokenGeneration||(await readDb()).channel?.id!==db.channel?.id)throw Object.assign(new Error('Channel berubah selama pengambilan caption.'),{status:409});return result;}});
 const radarArchive=new RadarArchive(radarStore);
 const radarAI=new RadarAIProviders(radarStore);
+const radarSocial=new RadarSocial(radarStore,radarAI);
 const radarSync=new RadarSync(radarStore,async url=>{const db=await readDb();if(Date.parse(db.youtubeWorker?.retryAt)>Date.now())throw Object.assign(new Error('Kuota YouTube sedang dibatasi.'),{code:'quota_exceeded'});if(process.env.YOUTUBE_API_KEY){const u=new URL(url);u.searchParams.set('key',process.env.YOUTUBE_API_KEY);return fetch(u,{signal:AbortSignal.timeout(15000)})}return youtubeFetch(url,{signal:AbortSignal.timeout(15000)});});
 const notesStore = new NotesStore(path.join(DATA_DIR, 'notes.json'));
 const TOKEN_FILE = path.join(DATA_DIR, 'youtube-token.enc.json');
@@ -954,6 +956,9 @@ if(process.env.RADAR_AUTO_SYNC!=='false'){const tick=()=>radarSync.sync().catch(
 const archiveTick=()=>radarArchive.tick().catch(e=>console.error('Radar archive:',e.message));
 setInterval(archiveTick,60*60*1000).unref();setTimeout(archiveTick,60000).unref();
 
+const socialTick=async()=>{try{const report=await radarSocial.getReport(),last=report?.lastScanAt?Date.parse(report.lastScanAt):0;if(!last||Date.now()-last>=24*3600*1000)await radarSocial.scan();}catch(e){console.error('Radar social tick:',e.message);}};
+setInterval(socialTick,60*60*1000).unref();setTimeout(socialTick,30000).unref();
+
 const server = http.createServer(async (req, res) => {
   try {
     const u = new URL(req.url, APP_URL);
@@ -1140,6 +1145,9 @@ const server = http.createServer(async (req, res) => {
     if(pathname==='/api/radar/executive'&&req.method==='GET')return json(res,200,buildRadarExecutive(await radarStore.read(),{period:Number(u.searchParams.get('period')||72),q:u.searchParams.get('q')||'',topic:u.searchParams.get('topic')||'',status:u.searchParams.get('status')||'',platform:u.searchParams.get('platform')||''}),{'cache-control':'no-store'});
     if(pathname==='/api/radar/trends'&&req.method==='GET')return json(res,200,buildRadarTrends(radarStore.data(await contentStore.read()),{period:Number(u.searchParams.get('period')||24),topic:u.searchParams.get('topic')||'',platform:u.searchParams.get('platform')||''}),{'cache-control':'no-store'});
     if(pathname==='/api/radar/digest'&&req.method==='GET')return json(res,200,buildRadarDigest(await radarStore.read(),{period:u.searchParams.get('period')||'daily',date:u.searchParams.get('date')||undefined,topic:u.searchParams.get('topic')||'',q:u.searchParams.get('q')||'',status:u.searchParams.get('status')||'',platform:u.searchParams.get('platform')||''}),{'cache-control':'no-store'});
+    if(pathname==='/api/radar/social-intelligence'&&req.method==='GET')return json(res,200,await radarSocial.getReport(),{'cache-control':'no-store'});
+    if(pathname==='/api/radar/social-intelligence/scan'&&req.method==='POST')return json(res,200,await radarSocial.scan({force:true}));
+    if(pathname==='/api/radar/social-intelligence/to-kanban'&&req.method==='POST'){const body=await readJson(req);return json(res,201,await radarSocial.toKanban(body?.id));}
     if(pathname==='/api/radar/sync'&&req.method==='POST')return json(res,200,await radarSync.sync({force:true}));
     if(pathname==='/api/radar/ai/check'&&req.method==='POST')return json(res,200,await radarAI.checkConnection(await readJson(req)));
     if(pathname==='/api/radar/ai/test'&&req.method==='POST')return json(res,200,await radarAI.checkGeneration(await readJson(req)));
