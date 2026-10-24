@@ -1,6 +1,13 @@
-export const APP_VERSION='4.40.0';
+export const APP_VERSION='4.41.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.41.0',date:'2026-10-25',title:'Integrasi Bot Telegram untuk Manajemen Konten & DevOps Remote',changes:[
+    {type:'feature',text:'Integrasi Bot Telegram Mandiri (telegram-bot.mjs): Mengelola dan memperbarui web app langsung dari chat Telegram di smartphone tanpa perlu membuka atau menyalakan laptop.'},
+    {type:'feature',text:'Manajemen Konten via Chat: Perintah /ide untuk membuat kartu ide baru di Kanban, /konten untuk melihat daftar konten aktif, /pindah untuk mengubah status produksi, /naskah untuk membaca naskah, dan /tulis untuk menyimpan naskah.'},
+    {type:'feature',text:'Notifikasi & Alert Tenggat Waktu: Perintah /alert untuk memindai konten yang melewati tenggat atau jatuh tempo hari ini.'},
+    {type:'feature',text:'DevOps & Pembaruan Sistem Remote: Perintah /status untuk memantau performa VPS (RAM, CPU, Uptime), /update untuk menarik pembaruan kode terbaru dari GitHub dan me-reload aplikasi secara otomatis, serta /restart.'},
+    {type:'fix',text:'Keamanan Autentikasi Chat ID: Sistem otorisasi satu kali menggunakan kata sandi admin aplikasi (ADMIN_PASSWORD), mencegah akses tidak sah dari pihak lain.'}
+  ]},
   {version:'4.40.0',date:'2026-10-24',title:'Optimistic UI, Client Instant Cache, dan Conditional ETag 304 Data API',changes:[
     {type:'feature',text:'Instant Optimistic UI: Interaksi seret dan lepas (drag-and-drop) kartu di Kanban, pemindahan tahap, perubahan jadwal di kalender, penghapusan kartu, serta aksi massal kini terupdate seketika (< 16 ms) tanpa menunggu balasan server, dengan sistem rollback otomatis jika terjadi kegagalan jaringan.'},
     {type:'feature',text:'Client-Side Instant Cache (Stale-While-Revalidate): Menyimpan snapshot data Hub Konten di penyimpanan sesi browser (sessionStorage), membuat papan Kanban, Kalender, dan Tabel langsung terbuka instan 0 milidetik saat membuka aplikasi atau berpindah menu tanpa tampilan layar kosong.'},
