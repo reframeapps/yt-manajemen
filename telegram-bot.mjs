@@ -242,13 +242,14 @@ function getActiveAiConfig() {
   const geminiKey = process.env.GEMINI_API_KEY || '';
   const groqKey = process.env.GROQ_API_KEY || '';
   const openAiKey = process.env.OPENAI_API_KEY || '';
+  const defaultGeminiModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
   
-  if (provider === 'gemini' && geminiKey) return { provider: 'gemini', key: geminiKey, model: 'gemini-2.5-flash' };
+  if (provider === 'gemini' && geminiKey) return { provider: 'gemini', key: geminiKey, model: defaultGeminiModel };
   if (provider === 'groq' && groqKey) return { provider: 'groq', key: groqKey, model: 'llama-3.3-70b-versatile' };
   if (provider === 'openai' && openAiKey) return { provider: 'openai', key: openAiKey, model: 'gpt-4o-mini' };
   
   // Auto-fallback if another key is present
-  if (geminiKey) return { provider: 'gemini', key: geminiKey, model: 'gemini-2.5-flash' };
+  if (geminiKey) return { provider: 'gemini', key: geminiKey, model: defaultGeminiModel };
   if (groqKey) return { provider: 'groq', key: groqKey, model: 'llama-3.3-70b-versatile' };
   if (openAiKey) return { provider: 'openai', key: openAiKey, model: 'gpt-4o-mini' };
   
@@ -292,8 +293,8 @@ async function queryLLM({ provider, key, model, messages, systemPrompt }) {
       parts: [{ text: m.text }]
     }));
     
-    // Primary model: gemini-2.5-flash, fallback: gemini-1.5-flash
-    const modelsToTry = [model || 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+    // Primary model: gemini-3.8-flash, fallback: gemini-flash-latest, gemini-3.5-flash
+    const modelsToTry = [model || 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash', 'gemini-2.5-flash'];
     let lastErr = null;
     
     for (const m of modelsToTry) {
