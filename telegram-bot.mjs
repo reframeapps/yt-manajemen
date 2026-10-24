@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import path from 'node:fs';
+import path from 'node:path';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 
@@ -10,6 +10,7 @@ const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const LOCAL_API = 'http://127.0.0.1:3000';
 const AUTH_FILE = './data/telegram_auth.json';
+const ENV_FILE = './.env';
 
 const STAGE_MAP = {
   ide: 'idea',
@@ -34,6 +35,7 @@ const STAGE_LABELS = {
 };
 
 let cachedContents = [];
+const chatHistories = new Map(); // chatId -> Array of { role: 'user'|'model', text: string }
 
 function loadAuthorizedUsers() {
   try {
@@ -67,13 +69,77 @@ async function tgFetch(method, payload = {}) {
   return res.json();
 }
 
+async function sendTyping(chatId) {
+  try {
+    await tgFetch('sendChatAction', { chat_id: chatId, action: 'typing' });
+  } catch {}
+}
+
+function markdownToTelegramHtml(text) {
+  if (!text) return '';
+  let s = String(text);
+  // Escape raw HTML entities first
+  s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Code blocks: ```code```
+  s = s.replace(/```(?:[a-zA-Z0-9_-]*\n)?([\s\S]*?)```/g, '<pre>$1</pre>');
+  // Inline code: `code`
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Bold: **text** or __text__
+  s = s.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  s = s.replace(/__(.*?)__/g, '<b>$1</b>');
+  // Italic: *text* or _text_
+  s = s.replace(/(^|[^\*])\*([^\*]+)\*([^\*]|$)/g, '$1<i>$2</i>$3');
+  s = s.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1<i>$2</i>$3');
+  // Headers: ### Header -> <b>Header</b>
+  s = s.replace(/^#{1,6}\s*(.*)$/gm, '<b>$1</b>');
+  return s;
+}
+
 async function sendMessage(chatId, text, extra = {}) {
-  return tgFetch('sendMessage', {
+  const payload = {
     chat_id: chatId,
     text,
     parse_mode: 'HTML',
     ...extra
-  });
+  };
+  try {
+    const res = await tgFetch('sendMessage', payload);
+    if (!res.ok) {
+      // Fallback without parse_mode if HTML entity error occurs
+      return tgFetch('sendMessage', {
+        chat_id: chatId,
+        text: text.replace(/<[^>]+>/g, ''),
+        ...extra
+      });
+    }
+    return res;
+  } catch (err) {
+    return tgFetch('sendMessage', {
+      chat_id: chatId,
+      text: text.replace(/<[^>]+>/g, ''),
+      ...extra
+    });
+  }
+}
+
+async function sendSmartMessage(chatId, rawText, extra = {}) {
+  const formatted = markdownToTelegramHtml(rawText);
+  if (formatted.length <= 4000) {
+    return sendMessage(chatId, formatted, extra);
+  }
+  const paragraphs = formatted.split('\n\n');
+  let current = '';
+  for (const p of paragraphs) {
+    if ((current + '\n\n' + p).length > 3900) {
+      if (current) await sendMessage(chatId, current, extra);
+      current = p;
+    } else {
+      current = current ? (current + '\n\n' + p) : p;
+    }
+  }
+  if (current) {
+    await sendMessage(chatId, current, extra);
+  }
 }
 
 // Login to local API
@@ -114,25 +180,227 @@ async function fetchContents() {
   return cachedContents;
 }
 
+// AI Configuration Helpers
+function getActiveAiConfig() {
+  const provider = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+  const geminiKey = process.env.GEMINI_API_KEY || '';
+  const groqKey = process.env.GROQ_API_KEY || '';
+  const openAiKey = process.env.OPENAI_API_KEY || '';
+  
+  if (provider === 'gemini' && geminiKey) return { provider: 'gemini', key: geminiKey, model: 'gemini-2.5-flash' };
+  if (provider === 'groq' && groqKey) return { provider: 'groq', key: groqKey, model: 'llama-3.3-70b-versatile' };
+  if (provider === 'openai' && openAiKey) return { provider: 'openai', key: openAiKey, model: 'gpt-4o-mini' };
+  
+  // Auto-fallback if another key is present
+  if (geminiKey) return { provider: 'gemini', key: geminiKey, model: 'gemini-2.5-flash' };
+  if (groqKey) return { provider: 'groq', key: groqKey, model: 'llama-3.3-70b-versatile' };
+  if (openAiKey) return { provider: 'openai', key: openAiKey, model: 'gpt-4o-mini' };
+  
+  return null;
+}
+
+function updateEnvAiKey(provider, key) {
+  try {
+    let content = fs.existsSync(ENV_FILE) ? fs.readFileSync(ENV_FILE, 'utf8') : '';
+    const keyVar = provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'groq' ? 'GROQ_API_KEY' : 'OPENAI_API_KEY';
+    
+    // Update AI_PROVIDER
+    if (/^AI_PROVIDER=.*$/m.test(content)) {
+      content = content.replace(/^AI_PROVIDER=.*$/m, `AI_PROVIDER=${provider}`);
+    } else {
+      content += `\nAI_PROVIDER=${provider}`;
+    }
+    
+    // Update Key
+    const keyRegex = new RegExp(`^${keyVar}=.*$`, 'm');
+    if (keyRegex.test(content)) {
+      content = content.replace(keyRegex, `${keyVar}=${key}`);
+    } else {
+      content += `\n${keyVar}=${key}`;
+    }
+    
+    fs.writeFileSync(ENV_FILE, content.trim() + '\n', 'utf8');
+    process.env.AI_PROVIDER = provider;
+    process.env[keyVar] = key;
+    return true;
+  } catch (err) {
+    console.error('Failed to update env key:', err);
+    return false;
+  }
+}
+
+async function queryLLM({ provider, key, model, messages, systemPrompt }) {
+  if (provider === 'gemini') {
+    const geminiMsgs = messages.map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.text }]
+    }));
+    
+    // Primary model: gemini-2.5-flash, fallback: gemini-1.5-flash
+    const modelsToTry = [model || 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+    let lastErr = null;
+    
+    for (const m of modelsToTry) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${key}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: geminiMsgs,
+            generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (reply) return reply;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          lastErr = errData.error?.message || `HTTP ${res.status}`;
+        }
+      } catch (err) {
+        lastErr = err.message;
+      }
+    }
+    throw new Error(`Gemini gagal: ${lastErr || 'Koneksi terputus'}`);
+  }
+
+  if (provider === 'groq') {
+    const groqMsgs = [{ role: 'system', content: systemPrompt }];
+    for (const m of messages) {
+      groqMsgs.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text });
+    }
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: model || 'llama-3.3-70b-versatile',
+        messages: groqMsgs,
+        temperature: 0.7,
+        max_tokens: 2048
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Groq error (HTTP ${res.status})`);
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || '';
+  }
+
+  if (provider === 'openai') {
+    const oaiMsgs = [{ role: 'system', content: systemPrompt }];
+    for (const m of messages) {
+      oaiMsgs.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text });
+    }
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model: model || 'gpt-4o-mini',
+        messages: oaiMsgs,
+        temperature: 0.7,
+        max_tokens: 2048
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `OpenAI error (HTTP ${res.status})`);
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || '';
+  }
+
+  throw new Error(`Provider ${provider} tidak didukung.`);
+}
+
+function heuristicConsultation(query, contentsSummary) {
+  const q = query.toLowerCase();
+  
+  if (/^(halo|hai|pagi|siang|malam|bot|assalamu(?:['`]?|al)aikum)/i.test(q)) {
+    return `Halo! Saya Asisten & Konsultan Eksekutif Konten untuk <b>REFRAME INVESTIGASI</b>.\n\n` +
+      `Saya siap menemani Anda berdiskusi dan mengawal produksi kapan saja:\n` +
+      `• 🔍 <b>Brainstorming Kasus & Ide</b>: cari sudut pandang investigasi yang tak terduga\n` +
+      `• 🎣 <b>Hook 15 Detik Pertama</b>: formula pembuka yang memaku atensi penonton\n` +
+      `• 📝 <b>Bedah Naskah & Pacing</b>: struktur 3-babak investigasi agar retensi tinggi\n` +
+      `• 📊 <b>Manajemen Kanban</b>: pantau dan kelola kartu produksi konten\n\n` +
+      `Topik atau kasus investigasi apa yang ingin kita bahas sekarang?`;
+  }
+
+  if (q.includes('ide') || q.includes('topik') || q.includes('kasus') || q.includes('bahas') || q.includes('konsep')) {
+    return `💡 <b>Konsultasi Sudut Pandang Investigasi:</b>\n\n` +
+      `Untuk topik <i>"${query}"</i>, berikut 3 sudut pandang (Angle) tajam untuk REFRAME INVESTIGASI:\n\n` +
+      `<b>1. Angle Aliran Dana (Follow The Money)</b>\nFokus: Mengapa kasus ini bisa terjadi dan siapa pemetik keuntungan terbesarnya? Penonton sangat tertarik melihat visualisasi skema uang dan jejak transaksi.\n\n` +
+      `<b>2. Angle Korban & Dampak Nyata (Human Interest)</b>\nFokus: Menghadirkan penderitaan atau kesaksian nyata di menit awal agar penonton merasa kasus ini mendesak dan dekat dengan mereka.\n\n` +
+      `<b>3. Angle Celah Regulasi & Pembiaran Sistemik</b>\nFokus: Membongkar bagaimana aturan sengaja dibuat longgar atau ada pembiaran oleh pihak berwenang.\n\n` +
+      `<i>💡 Ketik <code>Simpan ide: [Judul]</code> jika Anda ingin ide ini langsung dicatat ke Kanban!</i>\n\n` +
+      `<i>💡 Ingin berdiskusi bebas tanpa batas layaknya ChatGPT? Cukup aktifkan AI penuh dengan ketik: <code>/setkey gemini [API_KEY]</code> (gratis di aistudio.google.com).</i>`;
+  }
+
+  if (q.includes('hook') || q.includes('judul') || q.includes('opening') || q.includes('pembuka') || q.includes('ctr')) {
+    return `🎣 <b>Rekomendasi Formula Hook & Packaging CTR:</b>\n\n` +
+      `Untuk topik investigasi, gunakan 3 formula pembuka 15 detik pertama:\n\n` +
+      `<b>Formula 1: The Inverted Truth (Membalik Fakta Umum)</b>\n<i>"Kalian mengira kasus ini selesai saat pelakunya ditangkap. Tapi data transaksi ini membuktikan... permainan sesungguhnya baru saja dimulai."</i>\n\n` +
+      `<b>Formula 2: The Direct Stakes (Ancaman Langsung)</b>\n<i>"Dalam 10 menit ke depan, saya akan tunjukkan bagaimana sindikat ini bisa menguras tabungan Anda tanpa disadari—bahkan dengan bantuan orang dalam."</i>\n\n` +
+      `<b>Formula 3: The Classified Evidence (Bukti Rahasia)</b>\n<i>"Dokumen setebal 40 halaman yang baru saja bocor ini membongkar nama-nama besar yang selama ini aman dari jerat hukum."</i>`;
+  }
+
+  if (q.includes('naskah') || q.includes('script') || q.includes('alur') || q.includes('struktur')) {
+    return `📝 <b>Panduan Struktur Naskah Investigasi 3-Babak:</b>\n\n` +
+      `<b>Babak 1: The Inciting Mystery (Menit 00:00 - 02:00)</b>\n• Hook 15 detik: lontarkan kejanggalan terbesar.\n• Tarik rasa penasaran: tunjukkan bukti potongan dokumen atau headline berita.\n\n` +
+      `<b>Babak 2: The Escalation & Deep Dive (Menit 02:00 - 08:00)</b>\n• Telusuri kronologi dan motif.\n• Sajikan visualisasi data dan keterlibatan pihak-pihak terkait.\n• Sisipkan cliffhanger di pertengahan video agar retensi penonton tidak jatuh.\n\n` +
+      `<b>Babak 3: The Verdict & Reflection (Menit 08:00 - Selesai)</b>\n• Puncak pengungkapan fakta.\n• Refleksi: apa artinya bagi masyarakat dan bahaya laten yang harus diwaspadai.\n• Call to Action: ajak penonton berdiskusi di kolom komentar.`;
+  }
+
+  return `🤝 <b>Asisten REFRAME INVESTIGASI:</b>\n\n` +
+    `Saya menerima pesan Anda: <i>"${query}"</i>.\n\n` +
+    `Sebagai partner produksi, saya bisa membantu merumuskan konsep, membedah hook, atau menyusun naskah investigasi secara mendalam.\n\n` +
+    `💡 <b>Tips Mengaktifkan Mode AI Penuh (Gemini / Groq):</b>\n` +
+    `Ketik perintah berikut untuk mengaktifkan kecerdasan percakapan bebas:\n` +
+    `<code>/setkey gemini [API_KEY_ANDA]</code>\n` +
+    `<i>(API key Gemini bisa didapatkan gratis di aistudio.google.com).</i>`;
+}
+
 function helpMessage() {
-  return `🤖 <b>Reframe Content Hub Bot</b>
+  return `🤖 <b>Reframe Content Hub - AI Assistant & Consultant</b>
 
-Selamat datang! Berikut daftar perintah yang bisa Anda gunakan:
+Selamat datang! Saya adalah Asisten & Konsultan Eksekutif Konten Anda untuk <b>REFRAME INVESTIGASI</b>.
 
-📋 <b>Manajemen Konten:</b>
-• <code>/konten</code> - Lihat 10 konten terbaru di kanban
-• <code>/ide [judul]</code> - Tambah ide baru langsung ke Kanban
+💬 <b>Konsultasi & Diskusi Bebas:</b>
+Anda bisa chat langsung apa saja tanpa format kaku:
+• Diskusi ide kasus ("Bantu cari angle kasus mafia tanah")
+• Minta dibuatkan hook ("Buatkan 3 hook 15 detik tentang judi online")
+• Konsultasi naskah ("Gimana cara bikin cliffhanger di menit ke-5?")
+• Simpan ide otomatis (Ketik: <code>Simpan ide: [Judul Ide]</code>)
+
+📋 <b>Perintah Cepat Kanban:</b>
+• <code>/konten</code> - Lihat 10 konten aktif di Kanban
+• <code>/ide [judul]</code> - Tambah kartu ide baru ke Kanban
 • <code>/alert</code> - Cek konten yang lewat tenggat atau deadline hari ini
 • <code>/pindah [no] [tahap]</code> - Pindahkan tahap (contoh: <code>/pindah 1 produksi</code>)
 • <code>/naskah [no]</code> - Baca naskah tersimpan untuk konten tertentu
-• <code>/tulis [no] [naskah]</code> - Simpan naskah ke konten
+• <code>/tulis [no] [naskah]</code> - Simpan atau perbarui naskah
+
+🤖 <b>Kecerdasan AI (LLM):</b>
+• <code>/ai</code> - Cek status koneksi AI provider aktif
+• <code>/setkey gemini [KEY]</code> - Pasang API Key Gemini (gratis di Google AI Studio)
+• <code>/setkey groq [KEY]</code> - Pasang API Key Groq
+• <code>/clear</code> - Bersihkan riwayat obrolan konsultasi untuk mulai topik baru
 
 ⚡ <b>Sistem & DevOps:</b>
-• <code>/status</code> - Cek status kesehatan server VPS (RAM, CPU, Versi)
-• <code>/update</code> - Tarik kode terbaru dari GitHub & restart aplikasi
+• <code>/status</code> - Cek RAM, CPU, disk, dan uptime server VPS
+• <code>/update</code> - Tarik pembaruan kode terbaru dari GitHub
 • <code>/restart</code> - Restart server web app
 
-<i>Pilihan tahap untuk /pindah: ide, naskah, produksi, editing, review, siap</i>`;
+<i>Pilihan tahap: ide, naskah, produksi, editing, review, siap</i>`;
 }
 
 async function handleMessage(msg) {
@@ -162,20 +430,72 @@ async function handleMessage(msg) {
     return;
   }
 
+  if (text === '/clear' || text === '/reset') {
+    chatHistories.delete(chatId);
+    await sendMessage(chatId, '🧹 <b>Riwayat Obrolan Dibersihkan!</b>\n\nMemori percakapan telah direset. Kita siap memulai topik diskusi baru.');
+    return;
+  }
+
+  if (text === '/ai') {
+    const aiConfig = getActiveAiConfig();
+    if (!aiConfig) {
+      await sendMessage(chatId, `🤖 <b>Status AI: Belum Terkonfigurasi</b>\n\nMode konsultasi saat ini menggunakan modul panduan internal.\n\nUntuk mengaktifkan model LLM penuh (diskusi bebas tak terbatas), pasang API Key dengan perintah:\n<code>/setkey gemini [API_KEY_ANDA]</code>\n<i>(Kunci gratis dari aistudio.google.com)</i>`);
+      return;
+    }
+    await sendMessage(chatId, `🤖 <b>Status AI Aktif:</b>\n\n• <b>Provider:</b> ${aiConfig.provider.toUpperCase()}\n• <b>Model:</b> ${aiConfig.model}\n• <b>Status:</b> ✅ Terhubung & Siap Konsultasi\n\nAnda bisa langsung chat santai tentang topik apa saja.`);
+    return;
+  }
+
+  if (text.startsWith('/setkey ')) {
+    const parts = text.split(/\s+/);
+    if (parts.length < 3) {
+      await sendMessage(chatId, `⚠️ <b>Format Salah</b>\nContoh: <code>/setkey gemini AIzaSy...</code>\nPilihan provider: <code>gemini</code>, <code>groq</code>, <code>openai</code>`);
+      return;
+    }
+    const provider = parts[1].toLowerCase();
+    const key = parts[2].trim();
+    if (!['gemini', 'groq', 'openai'].includes(provider)) {
+      await sendMessage(chatId, `⚠️ Provider tidak dikenal. Gunakan: <code>gemini</code>, <code>groq</code>, atau <code>openai</code>`);
+      return;
+    }
+    await sendTyping(chatId);
+    const ok = updateEnvAiKey(provider, key);
+    if (!ok) {
+      await sendMessage(chatId, `❌ Gagal menyimpan kunci ke .env.`);
+      return;
+    }
+    // Test key
+    try {
+      await queryLLM({
+        provider,
+        key,
+        model: provider === 'gemini' ? 'gemini-2.5-flash' : provider === 'groq' ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini',
+        messages: [{ role: 'user', text: 'Halo! Balas dengan 5 kata bahwa kamu siap bertugas.' }],
+        systemPrompt: 'Kamu asisten YouTube.'
+      });
+      await sendMessage(chatId, `✅ <b>Kunci AI Berhasil Diaktifkan!</b>\n\n• <b>Provider:</b> ${provider.toUpperCase()}\n• <b>Status:</b> Terverifikasi & Aktif 100%\n\nSekarang Anda bisa berdiskusi bebas, meminta analisis naskah, atau mencari ide kapan saja via chat ini!`);
+    } catch (err) {
+      await sendMessage(chatId, `⚠️ <b>Kunci Tersimpan Namun Uji Koneksi Gagal:</b>\n${err.message}\n\nPastikan API Key benar dan masih memiliki kuota.`);
+    }
+    return;
+  }
+
   if (text === '/status') {
     try {
       const { stdout: uptime } = await execAsync('uptime -p || uptime');
       const { stdout: freeMem } = await execAsync('free -h | awk \'/Mem:/ {print $3 "/" $2}\'');
       const { stdout: disk } = await execAsync('df -h / | awk \'NR==2 {print $3 "/" $2 " (" $5 ")"}\'');
       const contents = await fetchContents();
+      const aiConfig = getActiveAiConfig();
       
-      const res = `🖥️ <b>Status Server VPS:</b>\n` +
-        `• <b>Uptime:</b> ${uptime.trim()}\n` +
+      const res = `🖥️ <b>Status Server & Ekosistem:</b>\n` +
+        `• <b>Uptime VPS:</b> ${uptime.trim()}\n` +
         `• <b>RAM Terpakai:</b> ${freeMem.trim()}\n` +
-        `• <b>Disk Terpakai:</b> ${disk.trim()}\n` +
-        `• <b>Total Konten:</b> ${contents.length} konten\n` +
-        `• <b>URL Web:</b> ${APP_URL}\n` +
-        `• <b>Status Web:</b> ✅ Online (PM2 Active)`;
+        `• <b>Disk:</b> ${disk.trim()}\n` +
+        `• <b>Total Konten Kanban:</b> ${contents.length} kartu\n` +
+        `• <b>AI Consultant:</b> ${aiConfig ? `✅ ${aiConfig.provider.toUpperCase()} (${aiConfig.model})` : '🟡 Panduan Internal'}\n` +
+        `• <b>Status Web:</b> ✅ Online (PM2 Active)\n` +
+        `• <b>Domain:</b> ${APP_URL}`;
       await sendMessage(chatId, res);
     } catch (err) {
       await sendMessage(chatId, `❌ Gagal mengambil status: ${err.message}`);
@@ -191,12 +511,12 @@ async function handleMessage(msg) {
         return;
       }
       const active = contents.filter(c => !c.archived).slice(0, 10);
-      let res = `📋 <b>10 Konten Terbaru di Hub:</b>\n\n`;
+      let res = `📋 <b>10 Konten Aktif di Kanban:</b>\n\n`;
       active.forEach((c, i) => {
         const stageLabel = STAGE_LABELS[c.stage] || c.stage;
         res += `<b>#${i + 1}</b> ${c.title}\nTahap: ${stageLabel}\n\n`;
       });
-      res += `<i>Gunakan <code>/pindah [no] [tahap]</code> untuk memindahkan status.</i>`;
+      res += `<i>Gunakan <code>/pindah [no] [tahap]</code> untuk mengubah status.</i>`;
       await sendMessage(chatId, res);
     } catch (err) {
       await sendMessage(chatId, `❌ Gagal memuat konten: ${err.message}`);
@@ -316,7 +636,7 @@ async function handleMessage(msg) {
         await sendMessage(chatId, `📝 Konten <b>"${target.title}"</b> belum memiliki naskah.\nGunakan <code>/tulis ${num} [teks naskah]</code> untuk mengisi.`);
         return;
       }
-      await sendMessage(chatId, `📝 <b>Naskah: ${target.title}</b>\n\n${script.slice(0, 3800)}`);
+      await sendSmartMessage(chatId, `📝 <b>Naskah: ${target.title}</b>\n\n${script}`);
     } catch (err) {
       await sendMessage(chatId, `❌ Gagal mengambil naskah: ${err.message}`);
     }
@@ -387,8 +707,118 @@ async function handleMessage(msg) {
     return;
   }
 
-  // Fallback for unknown messages
-  await sendMessage(chatId, `❓ Perintah tidak dikenali.\nKetik <code>/bantuan</code> untuk melihat daftar perintah.`);
+  // --- SMART NATURAL LANGUAGE HANDLING ---
+
+  // 1. Natural action: Simpan/Tambah ide
+  const ideaMatch = text.match(/^(?:simpan|tambah(?:kan)?|masukkan)\s+ide(?:\s*:\s*|\s+)(.+)$/i);
+  if (ideaMatch) {
+    const title = ideaMatch[1].trim();
+    if (title) {
+      try {
+        const cookie = await getCookie();
+        const res = await fetch(`${LOCAL_API}/api/contents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Cookie: cookie },
+          body: JSON.stringify({ title, stage: 'idea', format: 'shorts' })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal menyimpan');
+        await sendMessage(chatId, `💡 <b>Ide Berhasil Dicatat ke Kanban!</b>\n\n📌 <b>Judul:</b> ${data.content.title}\n📍 <b>Tahap:</b> 💡 Ide\n\n<i>Ada sudut pandang atau referensi yang ingin kita diskusikan untuk ide ini?</i>`);
+        await fetchContents();
+        return;
+      } catch (err) {
+        await sendMessage(chatId, `❌ Gagal mencatat ide: ${err.message}`);
+        return;
+      }
+    }
+  }
+
+  // 2. Natural query: Tanya daftar konten aktif
+  if (/^(?:ada\s+konten\s+apa|daftar\s+konten|list\s+konten|status\s+konten|lagi\s+garap\s+apa)/i.test(text)) {
+    try {
+      const contents = await fetchContents();
+      const active = contents.filter(c => !c.archived);
+      if (!active.length) {
+        await sendMessage(chatId, '📭 Saat ini belum ada kartu konten aktif di Kanban. Mau brainstorming ide baru?');
+        return;
+      }
+      let report = `📋 <b>Status Produksi Saat Ini (${active.length} Konten):</b>\n\n`;
+      active.slice(0, 8).forEach((c, i) => {
+        const stageLabel = STAGE_LABELS[c.stage] || c.stage;
+        report += `<b>#${i + 1}</b> ${c.title}\nTahap: ${stageLabel}\n\n`;
+      });
+      report += `<i>Mau bedah naskah atau diskusikan salah satu konten di atas? Cukup sebutkan nomornya.</i>`;
+      await sendMessage(chatId, report);
+      return;
+    } catch {}
+  }
+
+  // --- AI ASSISTANT & CONSULTANT PIPELINE ---
+  await sendTyping(chatId);
+
+  // Fetch active contents context
+  let contents = [];
+  try { contents = await fetchContents(); } catch {}
+  const activeContents = contents.filter(c => !c.archived).slice(0, 10);
+  const activeSummary = activeContents.length
+    ? activeContents.map((c, i) => `#${i + 1} [${STAGE_LABELS[c.stage] || c.stage}] ${c.title}`).join('\n')
+    : '(Belum ada konten aktif di Kanban)';
+
+  const aiConfig = getActiveAiConfig();
+
+  // If no AI Key configured, use Heuristic Consultant Engine
+  if (!aiConfig) {
+    const heuristicReply = heuristicConsultation(text, activeSummary);
+    await sendSmartMessage(chatId, heuristicReply);
+    return;
+  }
+
+  // LLM Conversation Engine
+  try {
+    const systemPrompt = `Kamu adalah Asisten Eksekutif & Konsultan Konten Senior untuk channel YouTube "REFRAME INVESTIGASI".
+Fokus Channel: Jurnalisme investigasi, penelusuran fakta mendalam, pembongkaran skandal, misteri nyata/sosial, analisis data, dan video dokumenter naratif berkecepatan tinggi dengan retensi tinggi.
+
+Konteks Dapur Produksi REFRAME INVESTIGASI Saat Ini:
+- Nama Channel: REFRAME INVESTIGASI
+- Konten Aktif di Kanban:
+${activeSummary}
+
+Tugas Utama Anda:
+1. Brainstorming Kasus & Ide: Berikan sudut pandang unik (angle) investigasi, potensi plot twist, dan risiko faktual/hukum.
+2. Hook & Retention: Rancang hook 15-30 detik pertama yang memicu dopamin & rasa penasaran penonton. Berikan pacing dan cliffhanger di pertengahan video.
+3. Packaging & CTR: Buat opsi judul berdaya klik tinggi (tanpa clickbait murahan) dan konsep visual thumbnail yang memikat.
+4. Bedah Naskah: Evaluasi naskah dengan struktur 3-babak investigasi (The Mystery -> The Deep Dive/Escalation -> The Revelation/Verdict).
+
+Karakter & Gaya Bicara:
+- Bertindaklah sebagai rekan kerja kreatif (creative producer / showrunner) yang cerdas, tajam, analitis, taktis, namun suportif dan bersahabat.
+- Gunakan Bahasa Indonesia yang luwes, natural, dan enak dibaca di smartphone (hindari bahasa kaku robotik).
+- Format jawaban rapi dengan bullet points tebal.
+- Jika pengguna meminta menyimpan ide ke sistem, ingatkan bahwa mereka bisa mengetik "Simpan ide: [Judul]" agar langsung otomatis tercatat di Kanban.`;
+
+    let history = chatHistories.get(chatId) || [];
+    // Keep last 10 messages for multi-turn context
+    if (history.length > 10) history = history.slice(history.length - 10);
+
+    history.push({ role: 'user', text });
+
+    const reply = await queryLLM({
+      provider: aiConfig.provider,
+      key: aiConfig.key,
+      model: aiConfig.model,
+      messages: history,
+      systemPrompt
+    });
+
+    history.push({ role: 'model', text: reply });
+    chatHistories.set(chatId, history);
+
+    await sendSmartMessage(chatId, reply);
+  } catch (err) {
+    console.error('LLM Error:', err);
+    // Graceful fallback to heuristic consultation
+    const fallbackReply = heuristicConsultation(text, activeSummary);
+    await sendSmartMessage(chatId, fallbackReply);
+  }
 }
 
 let offset = 0;

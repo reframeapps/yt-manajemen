@@ -1,6 +1,13 @@
-export const APP_VERSION='4.42.0';
+export const APP_VERSION='4.43.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.43.0',date:'2026-10-25',title:'Asisten & Konsultan AI Cerdas untuk Bot Telegram REFRAME INVESTIGASI',changes:[
+    {type:'feature',text:'Mode Asisten & Konsultan Kreatif: Bot Telegram tidak lagi kaku hanya merespons perintah slash. Pengguna dapat berdiskusi bebas, brainstorming sudut pandang investigasi (follow the money, human interest, celah regulasi), merancang formula hook 15 detik, dan membedah alur naskah 3-babak.'},
+    {type:'feature',text:'Dukungan Multi-Engine LLM (Gemini 2.5 Flash, Groq, OpenAI): Terintegrasi penuh dengan model kecerdasan buatan, dilengkapi perintah /setkey untuk memasang atau mengganti API Key langsung dari chat Telegram tanpa menyentuh terminal/SSH.'},
+    {type:'feature',text:'Aksi Bahasa Alami (Natural Intent Actions): Mendeteksi instruksi percakapan seperti "Simpan ide: [Judul]" dan "Daftar konten" untuk langsung memanipulasi kartu di Kanban secara otomatis.'},
+    {type:'feature',text:'Memori Percakapan Multi-Turn & Typing Indicator: Menyimpan riwayat obrolan dinamis per chat ID untuk kelancaran diskusi bertahap, serta menampilkan status mengetik interaktif saat memproses jawaban.'},
+    {type:'feature',text:'Mesin Konsultan Heuristik Fallback: Tetap memberikan konsultasi investigasi berbobot dan panduan formula penulisan bahkan sebelum pengguna memasukkan API key.'}
+  ]},
   {version:'4.42.0',date:'2026-10-25',title:'Validasi Kriptografi HMAC untuk Callback Google OAuth YouTube',changes:[
     {type:'fix',text:'Perbaikan validasi OAuth state pada callback Google OAuth: menambahkan verifikasi tanda tangan kriptografi HMAC SHA-256 fallback jika cookie yt_oauth_state diblokir atau diabaikan oleh browser pada pengalihan lintas-domain (cross-origin redirect), menghilangkan pesan error "OAuth state tidak valid" saat menghubungkan channel YouTube.'}
   ]},
