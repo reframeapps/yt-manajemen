@@ -1176,10 +1176,18 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/api/contents') {
       const data = await contentStore.read();
       const fields = ['id','title','stage','pillarId','format','priority','owner','deadline','plannedPublishAt','checklist','archived','revision','createdAt','updatedAt','youtubeVideoId','youtubePublication'];
+      const maxRev = data.contents.reduce((max, c) => Math.max(max, c.revision || 0), 0);
+      const lastUpdated = data.contents.reduce((latest, c) => (c.updatedAt > latest ? c.updatedAt : latest), '');
+      const etag = `W/"contents-${data.boardRevision || 1}-${maxRev}-${data.contents.length}-${data.pillars.length}-${lastUpdated}"`;
+      if (req.headers['if-none-match'] === etag) {
+        res.writeHead(304, { 'etag': etag, 'cache-control': 'private, no-cache' });
+        res.end();
+        return;
+      }
       return json(res, 200, {
         pillars: data.pillars, stages: data.columns.map(c=>c.id), columns: data.columns, boardRevision: data.boardRevision,
         contents: data.contents.map(c => ({ ...Object.fromEntries(fields.map(k => [k,c[k]])), scriptLength: c.script.length }))
-      });
+      }, { 'etag': etag, 'cache-control': 'private, no-cache' });
     }
     if (pathname === '/api/columns' && req.method === 'POST')
       return json(res,201,await contentStore.saveColumn(await readJson(req)));
@@ -1192,7 +1200,15 @@ const server = http.createServer(async (req, res) => {
       const db=await notesStore.read(),q=(u.searchParams.get('q')||'').toLocaleLowerCase('id-ID'),kind=u.searchParams.get('kind'),category=u.searchParams.get('category'),format=u.searchParams.get('format'),archived=u.searchParams.get('archived')==='1';
       if(format!==null&&!['','long','shorts'].includes(format))return json(res,400,{error:'Pilih kategori video Long atau Short'});
       const notes=db.notes.filter(n=>n.archived===archived&&(format===null||(n.format||'')===format)&&(!kind||n.kind===kind)&&(category===null||n.category.toLocaleLowerCase('id-ID')===category.toLocaleLowerCase('id-ID'))&&(!q||[n.title,n.body,n.category,...n.tags].join(' ').toLocaleLowerCase('id-ID').includes(q))).sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.updatedAt.localeCompare(a.updatedAt));
-      return json(res,200,{categories:db.categories,categoriesRevision:db.categoriesRevision,notes:notes.map(n=>{const {body,bodyHtml,...rest}=n;return {...rest,format:n.format||'',preview:body.slice(0,280),bodyLength:body.length}})},{'cache-control':'no-store'});
+      const maxRev = notes.reduce((max, n) => Math.max(max, n.revision || 0), 0);
+      const lastUpdated = notes.reduce((latest, n) => (n.updatedAt > latest ? n.updatedAt : latest), '');
+      const etag = `W/"notes-${db.categoriesRevision || 1}-${maxRev}-${notes.length}-${lastUpdated}-${q}-${category}-${kind}-${format}"`;
+      if (req.headers['if-none-match'] === etag) {
+        res.writeHead(304, { 'etag': etag, 'cache-control': 'private, no-cache' });
+        res.end();
+        return;
+      }
+      return json(res,200,{categories:db.categories,categoriesRevision:db.categoriesRevision,notes:notes.map(n=>{const {body,bodyHtml,...rest}=n;return {...rest,format:n.format||'',preview:body.slice(0,280),bodyLength:body.length}})},{'etag':etag,'cache-control':'private, no-cache'});
     }
     if(pathname==='/api/note-categories'&&req.method==='POST')return json(res,201,await notesStore.createCategory(await readJson(req)));
     if(pathname==='/api/note-categories'&&['PATCH','DELETE'].includes(req.method))return json(res,200,await notesStore.changeCategory(await readJson(req),req.method==='DELETE'));

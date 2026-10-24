@@ -1,6 +1,12 @@
-export const APP_VERSION='4.39.0';
+export const APP_VERSION='4.40.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.40.0',date:'2026-10-24',title:'Optimistic UI, Client Instant Cache, dan Conditional ETag 304 Data API',changes:[
+    {type:'feature',text:'Instant Optimistic UI: Interaksi seret dan lepas (drag-and-drop) kartu di Kanban, pemindahan tahap, perubahan jadwal di kalender, penghapusan kartu, serta aksi massal kini terupdate seketika (< 16 ms) tanpa menunggu balasan server, dengan sistem rollback otomatis jika terjadi kegagalan jaringan.'},
+    {type:'feature',text:'Client-Side Instant Cache (Stale-While-Revalidate): Menyimpan snapshot data Hub Konten di penyimpanan sesi browser (sessionStorage), membuat papan Kanban, Kalender, dan Tabel langsung terbuka instan 0 milidetik saat membuka aplikasi atau berpindah menu tanpa tampilan layar kosong.'},
+    {type:'feature',text:'Conditional ETag 304 Not Modified untuk Data API: Endpoint GET /api/contents dan GET /api/notes kini dilengkapi tanda tangan revisi ETag. Jika data konten atau catatan tidak berubah, server langsung merespons 304 Not Modified tanpa transfer payload, menghemat waktu muat dan kuota data hingga 100%.'},
+    {type:'fix',text:'Reorganisasi dan defragmentasi tabel PostgreSQL Supabase melalui VACUUM ANALYZE app_documents, memulihkan performa indeks dan memangkas ukuran tabel fisik dari 35 MB menjadi 15 MB.'}
+  ]},
   {version:'4.39.0',date:'2026-10-24',title:'Tindakan Massal (Bulk Actions) dan Notifikasi Tenggat Waktu',changes:[
     {type:'feature',text:'Tindakan Massal (Bulk Actions): Memilih beberapa konten sekaligus (multi-select) di Pustaka dan Kanban untuk memindahkan tahap produksi secara serentak, mengganti pilar konten, mengarsipkan massal, atau menghapus sekaligus.'},
     {type:'feature',text:'Notifikasi & Peringatan Tenggat Waktu (Deadline & Overdue Alerts): Indikator visual real-time untuk konten yang melewati tenggat waktu (🚨 Terlambat) atau jatuh tempo hari ini (⚠️ Hari ini), lengkap dengan lencana angka peringatan di navigasi sidebar dan banner peringatan di Dashboard.'},

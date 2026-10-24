@@ -80,25 +80,71 @@ function renderBulkBar(){
   bar.innerHTML=`<span class="bulk-count">${hub.selected.size} konten dipilih</span><select id="bulkStageSelect" aria-label="Pindahkan tahap"><option value="">Pindah tahap...</option>${stages}</select><select id="bulkPillarSelect" aria-label="Ubah pilar"><option value="">Ubah pilar...</option><option value="none">Tanpa pilar</option>${pillars}</select><button type="button" class="btn mini" id="bulkArchiveBtn">Arsipkan</button><button type="button" class="btn mini danger" id="bulkDeleteBtn">Hapus</button><button type="button" class="btn mini" id="bulkClearBtn">Batal</button>`;
   bar.querySelector('#bulkStageSelect').onchange=async e=>{
     const stage=e.target.value;if(!stage)return;
-    try{await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'move',ids:[...hub.selected],stage})});hub.selected.clear();toast('Berhasil memindahkan tahap');await loadHub(true);}
-    catch(err){toast(err.message)}
+    const selectedIds=[...hub.selected];
+    const prev=hub.data.contents.map(c=>({...c}));
+    hub.data.contents.forEach(c=>{if(hub.selected.has(c.id)){c.stage=stage;c.updatedAt=new Date().toISOString();}});
+    hub.selected.clear();saveHubCache();renderHub();toast('Memindahkan '+selectedIds.length+' konten...');
+    try{
+      await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'move',ids:selectedIds,stage})});
+      toast('Berhasil memindahkan tahap');saveHubCache();void loadHub();
+    }catch(err){hub.data.contents=prev;saveHubCache();renderHub();toast('Gagal: '+err.message)}
   };
   bar.querySelector('#bulkPillarSelect').onchange=async e=>{
     const val=e.target.value;if(!val)return;
     const pillarId=val==='none'?'':val;
-    try{await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'pillar',ids:[...hub.selected],pillarId})});hub.selected.clear();toast('Berhasil mengubah pilar');await loadHub(true);}
-    catch(err){toast(err.message)}
+    const selectedIds=[...hub.selected];
+    const prev=hub.data.contents.map(c=>({...c}));
+    hub.data.contents.forEach(c=>{if(hub.selected.has(c.id)){c.pillarId=pillarId;c.updatedAt=new Date().toISOString();}});
+    hub.selected.clear();saveHubCache();renderHub();toast('Mengubah pilar '+selectedIds.length+' konten...');
+    try{
+      await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'pillar',ids:selectedIds,pillarId})});
+      toast('Berhasil mengubah pilar');saveHubCache();void loadHub();
+    }catch(err){hub.data.contents=prev;saveHubCache();renderHub();toast('Gagal: '+err.message)}
   };
   bar.querySelector('#bulkArchiveBtn').onclick=async()=>{
-    try{await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'archive',ids:[...hub.selected],archived:true})});hub.selected.clear();toast('Berhasil mengarsipkan konten terpilih');await loadHub(true);}
-    catch(err){toast(err.message)}
+    const selectedIds=[...hub.selected];
+    const prev=hub.data.contents.map(c=>({...c}));
+    hub.data.contents.forEach(c=>{if(hub.selected.has(c.id)){c.archived=true;c.updatedAt=new Date().toISOString();}});
+    hub.selected.clear();saveHubCache();renderHub();toast('Mengarsipkan '+selectedIds.length+' konten...');
+    try{
+      await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'archive',ids:selectedIds,archived:true})});
+      toast('Berhasil mengarsipkan konten terpilih');saveHubCache();void loadHub();
+    }catch(err){hub.data.contents=prev;saveHubCache();renderHub();toast('Gagal: '+err.message)}
   };
   bar.querySelector('#bulkDeleteBtn').onclick=async()=>{
     if(!confirm(`Yakin ingin menghapus ${hub.selected.size} konten yang dipilih?`))return;
-    try{await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'delete',ids:[...hub.selected]})});hub.selected.clear();toast('Berhasil menghapus konten terpilih');await loadHub(true);}
-    catch(err){toast(err.message)}
+    const selectedIds=[...hub.selected];
+    const prev=hub.data.contents.map(c=>({...c}));
+    const delSet=new Set(selectedIds);
+    hub.data.contents=hub.data.contents.filter(c=>!delSet.has(c.id));
+    hub.selected.clear();saveHubCache();renderHub();toast('Menghapus '+selectedIds.length+' konten...');
+    try{
+      await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'delete',ids:selectedIds})});
+      toast('Berhasil menghapus konten terpilih');saveHubCache();void loadHub();
+    }catch(err){hub.data.contents=prev;saveHubCache();renderHub();toast('Gagal: '+err.message)}
   };
   bar.querySelector('#bulkClearBtn').onclick=()=>{hub.selected.clear();renderHub()};
+}
+const HUB_CACHE_KEY='yt-hub-cached-data';
+function saveHubCache(){
+  try{if(hub.data?.contents&&hub.data?.pillars)sessionStorage.setItem(HUB_CACHE_KEY,JSON.stringify(hub.data))}catch{}
+}
+function restoreHubCache(){
+  try{
+    const raw=sessionStorage.getItem(HUB_CACHE_KEY);
+    if(!raw)return false;
+    const parsed=JSON.parse(raw);
+    if(parsed&&Array.isArray(parsed.contents)&&Array.isArray(parsed.pillars)){
+      hub.data=parsed;
+      if(typeof syncBoardColumns==='function')syncBoardColumns(hub.data);
+      hub.loaded=true;
+      updateAlertBadges();
+      updateFilters();
+      renderHub();
+      return true;
+    }
+  }catch{}
+  return false;
 }
 function filtered(){const q=$('#contentSearch').value.toLocaleLowerCase('id-ID').trim(),p=$('#pillarFilter').value,s=$('#stageFilter').value,f=$('#formatFilter').value,arch=$('#archiveFilter').checked,alertOnly=$('#alertFilter')?.checked;return hub.data.contents.filter(c=>{if(c.archived!==arch)return false;if(alertOnly&&!contentAlertStatus(c))return false;if(q&&!(c.title+' '+(c.owner||'')).toLocaleLowerCase('id-ID').includes(q))return false;if(p&&c.pillarId!==p)return false;if(s&&c.stage!==s)return false;if(f&&c.format!==f)return false;return true;})}
 function options(values,selected=''){return values.map(([v,label])=>`<option value="${esc(v)}"${v===selected?' selected':''}>${esc(label)}</option>`).join('')}
@@ -110,6 +156,7 @@ async function loadHub(force=false){
     const fresh=await api('/api/contents');
     const changed=!hub.loaded||JSON.stringify(fresh.contents)!==JSON.stringify(hub.data?.contents)||JSON.stringify(fresh.pillars)!==JSON.stringify(hub.data?.pillars);
     hub.data=fresh;
+    saveHubCache();
     syncBoardColumns(hub.data);
     hub.loaded=true;
     updateAlertBadges();
@@ -201,21 +248,38 @@ function showComposer(stage){
 async function moveContent(id,stage){
   const c=hub.data.contents.find(c=>c.id===id);if(!c)throw Error('Konten tidak ditemukan. Muat ulang papan.');
   if(c.stage===stage)return;
-  const result=await api('/api/contents/'+id,{method:'PATCH',body:JSON.stringify({revision:c.revision,stage})});
-  hub.data.contents=hub.data.contents.map(item=>item.id===id?contentSummary(result.content):item);renderHub();
-  toast('Kartu dipindahkan ke '+STAGE_NAMES[stage]+'.');void loadHub();
+  const oldStage=c.stage,oldRev=c.revision;
+  c.stage=stage;c.updatedAt=new Date().toISOString();
+  saveHubCache();renderHub();
+  toast('Kartu dipindahkan ke '+(STAGE_NAMES[stage]||stage)+'.');
+  try{
+    const result=await api('/api/contents/'+id,{method:'PATCH',body:JSON.stringify({revision:oldRev,stage})});
+    hub.data.contents=hub.data.contents.map(item=>item.id===id?contentSummary(result.content):item);
+    saveHubCache();
+  }catch(err){
+    c.stage=oldStage;c.revision=oldRev;
+    saveHubCache();renderHub();
+    toast('Gagal memindahkan: '+err.message);
+    void loadHub();
+  }
 }
 async function deleteCard(id){
   const c=hub.data.contents.find(item=>item.id===id);
   const title=c?.title||'konten ini';
   if(!confirm(`Hapus "${title}" beserta naskah dan riwayatnya secara permanen?`))return;
+  const oldIndex=hub.data.contents.indexOf(c);
+  hub.data.contents=hub.data.contents.filter(item=>item.id!==id);
+  saveHubCache();renderHub();
+  toast('Konten berhasil dihapus.');
   try{
     await api('/api/contents/'+id,{method:'DELETE',body:JSON.stringify({revision:c?.revision})});
-    hub.data.contents=hub.data.contents.filter(item=>item.id!==id);
-    renderHub();
-    toast('Konten berhasil dihapus.');
+    saveHubCache();
+  }catch(err){
+    if(c&&oldIndex!==-1)hub.data.contents.splice(oldIndex,0,c);
+    saveHubCache();renderHub();
+    toast('Gagal menghapus: '+err.message);
     void loadHub();
-  }catch(err){toast(err.message)}
+  }
 }
 function showMoveCard(id){
   const c=hub.data.contents.find(c=>c.id===id);if(!c)return;
@@ -291,8 +355,28 @@ $('#hubBody').ondragleave=e=>{const target=e.target.closest('[data-column],[data
 $('#hubBody').ondrop=async e=>{
   const target=e.target.closest('[data-column],[data-day]');if(!target)return;e.preventDefault();target.classList.remove('drop-over');hub.dragging=false;
   const c=hub.data.contents.find(c=>c.id===e.dataTransfer.getData('text/plain'));if(!c)return;
-  try{if(target.dataset.column){await moveContent(c.id,target.dataset.column);return}
-    const patch={revision:c.revision};if(hub.calendarField==='publish'&&(activeJob(c)||c.youtubeVideoId))return toast('Jadwal upload YouTube dikelola di YouTube Studio.');const old=eventDate(c);patch[hub.calendarField==='deadline'?'deadline':'plannedPublishAt']=inputIso(target.dataset.day+'T'+(old?wibInput(old).slice(11):'09:00'));await api('/api/contents/'+c.id,{method:'PATCH',body:JSON.stringify(patch)});await loadHub();
+  try{
+    if(target.dataset.column){await moveContent(c.id,target.dataset.column);return}
+    const patch={revision:c.revision};
+    if(hub.calendarField==='publish'&&(activeJob(c)||c.youtubeVideoId))return toast('Jadwal upload YouTube dikelola di YouTube Studio.');
+    const dateField=hub.calendarField==='deadline'?'deadline':'plannedPublishAt';
+    const oldDate=c[dateField];
+    const old=eventDate(c);
+    const targetIso=inputIso(target.dataset.day+'T'+(old?wibInput(old).slice(11):'09:00'));
+    patch[dateField]=targetIso;
+    c[dateField]=targetIso;c.updatedAt=new Date().toISOString();
+    saveHubCache();renderHub();
+    toast('Jadwal diperbarui.');
+    try{
+      const res=await api('/api/contents/'+c.id,{method:'PATCH',body:JSON.stringify(patch)});
+      hub.data.contents=hub.data.contents.map(item=>item.id===c.id?contentSummary(res.content):item);
+      saveHubCache();
+    }catch(err){
+      c[dateField]=oldDate;
+      saveHubCache();renderHub();
+      toast('Gagal mengubah jadwal: '+err.message);
+      void loadHub();
+    }
   }catch(err){toast(err.message);await loadHub()}
 };
 document.addEventListener('click',e=>{if(hub.columnMenu&&!e.target.closest('[data-column-menu],.column-menu')){hub.columnMenu=null;if(hub.view==='kanban')renderHub()}});
@@ -381,6 +465,7 @@ $('#clearUploadLink').onclick=()=>{state.linkedContentId=null;state.linkedConten
 $('#copyDraft').onclick=async()=>{if(!hub.editing)return;try{const fields=readForm();fields.title=(fields.title+' (draft)');fields.archived=false;const r=await api('/api/contents',{method:'POST',body:JSON.stringify(fields)});clearTimeout(hub.timer);clearLocalDraft(hub.editing.content.id);hub.editing=null;$('#contentEditor').close();await loadHub();await openContent(r.content.id);toast('Draft disimpan sebagai konten baru.')}catch(err){toast(err.message)}};
 
 const requestedView=new URLSearchParams(location.search).get('view');if(requestedView&&(VIEW_TEXT[requestedView]||requestedView==='upload'))navigate(requestedView);
+restoreHubCache();
 
 let jobFormatEditing=null,jobFormatSaving=false;
 function openJobFormat(id){const job=state.server?.jobs.find(j=>j.id===id);if(!job)return;jobFormatEditing={id,videoFormat:job.videoFormat||''};$('#jobFormatTitle').textContent=job.title;$('#jobFormat').value=jobFormatEditing.videoFormat;$('#jobFormatError').classList.add('hide');$('#jobFormatDialog').showModal()}
