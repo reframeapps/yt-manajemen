@@ -1312,7 +1312,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && pathname === '/auth/google/callback') {
       const state = u.searchParams.get('state') || '';
       const expected = parseCookies(req).yt_oauth_state || '';
-      if (!state || !safeEqual(state, expected))
+      const lastDot = state.lastIndexOf('.');
+      const isValidHmac = lastDot !== -1 && safeEqual(state.slice(lastDot + 1), hmac(state.slice(0, lastDot)));
+      const isValidCookie = expected && safeEqual(state, expected);
+      if (!state || (!isValidCookie && !isValidHmac))
         return text(res, 400, 'OAuth state tidak valid. Ulangi proses koneksi.');
       const isDrive=state.startsWith('drive.');
       const returnTo = isDrive?'&view=storage':state.startsWith('analytics.') ? '&view=analytics' : '';

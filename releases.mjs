@@ -1,6 +1,9 @@
-export const APP_VERSION='4.41.0';
+export const APP_VERSION='4.42.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.42.0',date:'2026-10-25',title:'Validasi Kriptografi HMAC untuk Callback Google OAuth YouTube',changes:[
+    {type:'fix',text:'Perbaikan validasi OAuth state pada callback Google OAuth: menambahkan verifikasi tanda tangan kriptografi HMAC SHA-256 fallback jika cookie yt_oauth_state diblokir atau diabaikan oleh browser pada pengalihan lintas-domain (cross-origin redirect), menghilangkan pesan error "OAuth state tidak valid" saat menghubungkan channel YouTube.'}
+  ]},
   {version:'4.41.0',date:'2026-10-25',title:'Integrasi Bot Telegram untuk Manajemen Konten & DevOps Remote',changes:[
     {type:'feature',text:'Integrasi Bot Telegram Mandiri (telegram-bot.mjs): Mengelola dan memperbarui web app langsung dari chat Telegram di smartphone tanpa perlu membuka atau menyalakan laptop.'},
     {type:'feature',text:'Manajemen Konten via Chat: Perintah /ide untuk membuat kartu ide baru di Kanban, /konten untuk melihat daftar konten aktif, /pindah untuk mengubah status produksi, /naskah untuk membaca naskah, dan /tulis untuk menyimpan naskah.'},
