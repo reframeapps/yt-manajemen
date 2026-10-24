@@ -75,23 +75,33 @@ async function sendTyping(chatId) {
   } catch {}
 }
 
-function markdownToTelegramHtml(text) {
+function prepareTelegramHtml(text) {
   if (!text) return '';
   let s = String(text);
-  // Escape raw HTML entities first
+
+  // 1. Temporarily replace valid Telegram HTML tags with safe placeholders
+  const tags = [];
+  const validTagRegex = /<\/?(?:b|strong|i|em|u|ins|s|strike|del|code|pre|a)(?:\s+href="[^"]*")?>/gi;
+  s = s.replace(validTagRegex, (match) => {
+    tags.push(match);
+    return `TGTAGX${tags.length - 1}X`;
+  });
+
+  // 2. Escape remaining raw & < >
   s = s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  // Code blocks: ```code```
+
+  // 3. Convert Markdown to HTML
   s = s.replace(/```(?:[a-zA-Z0-9_-]*\n)?([\s\S]*?)```/g, '<pre>$1</pre>');
-  // Inline code: `code`
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Bold: **text** or __text__
   s = s.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
   s = s.replace(/__(.*?)__/g, '<b>$1</b>');
-  // Italic: *text* or _text_
   s = s.replace(/(^|[^\*])\*([^\*]+)\*([^\*]|$)/g, '$1<i>$2</i>$3');
   s = s.replace(/(^|[^_])_([^_]+)_([^_]|$)/g, '$1<i>$2</i>$3');
-  // Headers: ### Header -> <b>Header</b>
-  s = s.replace(/^#{1,6}\s*(.*)$/gm, '<b>$1</b>');
+  s = s.replace(/^#{1,6}\s+(.*)$/gm, '<b>$1</b>');
+
+  // 4. Restore valid HTML tags
+  s = s.replace(/TGTAGX(\d+)X/g, (_, idx) => tags[Number(idx)]);
+
   return s;
 }
 
@@ -123,7 +133,7 @@ async function sendMessage(chatId, text, extra = {}) {
 }
 
 async function sendSmartMessage(chatId, rawText, extra = {}) {
-  const formatted = markdownToTelegramHtml(rawText);
+  const formatted = prepareTelegramHtml(rawText);
   if (formatted.length <= 4000) {
     return sendMessage(chatId, formatted, extra);
   }
@@ -178,6 +188,52 @@ async function fetchContents() {
   const data = await res.json();
   cachedContents = data.contents || [];
   return cachedContents;
+}
+
+async function fetchRadarData() {
+  const cookie = await getCookie();
+  const res = await fetch(`${LOCAL_API}/api/radar`, {
+    headers: { Cookie: cookie }
+  });
+  if (res.status === 401) {
+    sessionCookie = '';
+    const newCookie = await getCookie();
+    const retry = await fetch(`${LOCAL_API}/api/radar`, { headers: { Cookie: newCookie } });
+    return retry.json();
+  }
+  return res.json();
+}
+
+const LENS_MAP = {
+  system: '⚙️ Kebijakan/Sistem',
+  human: '👥 Human Interest/Korban',
+  history: '📜 Histori/Preseden',
+  money: '💰 Aliran Dana',
+  tech: '💻 Cyber/AI'
+};
+
+function formatRadarReport(radarData) {
+  const issues = Array.isArray(radarData?.issues) ? radarData.issues : [];
+  if (!issues.length) {
+    return '📡 <b>Radar Tren & Isu:</b>\n\nSaat ini belum ada isu yang terdeteksi di Radar. Pastikan sinkronisasi radar aktif di dashboard.';
+  }
+
+  const top = issues.slice(0, 5);
+  let msg = `📡 <b>Radar Tren & Isu Terkini (REFRAME INVESTIGASI):</b>\n\n` +
+    `Terpantau <b>${issues.length} isu investigasi</b> dari media & intelijen radar. Berikut 5 isu terhangat yang sangat potensial dijadikan konten:\n\n`;
+
+  top.forEach((issue, i) => {
+    const lenses = (issue.lenses || []).map(l => LENS_MAP[l] || l).join(' | ') || '🔍 Investigasi';
+    const sourceCount = issue.sources?.length || 1;
+    msg += `<b>#${i + 1}. ${issue.title}</b>\n` +
+      `• Lensa: ${lenses} (${sourceCount} sumber)\n\n`;
+  });
+
+  msg += `<i>💡 <b>Cara Menindaklanjuti:</b></i>\n` +
+    `• Ketik <code>Simpan ide: [Judul Isu]</code> untuk mencatatnya ke Kanban\n` +
+    `• Atau diskusikan: <i>"Bantu buatkan hook dan sudut pandang untuk isu #1"</i>`;
+
+  return msg;
 }
 
 // AI Configuration Helpers
@@ -388,6 +444,10 @@ Anda bisa chat langsung apa saja tanpa format kaku:
 • <code>/pindah [no] [tahap]</code> - Pindahkan tahap (contoh: <code>/pindah 1 produksi</code>)
 • <code>/naskah [no]</code> - Baca naskah tersimpan untuk konten tertentu
 • <code>/tulis [no] [naskah]</code> - Simpan atau perbarui naskah
+
+📡 <b>Radar & Tren Investigasi:</b>
+• <code>/radar</code> atau <code>/tren</code> - Pantau isu & tren investigasi terhangat
+• Atau cukup ketik santai: <i>"Cek trend isue"</i> atau <i>"Isu terkini"</i>
 
 🤖 <b>Kecerdasan AI (LLM):</b>
 • <code>/ai</code> - Cek status koneksi AI provider aktif
@@ -753,16 +813,42 @@ async function handleMessage(msg) {
     } catch {}
   }
 
+  // 3. Natural query & Command: Cek Tren & Isu Radar
+  if (
+    text === '/radar' || text === '/tren' || text === '/isu' ||
+    /(?:cek\s+)?(?:trend|tren|isu|isue|radar)/i.test(text)
+  ) {
+    await sendTyping(chatId);
+    try {
+      const radar = await fetchRadarData();
+      const report = formatRadarReport(radar);
+      await sendSmartMessage(chatId, report);
+      return;
+    } catch (err) {
+      await sendMessage(chatId, `❌ Gagal memuat radar isu: ${err.message}`);
+      return;
+    }
+  }
+
   // --- AI ASSISTANT & CONSULTANT PIPELINE ---
   await sendTyping(chatId);
 
-  // Fetch active contents context
+  // Fetch active contents & radar context
   let contents = [];
   try { contents = await fetchContents(); } catch {}
   const activeContents = contents.filter(c => !c.archived).slice(0, 10);
   const activeSummary = activeContents.length
     ? activeContents.map((c, i) => `#${i + 1} [${STAGE_LABELS[c.stage] || c.stage}] ${c.title}`).join('\n')
     : '(Belum ada konten aktif di Kanban)';
+
+  let radarIssuesSummary = '';
+  try {
+    const r = await fetchRadarData();
+    const topIssues = (r?.issues || []).slice(0, 5);
+    if (topIssues.length) {
+      radarIssuesSummary = topIssues.map((iss, i) => `#${i + 1} ${iss.title} (${(iss.lenses || []).join(', ')})`).join('\n');
+    }
+  } catch {}
 
   const aiConfig = getActiveAiConfig();
 
@@ -782,6 +868,9 @@ Konteks Dapur Produksi REFRAME INVESTIGASI Saat Ini:
 - Nama Channel: REFRAME INVESTIGASI
 - Konten Aktif di Kanban:
 ${activeSummary}
+
+Isu Investigasi Terhangat di Radar:
+${radarIssuesSummary || '(Belum ada isu radar)'}
 
 Tugas Utama Anda:
 1. Brainstorming Kasus & Ide: Berikan sudut pandang unik (angle) investigasi, potensi plot twist, dan risiko faktual/hukum.

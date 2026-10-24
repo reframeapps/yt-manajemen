@@ -1,6 +1,11 @@
-export const APP_VERSION='4.43.0';
+export const APP_VERSION='4.44.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.44.0',date:'2026-10-25',title:'Integrasi Radar Tren & Isu Real-Time dan Perbaikan Formatting Telegram',changes:[
+    {type:'feature',text:'Integrasi Radar Tren & Isu via Bot Telegram: Bot kini mengenali perintah dan pertanyaan seperti "Cek trend isue", "Isu terkini", "/radar", dan "/tren", langsung menarik data 150+ isu intelijen radar terkini dari database lengkap dengan analisis lensa (sistem, korban, aliran dana).'},
+    {type:'fix',text:'Perbaikan Formatting HTML Telegram: Memperbaiki parser entity formatting agar tag <b>, <i>, <code> tidak bocor sebagai teks mentah literal di layar aplikasi Telegram, memastikan tampilan rapi, tebal, dan nyaman dibaca.'},
+    {type:'feature',text:'Injeksi Konteks Isu Radar ke Mesin AI: Top 5 isu terhangat dari Radar otomatis dimasukkan ke memori model AI sebagai bahan pertimbangan kontekstual saat pengguna berdiskusi ide investigasi.'}
+  ]},
   {version:'4.43.0',date:'2026-10-25',title:'Asisten & Konsultan AI Cerdas untuk Bot Telegram REFRAME INVESTIGASI',changes:[
     {type:'feature',text:'Mode Asisten & Konsultan Kreatif: Bot Telegram tidak lagi kaku hanya merespons perintah slash. Pengguna dapat berdiskusi bebas, brainstorming sudut pandang investigasi (follow the money, human interest, celah regulasi), merancang formula hook 15 detik, dan membedah alur naskah 3-babak.'},
     {type:'feature',text:'Dukungan Multi-Engine LLM (Gemini 2.5 Flash, Groq, OpenAI): Terintegrasi penuh dengan model kecerdasan buatan, dilengkapi perintah /setkey untuk memasang atau mengganti API Key langsung dari chat Telegram tanpa menyentuh terminal/SSH.'},
