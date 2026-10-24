@@ -965,7 +965,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && pathname === '/api/session')
-      return json(res, 200, { authenticated: isAuthed(req), configMissing: configMissing(), appUrl: APP_URL });
+      return json(res, 200, { authenticated: isAuthed(req), configMissing: configMissing(), appUrl: APP_URL, version: APP_VERSION });
 
     if (req.method === 'POST' && pathname === '/api/login') {
       const body = await readJson(req);

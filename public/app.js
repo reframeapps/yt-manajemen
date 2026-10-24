@@ -82,7 +82,7 @@ function scheduleNextRefresh(){
   const hasActive=state.server?.jobs?.some(j=>['receiving','queued_upload','uploading_youtube'].includes(j.status));
   _refreshTimer=setTimeout(async()=>{await refresh();scheduleNextRefresh();},hasActive?4000:12000);
 }
-async function boot(){const sess=await api('/api/session');if(!sess.authenticated){$('#loginView').classList.remove('hide');if(sess.configMissing?.length){$('#configWarning').classList.remove('hide');$('#configWarning').textContent='Cloud belum lengkap: '+sess.configMissing.join(', ')}return}$('#appView').classList.remove('hide');await refresh();scheduleNextRefresh()}
+async function boot(){const sess=await api('/api/session');if(sess.version){document.querySelectorAll('.version,#appVersion').forEach(el=>el.textContent='v'+sess.version)}if(!sess.authenticated){$('#loginView').classList.remove('hide');if(sess.configMissing?.length){$('#configWarning').classList.remove('hide');$('#configWarning').textContent='Cloud belum lengkap: '+sess.configMissing.join(', ')}return}$('#appView').classList.remove('hide');await refresh();scheduleNextRefresh()}
 $('#loginBtn').onclick=async()=>{try{await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#loginPassword').value})});location.reload()}catch(e){toast(e.message)}};
 $('#loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click()});
 $('#logoutBtn').onclick=async()=>{await api('/api/logout',{method:'POST',body:'{}'});location.reload()};
