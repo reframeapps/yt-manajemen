@@ -55,7 +55,130 @@ function radarExecutiveReport(summary,{compact=false}={}){
 const rDialog=document.createElement('dialog');rDialog.className='radar-dialog';rDialog.id='radarDialog';document.body.append(rDialog);
 function radarModal(title,html){clearInterval(radarUi.aiTimer);radarUi.aiTimer=null;rDialog.classList.toggle('radar-writing',/AI|Rangkuman|Ringkasan|pengelompokan|Ruang riset|Kerangka naskah|Naskah engine|Pustaka prompt/.test(title));rDialog.innerHTML=`<div class="radar-modal-head"><h2>${esc(title)}</h2><button type="button" class="icon-button" data-r-close aria-label="Tutup">✕</button></div><div class="radar-modal-body">${html}<div id="radarModalError" class="notice hide" role="alert"></div></div>`;if(!rDialog.open)rDialog.showModal();rDialog.querySelector('[data-r-close]').onclick=()=>rDialog.close();}
 async function radarRun(fn){try{return await fn()}catch(e){const box=rDialog.open?$('#radarModalError'):$('#radarError');if(box){box.textContent=e.message;box.classList.remove('hide')}else toast(e.message);return null}}
-window.renderRadar=body=>{if(body.querySelector('#radarPanel'))return;body.innerHTML=`<section id="radarPanel"><div class="radar-hero"><div><span class="eyebrow">EDITORIAL RADAR</span><h2>Radar Konten</h2><p>Isu penting, konteks sumber, dan prioritas riset.</p></div><div class="feature-actions"><button class="btn primary" id="radarSync">Sinkronkan</button><button class="btn" id="radarSettings">Topik & Sumber</button><details class="radar-actions-menu"><summary class="btn">Menu Radar</summary><div class="radar-actions-popover"><button class="btn" id="radarDaily">Ringkasan harian</button><button class="btn" id="radarWeekly">Ringkasan mingguan</button><button class="btn" id="radarArchive">Arsip & jadwal</button><button class="btn" id="radarPromptLibrary">Pustaka prompt</button><button class="btn" id="radarUsage">Riwayat AI</button><button class="btn" id="radarPerformance">Performa konten</button></div></details></div></div><div id="radarFocusSummary" class="radar-focus-summary" role="status"></div><section id="radarSocialFront" class="radar-social-front" aria-label="Radar Intelijen Sosmed & Ide Potensial"><p class="hint">Memuat radar intelijen sosmed…</p></section><section id="radarExecutiveFront" class="radar-executive-front" aria-label="Ringkasan eksekutif"><div class="radar-executive-tabs" role="tablist" aria-label="Periode ringkasan eksekutif"><button class="btn primary" role="tab" data-executive-period="daily" aria-selected="true">Harian</button><button class="btn" role="tab" data-executive-period="weekly" aria-selected="false">Mingguan</button></div><div id="radarExecutiveFrontBody" aria-live="polite"><p class="hint">Memuat ringkasan eksekutif…</p></div></section><section id="radarTrends" class="radar-trends" aria-label="Tren kata kunci"><p class="hint">Memuat tren kata kunci…</p></section><div id="radarError" class="notice hide" role="alert"></div><div class="radar-tabs" role="tablist">${[['issues','Hot isu'],['channels','Pantauan Channel'],['references','Referensi']].map(([id,title])=>`<button role="tab" data-r-tab="${id}" aria-selected="${id===radarUi.tab}">${title}</button>`).join('')}</div><div class="radar-tools"><input id="radarSearch" aria-label="Cari Radar" placeholder="Cari isu atau channel…"><select id="radarTopic" aria-label="Filter topik"><option value="">Semua topik</option></select><select id="radarStatus" aria-label="Filter status"><option value="">Semua status</option>${Object.entries(rStatus).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select><select id="radarPlatform" aria-label="Filter platform"><option value="">Semua sumber</option><option value="YouTube">Video YouTube</option><option value="Berita / Web">Artikel / berita</option></select><select id="radarPeriod" aria-label="Periode liputan"><option value="24">24 jam</option><option value="72" selected>3 hari</option><option value="168">7 hari</option></select><button class="btn" id="radarAdd">+ Link referensi</button></div><div id="radarCoverage"></div><div id="radarMethodology"></div><div id="radarList"><div class="hub-panel empty">Memuat Radar…</div></div><div id="radarFooter" class="hint"></div></section>`;body.querySelector('.radar-actions-menu').onclick=e=>{if(e.target.closest('button'))e.currentTarget.open=false;};$('#radarExecutiveFront').onclick=e=>{const button=e.target.closest('[data-executive-period],[data-executive-retry]');if(!button)return;if(button.dataset.executivePeriod)radarUi.executivePeriod=button.dataset.executivePeriod;radarInlineSchedule();};$('#radarSearch').value=radarUi.q;$('#radarSearch').oninput=e=>{radarUi.q=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarTopic').onchange=e=>{radarUi.topic=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarStatus').value=radarUi.status;$('#radarStatus').onchange=e=>{radarUi.status=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPlatform').value=radarUi.platform;$('#radarPlatform').onchange=e=>{radarUi.platform=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPeriod').value=radarUi.period;$('#radarPeriod').onchange=e=>{radarUi.period=Number(e.target.value);radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarAdd').onclick=()=>radarSource();$('#radarPromptLibrary').onclick=()=>radarRun(()=>radarPromptLibrary());$('#radarUsage').onclick=()=>radarRun(()=>radarUsage());$('#radarPerformance').onclick=()=>radarRun(()=>radarPerformance());$('#radarArchive').onclick=()=>radarRun(()=>radarArchives());$('#radarDaily').onclick=()=>radarRun(()=>radarDigest('daily'));$('#radarWeekly').onclick=()=>radarRun(()=>radarDigest('weekly'));$('#radarSettings').onclick=()=>radarSettings();$('#radarSync').onclick=()=>radarRun(async()=>{if(radarUi.loading)return;radarUi.loading=true;$('#radarSync').disabled=true;$('#radarSync').textContent='Menyinkronkan…';try{const result=await rPost('sync',{});await radarLoad();toast(`${result.news} link berita · ${result.videos} video diperiksa${result.errors.length?' · Ada sumber belum tersinkron':''}`)}finally{radarUi.loading=false;if($('#radarSync')){$('#radarSync').disabled=false;$('#radarSync').textContent='Sinkronkan'}}});body.querySelector('.radar-tabs').onclick=e=>{const b=e.target.closest('[data-r-tab]');if(!b)return;radarUi.tab=b.dataset.rTab;radarUi.limit=10;body.querySelectorAll('[data-r-tab]').forEach(x=>x.setAttribute('aria-selected',x===b));radarList()};$('#radarList').onclick=e=>radarRun(async()=>{const b=e.target.closest('[data-r-issue],[data-r-channel-add],[data-r-channel-ai],[data-r-video],[data-r-more],[data-r-channel-view]');if(!b)return;if(b.hasAttribute('data-r-channel-view')){radarUi.channelAll=!radarUi.channelAll;return radarList()}if(b.hasAttribute('data-r-more')){radarUi.limit+=10;return radarList()}if(b.dataset.rIssue)return radarIssue(b.dataset.rIssue);if(b.hasAttribute('data-r-channel-add'))return radarChannel();if(b.dataset.rChannelAi)return radarAI('analysis',{channelId:b.dataset.rChannelAi,script:''});if(b.dataset.rVideo){const [channelId,id]=b.dataset.rVideo.split(':');const c=radarUi.data.channels.find(c=>c.id===channelId),v=c.videos.find(v=>v.id===id);return radarSource(null,{url:v.url,title:v.title,publisher:c.name,publishedAt:v.publishedAt,excerpt:v.description||''});}});$('#radarList').onchange=e=>{const select=e.target.closest('[data-r-video-feedback]');if(!select)return;radarRun(async()=>{const [id,videoId]=select.dataset.rVideoFeedback.split(':'),channel=radarUi.data.channels.find(c=>c.id===id);select.disabled=true;try{await rPost('channels/'+id+'/feedback',{videoId,choice:select.value,revision:channel.revision},'PATCH');await radarLoad();toast('Pilihan video tersimpan.');}catch(error){await radarLoad().catch(()=>{});throw error;}finally{if(select.isConnected)select.disabled=false;}});};if(!radarUi.refreshTimer)radarUi.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!rDialog.open&&!radarUi.loading&&$('#radarPanel')&&$('#radarPanel').offsetParent!==null)radarLoad().catch(()=>{});},5*60*1000);if(window.HubRadarSocial)HubRadarSocial.render($('#radarSocialFront'));radarRun(()=>radarLoad());};
+
+window.HubRadarSocial=(()=>{
+  let isScanning=false,reportData=null;
+  const date=value=>!value?'Belum pernah dipindai':new Date(value).toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})+' WIB';
+  const stars=score=>{const s=Math.max(1,Math.min(5,Number(score)||4));return '★'.repeat(s)+'☆'.repeat(5-s)+` (${s}/5)`;};
+  const platformBadgeClass=p=>/x|twitter/i.test(p)?'badge-twitter':/tiktok/i.test(p)?'badge-tiktok':'badge-forum';
+  async function load(host){
+    const container=host.querySelector('[data-social-body]');if(!container)return;
+    try{
+      const data=await api('/api/radar/social-intelligence');
+      reportData=data;renderBody(host,data);
+    }catch(e){
+      container.innerHTML=`<div class="notice">Gagal memuat radar intelijen sosmed: ${esc(e.message)}</div><button type="button" class="btn" data-social-retry>Coba lagi</button>`;
+    }
+  }
+  function renderBody(host,data){
+    const container=host.querySelector('[data-social-body]');
+    const statusText=host.querySelector('[data-social-status]');
+    const scanBtn=host.querySelector('#radarSocialScanBtn');
+    if(!container)return;
+    if(statusText)statusText.textContent=data.lastScanAt?`Terakhir: ${date(data.lastScanAt)}`:'Belum pernah dipindai';
+    if(scanBtn){scanBtn.disabled=data.isScanning||isScanning;scanBtn.textContent=(data.isScanning||isScanning)?'⚡ Memindai Sosmed...':'⚡ Pindai Sosmed Sekarang';}
+    if(data.isScanning||isScanning){
+      container.innerHTML=`<div class="radar-social-loading"><p><strong>⚡ Sedang memantau sinyal viral sosmed & tren pencarian...</strong></p><p class="hint">Gemini 3.5 Flash sedang mengkurasi Top 5 ide investigasi terbaik berdasarkan 7 Pilar (Politik, Ekonomi, Geopolitik, Sisi Gelap, Hukum, Investigasi, Kebijakan).</p></div>`;
+      return;
+    }
+    if(!data.items||!data.items.length){
+      container.innerHTML=`<div class="hub-panel empty radar-social-empty"><p>Belum ada data intelijen sosmed terbaru.</p><p class="hint">Klik tombol <strong>⚡ Pindai Sosmed Sekarang</strong> di atas untuk memindai tren X/Twitter, TikTok, & Google Trends secara langsung.</p></div>`;
+      return;
+    }
+    container.innerHTML=`<div class="radar-social-grid">${data.items.map((item,idx)=>`
+      <article class="radar-social-card" data-card-id="${esc(item.id)}">
+        <div class="radar-social-card-head">
+          <div class="radar-social-tags">
+            <span class="radar-social-rank">#${idx+1}</span>
+            <span class="radar-social-badge ${platformBadgeClass(item.platform)}">${esc(item.platform)}</span>
+            <span class="radar-social-pillar">${esc(item.pillar)}</span>
+          </div>
+          <div class="radar-social-score" title="Skor Potensi Investigasi & Viralitas">
+            <span class="star-text">${stars(item.viralityScore)}</span>
+          </div>
+        </div>
+        <h4 class="radar-social-title">${esc(item.title)}</h4>
+        <div class="radar-social-section">
+          <span class="radar-social-label">🔥 Konteks Netizen:</span>
+          <p>${esc(item.netizenSummary)}</p>
+        </div>
+        <div class="radar-social-section angle-section">
+          <span class="radar-social-label">🔍 Sudut Investigasi REFRAME:</span>
+          <p>${esc(item.recommendedAngle)}</p>
+        </div>
+        ${item.suggestedHook?`
+          <div class="radar-social-section hook-section">
+            <span class="radar-social-label">🎙️ Hook Pembuka (5 Detik):</span>
+            <p><em>"${esc(item.suggestedHook)}"</em></p>
+          </div>`:''}
+        <div class="radar-social-card-footer">
+          ${item.sourceUrl?`<a href="${esc(item.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="radar-social-source-link">Lihat Sumber ↗</a>`:'<span></span>'}
+          <button type="button" class="btn primary mini radar-to-kanban-btn" data-to-kanban-id="${esc(item.id)}">+ Jadikan Konten Kanban</button>
+        </div>
+      </article>`).join('')}</div>`;
+  }
+  async function triggerScan(host){
+    if(isScanning)return;
+    isScanning=true;renderBody(host,{...(reportData||{}),isScanning:true});
+    try{
+      const res=await api('/api/radar/social-intelligence/scan',{method:'POST',body:'{}'});
+      reportData=res;toast('Pemindaian radar sosmed selesai! Top 5 ide berhasil dirumuskan.');
+      renderBody(host,res);
+      if(typeof window.radarLoad==='function')window.radarLoad().catch(()=>{});
+    }catch(e){
+      toast('Gagal memindai: '+e.message);
+      if(reportData)renderBody(host,reportData);else load(host);
+    }finally{
+      isScanning=false;
+      const scanBtn=host.querySelector('#radarSocialScanBtn');
+      if(scanBtn){scanBtn.disabled=false;scanBtn.textContent='⚡ Pindai Sosmed Sekarang';}
+    }
+  }
+  async function convertToKanban(host,itemId,buttonEl){
+    if(!buttonEl||buttonEl.disabled)return;
+    const oldText=buttonEl.textContent;buttonEl.disabled=true;buttonEl.textContent='Menambahkan...';
+    try{
+      const res=await api('/api/radar/social-intelligence/to-kanban',{method:'POST',body:JSON.stringify({id:itemId})});
+      toast(`Ide "${res.content.title}" berhasil masuk ke Kanban (kolom Ide)!`);
+      buttonEl.textContent='✓ Tersimpan di Kanban';
+      buttonEl.classList.remove('primary');buttonEl.classList.add('success-state');
+    }catch(e){
+      buttonEl.disabled=false;buttonEl.textContent=oldText;toast('Gagal menambahkan ke Kanban: '+e.message);
+    }
+  }
+  function render(host){
+    if(!host)return;
+    host.innerHTML=`
+      <div class="radar-social-heading">
+        <div>
+          <span class="eyebrow">INTELIJEN SOSMED & 7 PILAR</span>
+          <h3>Radar Intelijen Sosmed & Ide Potensial</h3>
+          <p class="hint">Memantau tren percakapan X/Twitter, TikTok, & Forum Publik berdasarkan 7 Pilar Investigasi (Politik, Ekonomi, Geopolitik, Sisi Gelap, Hukum, Investigasi, Kebijakan). Otomatis 1x sehari + pemindaian mandiri.</p>
+        </div>
+        <div class="radar-social-controls">
+          <span class="radar-social-status" data-social-status>Memuat...</span>
+          <button type="button" class="btn primary" id="radarSocialScanBtn">⚡ Pindai Sosmed Sekarang</button>
+        </div>
+      </div>
+      <div data-social-body aria-live="polite">
+        <p class="hint">Memuat radar intelijen sosmed...</p>
+      </div>`;
+    host.onclick=e=>{
+      const scanBtn=e.target.closest('#radarSocialScanBtn');if(scanBtn){triggerScan(host);return;}
+      const retryBtn=e.target.closest('[data-social-retry]');if(retryBtn){load(host);return;}
+      const kanbanBtn=e.target.closest('[data-to-kanban-id]');if(kanbanBtn){convertToKanban(host,kanbanBtn.dataset.toKanbanId,kanbanBtn);return;}
+    };
+    void load(host);
+  }
+  return {render};
+})();
+
+window.renderRadar=body=>{
+  const existing=body.querySelector('#radarPanel');
+  if(existing){
+    window.HubRadarSocial.render(existing.querySelector('#radarSocialFront'));
+    return;
+  }body.innerHTML=`<section id="radarPanel"><div class="radar-hero"><div><span class="eyebrow">EDITORIAL RADAR</span><h2>Radar Konten</h2><p>Isu penting, konteks sumber, dan prioritas riset.</p></div><div class="feature-actions"><button class="btn primary" id="radarSync">Sinkronkan</button><button class="btn" id="radarSettings">Topik & Sumber</button><details class="radar-actions-menu"><summary class="btn">Menu Radar</summary><div class="radar-actions-popover"><button class="btn" id="radarDaily">Ringkasan harian</button><button class="btn" id="radarWeekly">Ringkasan mingguan</button><button class="btn" id="radarArchive">Arsip & jadwal</button><button class="btn" id="radarPromptLibrary">Pustaka prompt</button><button class="btn" id="radarUsage">Riwayat AI</button><button class="btn" id="radarPerformance">Performa konten</button></div></details></div></div><div id="radarFocusSummary" class="radar-focus-summary" role="status"></div><section id="radarSocialFront" class="radar-social-front" aria-label="Radar Intelijen Sosmed & Ide Potensial"><p class="hint">Memuat radar intelijen sosmed…</p></section><section id="radarExecutiveFront" class="radar-executive-front" aria-label="Ringkasan eksekutif"><div class="radar-executive-tabs" role="tablist" aria-label="Periode ringkasan eksekutif"><button class="btn primary" role="tab" data-executive-period="daily" aria-selected="true">Harian</button><button class="btn" role="tab" data-executive-period="weekly" aria-selected="false">Mingguan</button></div><div id="radarExecutiveFrontBody" aria-live="polite"><p class="hint">Memuat ringkasan eksekutif…</p></div></section><section id="radarTrends" class="radar-trends" aria-label="Tren kata kunci"><p class="hint">Memuat tren kata kunci…</p></section><div id="radarError" class="notice hide" role="alert"></div><div class="radar-tabs" role="tablist">${[['issues','Hot isu'],['channels','Pantauan Channel'],['references','Referensi']].map(([id,title])=>`<button role="tab" data-r-tab="${id}" aria-selected="${id===radarUi.tab}">${title}</button>`).join('')}</div><div class="radar-tools"><input id="radarSearch" aria-label="Cari Radar" placeholder="Cari isu atau channel…"><select id="radarTopic" aria-label="Filter topik"><option value="">Semua topik</option></select><select id="radarStatus" aria-label="Filter status"><option value="">Semua status</option>${Object.entries(rStatus).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select><select id="radarPlatform" aria-label="Filter platform"><option value="">Semua sumber</option><option value="YouTube">Video YouTube</option><option value="Berita / Web">Artikel / berita</option></select><select id="radarPeriod" aria-label="Periode liputan"><option value="24">24 jam</option><option value="72" selected>3 hari</option><option value="168">7 hari</option></select><button class="btn" id="radarAdd">+ Link referensi</button></div><div id="radarCoverage"></div><div id="radarMethodology"></div><div id="radarList"><div class="hub-panel empty">Memuat Radar…</div></div><div id="radarFooter" class="hint"></div></section>`;body.querySelector('.radar-actions-menu').onclick=e=>{if(e.target.closest('button'))e.currentTarget.open=false;};$('#radarExecutiveFront').onclick=e=>{const button=e.target.closest('[data-executive-period],[data-executive-retry]');if(!button)return;if(button.dataset.executivePeriod)radarUi.executivePeriod=button.dataset.executivePeriod;radarInlineSchedule();};$('#radarSearch').value=radarUi.q;$('#radarSearch').oninput=e=>{radarUi.q=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarTopic').onchange=e=>{radarUi.topic=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarStatus').value=radarUi.status;$('#radarStatus').onchange=e=>{radarUi.status=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPlatform').value=radarUi.platform;$('#radarPlatform').onchange=e=>{radarUi.platform=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPeriod').value=radarUi.period;$('#radarPeriod').onchange=e=>{radarUi.period=Number(e.target.value);radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarAdd').onclick=()=>radarSource();$('#radarPromptLibrary').onclick=()=>radarRun(()=>radarPromptLibrary());$('#radarUsage').onclick=()=>radarRun(()=>radarUsage());$('#radarPerformance').onclick=()=>radarRun(()=>radarPerformance());$('#radarArchive').onclick=()=>radarRun(()=>radarArchives());$('#radarDaily').onclick=()=>radarRun(()=>radarDigest('daily'));$('#radarWeekly').onclick=()=>radarRun(()=>radarDigest('weekly'));$('#radarSettings').onclick=()=>radarSettings();$('#radarSync').onclick=()=>radarRun(async()=>{if(radarUi.loading)return;radarUi.loading=true;$('#radarSync').disabled=true;$('#radarSync').textContent='Menyinkronkan…';try{const result=await rPost('sync',{});await radarLoad();toast(`${result.news} link berita · ${result.videos} video diperiksa${result.errors.length?' · Ada sumber belum tersinkron':''}`)}finally{radarUi.loading=false;if($('#radarSync')){$('#radarSync').disabled=false;$('#radarSync').textContent='Sinkronkan'}}});body.querySelector('.radar-tabs').onclick=e=>{const b=e.target.closest('[data-r-tab]');if(!b)return;radarUi.tab=b.dataset.rTab;radarUi.limit=10;body.querySelectorAll('[data-r-tab]').forEach(x=>x.setAttribute('aria-selected',x===b));radarList()};$('#radarList').onclick=e=>radarRun(async()=>{const b=e.target.closest('[data-r-issue],[data-r-channel-add],[data-r-channel-ai],[data-r-video],[data-r-more],[data-r-channel-view]');if(!b)return;if(b.hasAttribute('data-r-channel-view')){radarUi.channelAll=!radarUi.channelAll;return radarList()}if(b.hasAttribute('data-r-more')){radarUi.limit+=10;return radarList()}if(b.dataset.rIssue)return radarIssue(b.dataset.rIssue);if(b.hasAttribute('data-r-channel-add'))return radarChannel();if(b.dataset.rChannelAi)return radarAI('analysis',{channelId:b.dataset.rChannelAi,script:''});if(b.dataset.rVideo){const [channelId,id]=b.dataset.rVideo.split(':');const c=radarUi.data.channels.find(c=>c.id===channelId),v=c.videos.find(v=>v.id===id);return radarSource(null,{url:v.url,title:v.title,publisher:c.name,publishedAt:v.publishedAt,excerpt:v.description||''});}});$('#radarList').onchange=e=>{const select=e.target.closest('[data-r-video-feedback]');if(!select)return;radarRun(async()=>{const [id,videoId]=select.dataset.rVideoFeedback.split(':'),channel=radarUi.data.channels.find(c=>c.id===id);select.disabled=true;try{await rPost('channels/'+id+'/feedback',{videoId,choice:select.value,revision:channel.revision},'PATCH');await radarLoad();toast('Pilihan video tersimpan.');}catch(error){await radarLoad().catch(()=>{});throw error;}finally{if(select.isConnected)select.disabled=false;}});};if(!radarUi.refreshTimer)radarUi.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!rDialog.open&&!radarUi.loading&&$('#radarPanel')&&$('#radarPanel').offsetParent!==null)radarLoad().catch(()=>{});},5*60*1000);if(window.HubRadarSocial)HubRadarSocial.render($('#radarSocialFront'));radarRun(()=>radarLoad());};
 function radarAIPath(){return '/api/radar'+(radarUi.aiProvider?'?aiProvider='+encodeURIComponent(radarUi.aiProvider):'');}
 function radarVideoMetadata(video){return `<div class="radar-video">${/^https:\/\/i\.ytimg\.com\//.test(video.thumbnail)?'<img src="'+esc(video.thumbnail)+'" alt="Thumbnail video" loading="lazy">':''}<span class="hint">${rNum(video.viewCount)} views · ${esc(video.duration||'Durasi belum tersedia')}</span></div>`;}
 function radarGroupingReport(report){
