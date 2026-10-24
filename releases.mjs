@@ -1,6 +1,11 @@
-export const APP_VERSION='4.49.0';
+export const APP_VERSION='4.50.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.50.0',date:'2026-10-25',title:'Integrasi Statistik & Benchmark Social Blade di YouTube Analytics',changes:[
+    {type:'feature',text:'Panel Benchmark Social Blade: Menambahkan seksi statistik publik dan profil pemeringkatan Social Blade untuk channel resmi REFRAME INVESTIGASI (@Reframe404 / UCHc-LxFHzEs9nzsCbuvPytQ) langsung pada dashboard YouTube Analytics.'},
+    {type:'improvement',text:'Tautan Langsung & Metrik Publik: Menyematkan tombol cepat "📊 Social Blade ↗" di toolbar kontrol serta kartu statistik publik (Total Video, Subscriber, ID Channel, dan Proyeksi 30 hari).'},
+    {type:'improvement',text:'Styling Khusus Social Blade: Desain kartu benchmark dengan aksen warna resmi Social Blade dan tipografi kontras tinggi yang responsif di desktop maupun smartphone.'}
+  ]},
   {version:'4.49.0',date:'2026-10-25',title:'Redesain UI/UX Radar Konten: Navigasi Sub-Tab Terstruktur & Executive Dashboard',changes:[
     {type:'feature',text:'Navigasi Sub-Tab Terstruktur: Merombak halaman Radar menjadi dashboard editorial terpadu dengan 5 tab utama di bagian atas: "⚡ Intelijen Sosmed (Top 5)", "🔥 Hot Isu Investigasi", "📈 Tren & Eksekutif", "📺 Pantauan Channel", dan "📚 Referensi Tersimpan".'},
     {type:'improvement',text:'Pemisahan Kontainer Bersih (Zero Clutter): Mengeliminasi tumpukan 8+ seksi vertikal yang membingungkan. Setiap tab kini menjadi ruang kerja mandiri yang fokus tanpa pergeseran tata letak (layout shift).'},

@@ -23,12 +23,64 @@ function anChange(value, previous) {
   const percent = (value - previous) / Math.abs(previous) * 100;
   return `<span class="an-delta ${percent > 0 ? 'positive' : percent < 0 ? 'negative' : ''}">${percent > 0 ? '+' : ''}${anNumber(percent, 1)}% dari periode sebelumnya</span>`;
 }
+function renderSocialBladeCard(channelId, channelTitle) {
+  const cid = channelId || 'UCHc-LxFHzEs9nzsCbuvPytQ';
+  const ctitle = channelTitle || 'REFRAME INVESTIGASI';
+  const sbUrl = `https://socialblade.com/youtube/channel/${encodeURIComponent(cid)}`;
+  const ytUrl = `https://www.youtube.com/channel/${encodeURIComponent(cid)}`;
+  return `<section class="hub-panel an-socialblade-card" aria-label="Statistik & Benchmark Social Blade">
+    <div class="an-sb-head">
+      <div>
+        <div class="an-sb-badges">
+          <span class="an-sb-badge">SOCIAL BLADE BENCHMARK</span>
+          <span class="an-sb-subbadge">ID: ${esc(cid)}</span>
+        </div>
+        <h3>Statistik & Pemeringkatan Publik (@Reframe404)</h3>
+        <p class="hint">Memantau metrik visibilitas publik, indeks peringkat, dan estimasi pertumbuhan dari Social Blade.</p>
+      </div>
+      <div class="an-sb-actions">
+        <a href="${sbUrl}" target="_blank" rel="noopener noreferrer" class="btn primary mini">
+          📊 Buka Profil Social Blade ↗
+        </a>
+        <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="btn mini">
+          Channel YouTube ↗
+        </a>
+      </div>
+    </div>
+    <div class="an-sb-grid">
+      <div class="an-sb-stat">
+        <span class="an-sb-label">Channel Terhubung</span>
+        <strong>${esc(ctitle)}</strong>
+        <small class="hint">Handle: @Reframe404</small>
+      </div>
+      <div class="an-sb-stat">
+        <span class="an-sb-label">Publikasi Video</span>
+        <strong>207+ Video</strong>
+        <small class="hint">Termasuk video panjang & Shorts</small>
+      </div>
+      <div class="an-sb-stat">
+        <span class="an-sb-label">Subscriber Terpantau</span>
+        <strong>649 Subscriber</strong>
+        <small class="hint">Tercatat pada pelacak publik</small>
+      </div>
+      <div class="an-sb-stat">
+        <span class="an-sb-label">Social Blade Benchmark</span>
+        <strong>Peringkat & Pertumbuhan 30 Hari</strong>
+        <small class="hint">Grade, SB Rank, Country Rank & Estimasi</small>
+      </div>
+    </div>
+  </section>`;
+}
+
 window.renderAnalytics = body => {
   const key = analyticsChannelKey();
   if (analyticsUi.key !== key) { analyticsUi.key = key; analyticsUi.data = null; analyticsUi.error = null; analyticsUi.loading = false; analyticsUi.loadedAt = 0; analyticsUi.serial++; window.resetVideoAnalytics?.(); }
   if (body.querySelector('#analyticsPanel') && body.dataset.analyticsKey === key) return;
   body.dataset.analyticsKey = key;
-  body.innerHTML = `<div id="analyticsPanel"><div class="an-toolbar hub-panel"><div class="an-channel"><div class="an-avatar">▶</div><div><strong>${esc(state.server?.channel?.title || 'Channel YouTube')}</strong><div class="hint">Performa channel terhubung</div></div></div><div class="an-controls"><label>Periode<select id="analyticsPeriod"><option value="7">7 hari terakhir</option><option value="28">28 hari terakhir</option><option value="90">90 hari terakhir</option><option value="365">365 hari terakhir</option><option value="custom">Tanggal khusus</option></select></label><button id="analyticsReload" class="btn">Muat ulang</button><button id="analyticsExport" class="btn" disabled>Ekspor CSV</button></div><form id="analyticsDates" class="an-dates hide"><label>Dari<input type="date" id="analyticsStart" required></label><label>Sampai<input type="date" id="analyticsEnd" required></label><button class="btn" type="submit">Terapkan</button></form></div>${videoAnalyticsShell()}<div id="analyticsResults" aria-live="polite"></div></div>`;
+  const channelId = state.server?.channel?.id || 'UCHc-LxFHzEs9nzsCbuvPytQ';
+  const channelTitle = state.server?.channel?.title || 'REFRAME INVESTIGASI';
+  const sbUrl = `https://socialblade.com/youtube/channel/${encodeURIComponent(channelId)}`;
+  body.innerHTML = `<div id="analyticsPanel"><div class="an-toolbar hub-panel"><div class="an-channel"><div class="an-avatar">▶</div><div><strong>${esc(channelTitle)}</strong><div class="hint">Performa channel terhubung · @Reframe404</div></div></div><div class="an-controls"><label>Periode<select id="analyticsPeriod"><option value="7">7 hari terakhir</option><option value="28">28 hari terakhir</option><option value="90">90 hari terakhir</option><option value="365">365 hari terakhir</option><option value="custom">Tanggal khusus</option></select></label><button id="analyticsReload" class="btn">Muat ulang</button><a href="${sbUrl}" target="_blank" rel="noopener noreferrer" class="btn an-sb-btn" title="Lihat pemeringkatan publik dan estimasi di Social Blade">📊 Social Blade ↗</a><button id="analyticsExport" class="btn" disabled>Ekspor CSV</button></div><form id="analyticsDates" class="an-dates hide"><label>Dari<input type="date" id="analyticsStart" required></label><label>Sampai<input type="date" id="analyticsEnd" required></label><button class="btn" type="submit">Terapkan</button></form></div>${renderSocialBladeCard(channelId, channelTitle)}${videoAnalyticsShell()}<div id="analyticsResults" aria-live="polite"></div></div>`;
   $('#analyticsPeriod').value = analyticsUi.period; $('#analyticsStart').value = analyticsUi.startDate; $('#analyticsEnd').value = analyticsUi.endDate;
   $('#analyticsDates').classList.toggle('hide', analyticsUi.period !== 'custom');
   $('#analyticsPeriod').onchange = e => { analyticsUi.period = e.target.value; $('#analyticsDates').classList.toggle('hide', analyticsUi.period !== 'custom'); if (analyticsUi.period !== 'custom') reloadAnalyticsView(); };
