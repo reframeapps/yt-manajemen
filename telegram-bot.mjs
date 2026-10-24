@@ -242,7 +242,7 @@ function getActiveAiConfig() {
   const geminiKey = process.env.GEMINI_API_KEY || '';
   const groqKey = process.env.GROQ_API_KEY || '';
   const openAiKey = process.env.OPENAI_API_KEY || '';
-  const defaultGeminiModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const defaultGeminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
   
   if (provider === 'gemini' && geminiKey) return { provider: 'gemini', key: geminiKey, model: defaultGeminiModel };
   if (provider === 'groq' && groqKey) return { provider: 'groq', key: groqKey, model: 'llama-3.3-70b-versatile' };
@@ -293,16 +293,19 @@ async function queryLLM({ provider, key, model, messages, systemPrompt }) {
       parts: [{ text: m.text }]
     }));
     
-    // Primary model: gemini-3.8-flash, fallback: gemini-flash-latest, gemini-3.5-flash
-    const modelsToTry = [model || 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash', 'gemini-2.5-flash'];
+    // Primary models with proven live availability
+    const modelsToTry = [model || 'gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
     let lastErr = null;
     
     for (const m of modelsToTry) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${key}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
         const res = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': key
+          },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents: geminiMsgs,
