@@ -453,6 +453,9 @@ Anda bisa chat langsung apa saja tanpa format kaku:
 • <code>/radar</code> atau <code>/tren</code> - Pantau isu & tren investigasi terhangat
 • Atau cukup ketik santai: <i>"Cek trend isue"</i> atau <i>"Isu terkini"</i>
 
+🎨 <b>Studio Visual & Thumbnail:</b>
+• <code>/thumbnail [topik]</code> atau <code>/gambar [topik]</code> - Rancang konsep visual thumbnail 16:9 + prompt AI generator siap pakai
+
 🤖 <b>Kecerdasan AI (LLM):</b>
 • <code>/ai</code> - Cek status koneksi AI provider aktif
 • <code>/setkey gemini [KEY]</code> - Pasang API Key Gemini (gratis di Google AI Studio)
@@ -831,6 +834,39 @@ async function handleMessage(msg) {
     } catch (err) {
       await sendMessage(chatId, `❌ Gagal memuat radar isu: ${err.message}`);
       return;
+    }
+  }
+
+  // 4. Command & Intent: Studio Visual & Thumbnail
+  if (text.startsWith('/thumbnail ') || text.startsWith('/gambar ')) {
+    const topic = text.slice(text.indexOf(' ') + 1).trim();
+    if (!topic) {
+      await sendMessage(chatId, '⚠️ Masukkan topik visual/thumbnail. Contoh: <code>/thumbnail Skandal Tambang Ilegal</code>');
+      return;
+    }
+    await sendTyping(chatId);
+    try {
+      const visualPrompt = `Rancang konsep visual thumbnail YouTube 16:9 untuk topik investigasi: "${topic}".
+Format jawaban dengan rapi:
+1. Komposisi Visual & Objek Utama (Focal Point yang langsung menarik mata penonton di feed YouTube).
+2. Mood Pencahayaan & Kontras Warna (Teknik chiaroscuro, visual dramatis ala dokumenter kriminal).
+3. 3 Rekomendasi Teks Thumbnail (Maksimal 2-3 kata, huruf kapital tebal, pemicu rasa penasaran tanpa clickbait murahan).
+4. Prompt Bahasa Inggris Siap Pakai untuk AI Image Generator (Midjourney / Ideogram / Bing Image Creator) dengan aspek rasio 16:9 (--ar 16:9).`;
+
+      const aiConfig = getActiveAiConfig();
+      if (aiConfig) {
+        const reply = await queryLLM({
+          provider: aiConfig.provider,
+          key: aiConfig.key,
+          model: aiConfig.model,
+          messages: [{ role: 'user', text: visualPrompt }],
+          systemPrompt: 'Kamu adalah Art Director & Visual Thumbnail Strategist untuk channel YouTube investigasi "REFRAME INVESTIGASI". Berikan output yang terstruktur, tajam, dan siap eksekusi.'
+        });
+        await sendSmartMessage(chatId, `🎨 <b>Studio Visual & Thumbnail REFRAME:</b>\n\n📌 <b>Topik:</b> ${topic}\n\n${reply}`);
+        return;
+      }
+    } catch (err) {
+      console.error('Thumbnail gen error:', err);
     }
   }
 

@@ -1,6 +1,10 @@
-export const APP_VERSION='4.44.0';
+export const APP_VERSION='4.45.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.45.0',date:'2026-10-25',title:'Studio Visual & Perancang Thumbnail YouTube Otomatis',changes:[
+    {type:'feature',text:'Studio Visual & Thumbnail (/thumbnail, /gambar): Bot kini memiliki modul art director yang mampu merancang komposisi visual 16:9, mood pencahayaan dramatis, pilihan teks thumbnail high-CTR, serta menghasilkan prompt AI berbahasa Inggris siap pakai untuk Midjourney, Ideogram, dan Bing Image Creator.'},
+    {type:'feature',text:'Optimalisasi Model Gemini 3.5 Flash: Menggunakan model aktif tercepat dengan otentikasi header x-goog-api-key dan multi-level fallback (gemini-3.5-flash-lite, gemini-3.1-flash-lite) untuk respon instan di Telegram.'}
+  ]},
   {version:'4.44.0',date:'2026-10-25',title:'Integrasi Radar Tren & Isu Real-Time dan Perbaikan Formatting Telegram',changes:[
     {type:'feature',text:'Integrasi Radar Tren & Isu via Bot Telegram: Bot kini mengenali perintah dan pertanyaan seperti "Cek trend isue", "Isu terkini", "/radar", dan "/tren", langsung menarik data 150+ isu intelijen radar terkini dari database lengkap dengan analisis lensa (sistem, korban, aliran dana).'},
     {type:'fix',text:'Perbaikan Formatting HTML Telegram: Memperbaiki parser entity formatting agar tag <b>, <i>, <code> tidak bocor sebagai teks mentah literal di layar aplikasi Telegram, memastikan tampilan rapi, tebal, dan nyaman dibaca.'},
