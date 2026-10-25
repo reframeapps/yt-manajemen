@@ -18,12 +18,34 @@ export function saveSnapshot(channel,statistics,now=Date.now()) {
 }
 export function buildDailyHistory(channel,range,now=Date.now()) {
   const rows=[];
-  for(let day=range.startDate;day<=range.endDate;day=shift(day,1)) {
+  const today=pacificToday(now);
+  const snapshotDays=Object.keys(channel.snapshots||{}).filter(d=>now-Date.parse(channel.snapshots[d].capturedAt)<=30*DAY).sort();
+  const latestSnapshotDay=snapshotDays.at(-1);
+  const maxEnd=latestSnapshotDay&&latestSnapshotDay>range.endDate&&latestSnapshotDay<=today?latestSnapshotDay:range.endDate;
+  for(let day=range.startDate;day<=maxEnd;day=shift(day,1)) {
     const daily=channel.dailyHistory?.[day],fresh=daily&&now-Date.parse(daily.fetchedAt)<=30*DAY?daily:null;
     const current=channel.snapshots?.[day],snapshot=current&&now-Date.parse(current.capturedAt)<=30*DAY?current:null;
     const prior=channel.snapshots?.[shift(day,-1)],previous=prior&&now-Date.parse(prior.capturedAt)<=30*DAY?prior:null;
     const delta=key=>snapshot?.[key]!==null&&snapshot?.[key]!==undefined&&previous?.[key]!==null&&previous?.[key]!==undefined?snapshot[key]-previous[key]:null;
-    rows.push({day,hasAnalytics:!!fresh,views:finite(fresh?.views),watchHours:finite(fresh?.watchHours),subscribersGained:finite(fresh?.subscribersGained),subscribersLost:finite(fresh?.subscribersLost),netSubscribers:finite(fresh?.netSubscribers),totalSubscribers:snapshot?.subscribers??null,totalViews:snapshot?.views??null,totalVideos:snapshot?.videos??null,subscriberSnapshotChange:delta('subscribers'),viewSnapshotChange:delta('views'),videoChange:delta('videos'),capturedAt:snapshot?.capturedAt||null,fetchedAt:fresh?.fetchedAt||null});
+    rows.push({
+      day,
+      hasAnalytics:!!fresh,
+      isLive:day>=today,
+      isPending:!fresh&&day>=shift(today,-2),
+      views:finite(fresh?.views),
+      watchHours:finite(fresh?.watchHours),
+      subscribersGained:finite(fresh?.subscribersGained),
+      subscribersLost:finite(fresh?.subscribersLost),
+      netSubscribers:finite(fresh?.netSubscribers),
+      totalSubscribers:snapshot?.subscribers??null,
+      totalViews:snapshot?.views??null,
+      totalVideos:snapshot?.videos??null,
+      subscriberSnapshotChange:delta('subscribers'),
+      viewSnapshotChange:delta('views'),
+      videoChange:delta('videos'),
+      capturedAt:snapshot?.capturedAt||null,
+      fetchedAt:fresh?.fetchedAt||null
+    });
   }
   const available=rows.filter(r=>r.hasAnalytics),metric=key=>available.length?available.reduce((sum,r)=>sum+(r[key]??0),0):null;
   const snapshots=Object.values(channel.snapshots||{}).filter(r=>now-Date.parse(r.capturedAt)<=30*DAY).sort((a,b)=>a.day.localeCompare(b.day));

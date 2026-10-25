@@ -170,7 +170,7 @@ export class StudioAnalytics extends YouTubeAnalytics {
       }catch(e){if(e.code==='channel_changed')throw e;await this.persist(channelId,generation,channel=>{channel.dailySync={...channel.dailySync,status:'error',error:{code:e.code||'upstream_error',message:e.message},lastAttempt:new Date(this.now()).toISOString(),retryAt:new Date(this.now()+3600000).toISOString()}});}
       const current=await this.store.read(channelId),today=pacificToday(this.now());
       if(force)this.backoff.delete(channelId);
-      if(!current.snapshots?.[today])try{const response=await this.dataRequest(channelId,'channels',{part:'statistics',id:channelId}),own=response.items?.find(x=>x.id===channelId);if(own?.statistics)await this.persist(channelId,generation,channel=>saveSnapshot(channel,own.statistics,this.now()));}catch(e){if(e.code==='channel_changed')throw e;await this.persist(channelId,generation,channel=>{channel.snapshotError={code:e.code||'upstream_error',message:e.message,at:new Date(this.now()).toISOString()}});}
+      if(force||!current.snapshots?.[today])try{const response=await this.dataRequest(channelId,'channels',{part:'statistics',id:channelId}),own=response.items?.find(x=>x.id===channelId);if(own?.statistics)await this.persist(channelId,generation,channel=>saveSnapshot(channel,own.statistics,this.now()));}catch(e){if(e.code==='channel_changed')throw e;await this.persist(channelId,generation,channel=>{channel.snapshotError={code:e.code||'upstream_error',message:e.message,at:new Date(this.now()).toISOString()}});}
       this.cache.clear();return (await this.store.read(channelId)).dailySync;
     });
   }

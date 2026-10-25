@@ -1,6 +1,12 @@
-export const APP_VERSION='4.51.0';
+export const APP_VERSION='4.52.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.52.0',date:'2026-10-25',title:'Statistik Harian Terpadu: Penyelarasan Snapshot Live & Estimasi Audit Google',changes:[
+    {type:'feature',text:'Integrasi Baris Snapshot Live Hari Ini: Menampilkan baris snapshot tanggal terbaru (hingga hari ini) di tabel Statistik Harian tanpa terpotong oleh batasan query YouTube Analytics.'},
+    {type:'improvement',text:'Estimasi Pertumbuhan Snapshot Real-time: Jika audit resmi harian YouTube Analytics masih diproses Google (jeda 24–48 jam waktu Pacific), tabel menghitung dan menyajikan estimasi pertumbuhan dari selisih snapshot channel (bukan strip kosong).'},
+    {type:'improvement',text:'Status Badge Informatif: Menghadirkan badge visual transparan ("● Live Snapshot" untuk hari ini, "⏳ Proses Google" untuk hari kemarin dalam masa audit, dan "✓ Tersedia" untuk data terverifikasi).'},
+    {type:'feature',text:'Pembaruan Snapshot Instan Tombol Sinkronisasi: Tombol [Sinkronkan harian] kini secara seketika memperbarui snapshot total channel dari YouTube Data API saat diklik.'}
+  ]},
   {version:'4.51.0',date:'2026-10-25',title:'YouTube Live Data API & Eliminasi Bottleneck Cache Laporan Channel',changes:[
     {type:'improvement',text:'Penghapusan Total Social Blade: Menghilangkan modul Social Blade dari YouTube Analytics sesuai kebutuhan pengguna yang ingin fokus penuh pada data resmi YouTube.'},
     {type:'feature',text:'Sinkronisasi Live YouTube Data API: Menambahkan tombol "⚡ Sinkronkan Live API" dan opsi force refresh pada tombol "Muat ulang" yang langsung menghubungi endpoint YouTube Data API v3 (channels.list & videos.list statistics) secara seketika.'},
