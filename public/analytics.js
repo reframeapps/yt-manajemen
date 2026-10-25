@@ -23,79 +23,34 @@ function anChange(value, previous) {
   const percent = (value - previous) / Math.abs(previous) * 100;
   return `<span class="an-delta ${percent > 0 ? 'positive' : percent < 0 ? 'negative' : ''}">${percent > 0 ? '+' : ''}${anNumber(percent, 1)}% dari periode sebelumnya</span>`;
 }
-function renderSocialBladeCard(channelId, channelTitle) {
-  const cid = channelId || 'UCHc-LxFHzEs9nzsCbuvPytQ';
-  const ctitle = channelTitle || 'REFRAME INVESTIGASI';
-  const sbUrl = `https://socialblade.com/youtube/channel/${encodeURIComponent(cid)}`;
-  const ytUrl = `https://www.youtube.com/channel/${encodeURIComponent(cid)}`;
-  return `<section class="hub-panel an-socialblade-card" aria-label="Statistik & Benchmark Social Blade">
-    <div class="an-sb-head">
-      <div>
-        <div class="an-sb-badges">
-          <span class="an-sb-badge">SOCIAL BLADE BENCHMARK</span>
-          <span class="an-sb-subbadge">ID: ${esc(cid)}</span>
-        </div>
-        <h3>Statistik & Pemeringkatan Publik (@Reframe404)</h3>
-        <p class="hint">Memantau metrik visibilitas publik, indeks peringkat, dan estimasi pertumbuhan dari Social Blade.</p>
-      </div>
-      <div class="an-sb-actions">
-        <a href="${sbUrl}" target="_blank" rel="noopener noreferrer" class="btn primary mini">
-          📊 Buka Profil Social Blade ↗
-        </a>
-        <a href="${ytUrl}" target="_blank" rel="noopener noreferrer" class="btn mini">
-          Channel YouTube ↗
-        </a>
-      </div>
-    </div>
-    <div class="an-sb-grid">
-      <div class="an-sb-stat">
-        <span class="an-sb-label">Channel Terhubung</span>
-        <strong>${esc(ctitle)}</strong>
-        <small class="hint">Handle: @Reframe404</small>
-      </div>
-      <div class="an-sb-stat">
-        <span class="an-sb-label">Publikasi Video</span>
-        <strong>207+ Video</strong>
-        <small class="hint">Termasuk video panjang & Shorts</small>
-      </div>
-      <div class="an-sb-stat">
-        <span class="an-sb-label">Subscriber Terpantau</span>
-        <strong>649 Subscriber</strong>
-        <small class="hint">Tercatat pada pelacak publik</small>
-      </div>
-      <div class="an-sb-stat">
-        <span class="an-sb-label">Social Blade Benchmark</span>
-        <strong>Peringkat & Pertumbuhan 30 Hari</strong>
-        <small class="hint">Grade, SB Rank, Country Rank & Estimasi</small>
-      </div>
-    </div>
-  </section>`;
-}
 
 window.renderAnalytics = body => {
   const key = analyticsChannelKey();
   if (analyticsUi.key !== key) { analyticsUi.key = key; analyticsUi.data = null; analyticsUi.error = null; analyticsUi.loading = false; analyticsUi.loadedAt = 0; analyticsUi.serial++; window.resetVideoAnalytics?.(); }
   if (body.querySelector('#analyticsPanel') && body.dataset.analyticsKey === key) return;
   body.dataset.analyticsKey = key;
-  const channelId = state.server?.channel?.id || 'UCHc-LxFHzEs9nzsCbuvPytQ';
+  const channelId = state.server?.channel?.id || '';
   const channelTitle = state.server?.channel?.title || 'REFRAME INVESTIGASI';
-  const sbUrl = `https://socialblade.com/youtube/channel/${encodeURIComponent(channelId)}`;
-  body.innerHTML = `<div id="analyticsPanel"><div class="an-toolbar hub-panel"><div class="an-channel"><div class="an-avatar">▶</div><div><strong>${esc(channelTitle)}</strong><div class="hint">Performa channel terhubung · @Reframe404</div></div></div><div class="an-controls"><label>Periode<select id="analyticsPeriod"><option value="7">7 hari terakhir</option><option value="28">28 hari terakhir</option><option value="90">90 hari terakhir</option><option value="365">365 hari terakhir</option><option value="custom">Tanggal khusus</option></select></label><button id="analyticsReload" class="btn">Muat ulang</button><a href="${sbUrl}" target="_blank" rel="noopener noreferrer" class="btn an-sb-btn" title="Lihat pemeringkatan publik dan estimasi di Social Blade">📊 Social Blade ↗</a><button id="analyticsExport" class="btn" disabled>Ekspor CSV</button></div><form id="analyticsDates" class="an-dates hide"><label>Dari<input type="date" id="analyticsStart" required></label><label>Sampai<input type="date" id="analyticsEnd" required></label><button class="btn" type="submit">Terapkan</button></form></div>${renderSocialBladeCard(channelId, channelTitle)}${videoAnalyticsShell()}<div id="analyticsResults" aria-live="polite"></div></div>`;
+  const channelHandle = state.server?.channel?.customUrl || '@Reframe404';
+  body.innerHTML = `<div id="analyticsPanel"><div class="an-toolbar hub-panel"><div class="an-channel"><div class="an-avatar">▶</div><div><strong>${esc(channelTitle)}</strong><div class="hint">Performa channel terhubung · ${esc(channelHandle)}</div></div></div><div class="an-controls"><label>Periode<select id="analyticsPeriod"><option value="7">7 hari terakhir</option><option value="28">28 hari terakhir</option><option value="90">90 hari terakhir</option><option value="365">365 hari terakhir</option><option value="custom">Tanggal khusus</option></select></label><button id="analyticsReload" class="btn" title="Muat ulang laporan">Muat ulang</button><button id="analyticsSyncLive" class="btn primary mini" title="Sinkronkan metrik channel & video langsung dari YouTube Data API secara live">⚡ Sinkronkan Live API</button><button id="analyticsExport" class="btn" disabled>Ekspor CSV</button></div><form id="analyticsDates" class="an-dates hide"><label>Dari<input type="date" id="analyticsStart" required></label><label>Sampai<input type="date" id="analyticsEnd" required></label><button class="btn" type="submit">Terapkan</button></form></div>${videoAnalyticsShell()}<div id="analyticsResults" aria-live="polite"></div></div>`;
   $('#analyticsPeriod').value = analyticsUi.period; $('#analyticsStart').value = analyticsUi.startDate; $('#analyticsEnd').value = analyticsUi.endDate;
   $('#analyticsDates').classList.toggle('hide', analyticsUi.period !== 'custom');
   $('#analyticsPeriod').onchange = e => { analyticsUi.period = e.target.value; $('#analyticsDates').classList.toggle('hide', analyticsUi.period !== 'custom'); if (analyticsUi.period !== 'custom') reloadAnalyticsView(); };
   $('#analyticsDates').onsubmit = e => { e.preventDefault(); analyticsUi.startDate = $('#analyticsStart').value; analyticsUi.endDate = $('#analyticsEnd').value; reloadAnalyticsView(); };
-  $('#analyticsReload').onclick = () => { if (analyticsUi.period === 'custom') { analyticsUi.startDate = $('#analyticsStart').value; analyticsUi.endDate = $('#analyticsEnd').value; } reloadAnalyticsView(); };
+  $('#analyticsReload').onclick = () => { if (analyticsUi.period === 'custom') { analyticsUi.startDate = $('#analyticsStart').value; analyticsUi.endDate = $('#analyticsEnd').value; } reloadAnalyticsView(true); };
+  const syncLiveBtn = $('#analyticsSyncLive');
+  if (syncLiveBtn) syncLiveBtn.onclick = () => { if (analyticsUi.period === 'custom') { analyticsUi.startDate = $('#analyticsStart').value; analyticsUi.endDate = $('#analyticsEnd').value; } reloadAnalyticsView(true); };
   $('#analyticsExport').onclick = () => analyticsUi.mode==='videos'?exportVideoAnalytics():exportAnalytics();
   bindVideoAnalytics();
   renderAnalyticsResults();
   if (analyticsUi.mode==='channel' && !analyticsOAuthIssue && !analyticsUi.data && !analyticsUi.error && !analyticsUi.loading && state.server?.analyticsAuthorized) loadAnalytics();
 };
-async function loadAnalytics() {
+async function loadAnalytics(force = false) {
   analyticsOAuthIssue = '';
   const serial = ++analyticsUi.serial, key = analyticsChannelKey();
   analyticsUi.loading = true; analyticsUi.error = null; analyticsUi.data = null; renderAnalyticsResults();
   const query = analyticsUi.period === 'custom' ? new URLSearchParams({ startDate: analyticsUi.startDate, endDate: analyticsUi.endDate }) : new URLSearchParams({ days: analyticsUi.period });
+  if (force) query.set('refresh', '1');
   try {
     const r = await fetch('/api/analytics?' + query, { credentials: 'same-origin', signal: AbortSignal.timeout(75_000) });
     const d = await r.json(); if (!r.ok) throw Object.assign(new Error(d.error || `HTTP ${r.status}`), { code: d.code });
@@ -111,7 +66,9 @@ function renderAnalyticsResults() {
   if(analyticsUi.mode==='videos'){renderVideoAnalytics();return}
   $('#analyticsVideoBrowser')?.classList.add('hide');$('#analyticsResults')?.classList.remove('hide');
   const result = $('#analyticsResults'); if (!result) return;
-  $('#analyticsReload').disabled = analyticsUi.loading; $('#analyticsExport').disabled = !analyticsUi.data?.hasData || analyticsUi.loading;
+  $('#analyticsReload').disabled = analyticsUi.loading;
+  const syncBtn = $('#analyticsSyncLive'); if (syncBtn) syncBtn.disabled = analyticsUi.loading;
+  $('#analyticsExport').disabled = !analyticsUi.data?.hasData || analyticsUi.loading;
   if (analyticsOAuthIssue) { result.innerHTML = analyticsConnect(analyticsOAuthIssue); return; }
   if (!state.server?.youtubeConnected || !state.server?.analyticsAuthorized) { result.innerHTML = analyticsConnect('Berikan izin baca untuk menampilkan data YouTube langsung di ruang kerja ini.'); return; }
   if (analyticsUi.loading) { result.innerHTML = '<div class="hub-panel empty">Mengambil laporan YouTube…</div>'; return; }
@@ -124,7 +81,34 @@ function renderAnalyticsResults() {
   const s = d.summary, p = d.previous;
   const stats = [['Views', 'views', anNumber(s.views)], ['Jam tonton', 'watchHours', anNumber(s.watchHours, 1)], ['Subscriber bersih', 'netSubscribers', (s.netSubscribers > 0 ? '+' : '') + anNumber(s.netSubscribers)], ['Durasi tonton rata-rata', 'averageViewDuration', anDuration(s.averageViewDuration)], ['Likes', 'likes', anNumber(s.likes)], ['Komentar', 'comments', anNumber(s.comments)], ['Dibagikan', 'shares', anNumber(s.shares)], ['Subscriber baru', 'subscribersGained', anNumber(s.subscribersGained)]];
   const c = d.channel;
-  result.innerHTML = `<div class="an-period"><div><strong>${anDate(d.range.startDate)} – ${anDate(d.range.endDate)}</strong><div class="hint">Dibanding ${anDate(d.range.previousStart)} – ${anDate(d.range.previousEnd)}</div></div><span class="hint">Diambil ${new Date(d.generatedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'short', timeStyle: 'short' })} WIB${d.cached ? ' · cache 10 menit' : ''}</span></div>${d.warnings.length ? `<div class="notice an-warning">${d.warnings.map(w => `<div>${esc(({channel:'Statistik channel', videoDetails:'Judul video', previous:'Perbandingan', daily:'Tren harian', topVideos:'Video teratas'})[w.section] || w.section)}: ${esc(w.message)}</div>`).join('')}</div>` : ''}${!d.hasData ? '<div class="notice">YouTube belum mengembalikan data untuk periode ini. Pilih periode lain atau coba kembali setelah data diproses.</div>' : ''}${c ? `<div class="an-lifetime hub-panel"><strong>Total channel saat ini</strong><span><b>${c.subscribers === null ? 'Disembunyikan' : anNumber(c.subscribers)}</b> subscriber</span><span><b>${anNumber(c.lifetimeViews)}</b> total views</span><span><b>${anNumber(c.videoCount)}</b> video</span><span class="hint">Subscriber dapat dibulatkan oleh YouTube. Total channel berbeda dari periode laporan.</span></div>` : ''}<div class="an-stats">${stats.map(([label, key, val]) => `<div class="stat-card"><span>${label}</span><strong>${d.hasData ? val : '—'}</strong>${d.hasData ? anChange(s[key], p?.hasData ? p[key] : null) : '<span class="hint">Belum ada laporan</span>'}</div>`).join('')}</div><div class="hub-panel an-chart-panel"><div class="an-section-head"><div><h3>Tren harian</h3><p class="hint">Baris harian terakhir: ${anDate(d.lastReportedDay)}</p></div><select id="analyticsMetric" aria-label="Metrik grafik"><option value="views">Views</option><option value="watchHours">Jam tonton</option><option value="netSubscribers">Subscriber bersih</option></select></div><div id="analyticsChart"></div><details class="an-daily-details"><summary>Lihat angka harian</summary><div class="an-table-scroll">${analyticsDailyTable(d.daily)}</div></details></div><div class="hub-panel an-video-panel"><div class="an-section-head"><div><h3>10 video teratas</h3><p class="hint">Diurutkan berdasarkan views pada periode yang dipilih, termasuk video yang diupload di luar aplikasi.</p></div></div>${analyticsVideoTable(d.topVideos)}</div><p class="hub-footer">Tanggal laporan mengikuti waktu YouTube (Pacific), sementara kalender produksi memakai WIB. Data dapat terlambat atau direvisi oleh YouTube. Hari tanpa baris laporan tidak dianggap nol. Subscriber bersih = baru − berhenti (${anNumber(s.subscribersLost)}). Jam tonton Analytics bukan perhitungan jam tayang publik untuk monetisasi.</p>`;
+  const liveBannerHtml = `<div class="an-live-banner hub-panel">
+    <div class="an-live-head">
+      <div class="an-live-badge-row">
+        <span class="an-live-dot"></span>
+        <strong class="an-live-title">LIVE YOUTUBE DATA API</strong>
+        <span class="an-live-chip">Real-time Snapshot</span>
+      </div>
+      <div class="an-live-meta hint">Data subscriber, total views channel & video diperbarui langsung dari server YouTube · Pembaruan: <b>${new Date(d.generatedAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'short', timeStyle: 'short' })} WIB</b></div>
+    </div>
+    ${c ? `<div class="an-live-metrics">
+      <div class="an-live-metric-box">
+        <span class="an-live-metric-label">Total Subscriber</span>
+        <strong class="an-live-metric-val">${c.subscribers === null ? 'Disembunyikan' : anNumber(c.subscribers)}</strong>
+        <span class="an-live-metric-sub hint">${esc(c.customUrl || '@Reframe404')}</span>
+      </div>
+      <div class="an-live-metric-box">
+        <span class="an-live-metric-label">Total Views Channel</span>
+        <strong class="an-live-metric-val">${anNumber(c.lifetimeViews)}</strong>
+        <span class="an-live-metric-sub hint">Sepanjang masa channel</span>
+      </div>
+      <div class="an-live-metric-box">
+        <span class="an-live-metric-label">Total Video Aktif</span>
+        <strong class="an-live-metric-val">${anNumber(c.videoCount)}</strong>
+        <span class="an-live-metric-sub hint">Video publik & Shorts</span>
+      </div>
+    </div>` : ''}
+  </div>`;
+  result.innerHTML = `${liveBannerHtml}<div class="an-period"><div><strong>${anDate(d.range.startDate)} – ${anDate(d.range.endDate)}</strong><div class="hint">Dibanding ${anDate(d.range.previousStart)} – ${anDate(d.range.previousEnd)} · YouTube Analytics (Waktu Pacific)</div></div><span class="hint">${d.cached ? 'Laporan Analytics tersimpan (10 mnt)' : 'Laporan baru langsung dari API'}</span></div>${d.warnings.length ? `<div class="notice an-warning">${d.warnings.map(w => `<div>${esc(({channel:'Statistik channel', videoDetails:'Judul video', previous:'Perbandingan', daily:'Tren harian', topVideos:'Video teratas'})[w.section] || w.section)}: ${esc(w.message)}</div>`).join('')}</div>` : ''}${!d.hasData ? '<div class="notice">YouTube belum mengembalikan data untuk periode ini. Pilih periode lain atau coba kembali setelah data diproses.</div>' : ''}<div class="an-stats">${stats.map(([label, key, val]) => `<div class="stat-card"><span>${label}</span><strong>${d.hasData ? val : '—'}</strong>${d.hasData ? anChange(s[key], p?.hasData ? p[key] : null) : '<span class="hint">Belum ada laporan</span>'}</div>`).join('')}</div><div class="hub-panel an-chart-panel"><div class="an-section-head"><div><h3>Tren harian</h3><p class="hint">Baris harian terakhir: ${anDate(d.lastReportedDay)}</p></div><select id="analyticsMetric" aria-label="Metrik grafik"><option value="views">Views</option><option value="watchHours">Jam tonton</option><option value="netSubscribers">Subscriber bersih</option></select></div><div id="analyticsChart"></div><details class="an-daily-details"><summary>Lihat angka harian</summary><div class="an-table-scroll">${analyticsDailyTable(d.daily)}</div></details></div><div class="hub-panel an-video-panel"><div class="an-section-head"><div><h3>10 video teratas</h3><p class="hint">Diurutkan berdasarkan views pada periode yang dipilih, termasuk video yang diupload di luar aplikasi.</p></div></div>${analyticsVideoTable(d.topVideos)}</div><p class="hub-footer">Tanggal laporan mengikuti waktu YouTube (Pacific), sementara kalender produksi memakai WIB. Data dapat terlambat atau direvisi oleh YouTube. Hari tanpa baris laporan tidak dianggap nol. Subscriber bersih = baru − berhenti (${anNumber(s.subscribersLost)}). Jam tonton Analytics bukan perhitungan jam tayang publik untuk monetisasi.</p>`;
   $('#analyticsMetric').value = analyticsUi.metric; $('#analyticsMetric').onchange = e => { analyticsUi.metric = e.target.value; renderAnalyticsChart(); };
   result.querySelectorAll('[data-video-analytics]').forEach(button=>button.onclick=()=>openVideoAnalytics(button.dataset.videoAnalytics));
   result.querySelectorAll('[data-analytics-content]').forEach(button => button.onclick = () => openContent(button.dataset.analyticsContent));

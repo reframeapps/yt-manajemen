@@ -1,6 +1,12 @@
-export const APP_VERSION='4.50.0';
+export const APP_VERSION='4.51.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.51.0',date:'2026-10-25',title:'YouTube Live Data API & Eliminasi Bottleneck Cache Laporan Channel',changes:[
+    {type:'improvement',text:'Penghapusan Total Social Blade: Menghilangkan modul Social Blade dari YouTube Analytics sesuai kebutuhan pengguna yang ingin fokus penuh pada data resmi YouTube.'},
+    {type:'feature',text:'Sinkronisasi Live YouTube Data API: Menambahkan tombol "⚡ Sinkronkan Live API" dan opsi force refresh pada tombol "Muat ulang" yang langsung menghubungi endpoint YouTube Data API v3 (channels.list & videos.list statistics) secara seketika.'},
+    {type:'perf',text:'Pembaruan Cache Agresif & Cepat: Memperpendek interval sinkronisasi katalog dari 24 jam menjadi 1 jam dan meniadakan penundaan cache 30 hari untuk metrik channel utama, sehingga subscriber, total views, dan total video selalu aktual.'},
+    {type:'improvement',text:'Banner Real-Time Snapshot: Menampilkan header visual "LIVE YOUTUBE DATA API" dengan indikator status hijau aktif, waktu pembaruan WIB, dan ringkasan metrik seumur hidup channel (Total Subscriber, Total Views, Total Video).'}
+  ]},
   {version:'4.50.0',date:'2026-10-25',title:'Integrasi Statistik & Benchmark Social Blade di YouTube Analytics',changes:[
     {type:'feature',text:'Panel Benchmark Social Blade: Menambahkan seksi statistik publik dan profil pemeringkatan Social Blade untuk channel resmi REFRAME INVESTIGASI (@Reframe404 / UCHc-LxFHzEs9nzsCbuvPytQ) langsung pada dashboard YouTube Analytics.'},
     {type:'improvement',text:'Tautan Langsung & Metrik Publik: Menyematkan tombol cepat "📊 Social Blade ↗" di toolbar kontrol serta kartu statistik publik (Total Video, Subscriber, ID Channel, dan Proyeksi 30 hari).'},

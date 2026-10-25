@@ -17,14 +17,15 @@ function bindVideoAnalytics(){
   $('#allAnalyticsVideos').onclick=()=>{videoUi.id=null;videoUi.error=null;loadVideoAnalytics()};
   if(analyticsUi.mode==='videos'){renderVideoAnalytics();if(state.server?.analyticsAuthorized&&videoUi.key!==videoKey())loadVideoAnalytics()}
 }
-function reloadAnalyticsView(){return analyticsUi.mode==='videos'?loadVideoAnalytics():loadAnalytics()}
+function reloadAnalyticsView(force=false){return analyticsUi.mode==='videos'?loadVideoAnalytics(force):loadAnalytics(force)}
 function openVideoAnalytics(id){
   try{videoUi.id=parseYouTubeId(id);analyticsUi.mode='videos';document.querySelectorAll('[data-analytics-mode]').forEach(b=>b.classList.toggle('active',b.dataset.analyticsMode==='videos'));$('#videoIdInput').value=videoUi.id;loadVideoAnalytics()}catch(e){toast(e.message)}
 }
-async function loadVideoAnalytics(){
+async function loadVideoAnalytics(force=false){
   if(!state.server?.analyticsAuthorized){renderVideoAnalytics();return}
   const serial=++videoUi.serial,key=videoKey(),id=videoUi.id;videoUi.loading=true;videoUi.error=null;videoUi.data=null;videoUi.key=key;renderVideoAnalytics();
-  try{const r=await fetch('/api/analytics/videos'+(id?'/'+id:'')+'?'+analyticsQuery(),{credentials:'same-origin',signal:AbortSignal.timeout(75_000)}),data=await r.json();if(!r.ok)throw Object.assign(new Error(data.error||`HTTP ${r.status}`),{code:data.code});if(serial!==videoUi.serial||key!==videoKey())return;if(id)videoUi.data=data;else {videoUi.list=data;videoUi.listKey=analyticsChannelKey()+':'+analyticsQuery();}}
+  const q=analyticsQuery()+(force?'&refresh=1':'');
+  try{const r=await fetch('/api/analytics/videos'+(id?'/'+id:'')+'?'+q,{credentials:'same-origin',signal:AbortSignal.timeout(75_000)}),data=await r.json();if(!r.ok)throw Object.assign(new Error(data.error||`HTTP ${r.status}`),{code:data.code});if(serial!==videoUi.serial||key!==videoKey())return;if(id)videoUi.data=data;else {videoUi.list=data;videoUi.listKey=analyticsChannelKey()+':'+analyticsQuery();}}
   catch(e){if(serial!==videoUi.serial||key!==videoKey())return;videoUi.error={message:e.name==='TimeoutError'?'YouTube membutuhkan waktu lebih lama. Coba muat ulang.':e.message,code:e.code}}
   finally{if(serial===videoUi.serial){videoUi.loading=false;renderVideoAnalytics()}}
 }

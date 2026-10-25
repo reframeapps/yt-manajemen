@@ -116,23 +116,46 @@ export class StudioAnalytics extends YouTubeAnalytics {
     const map=r=>{const s=Object.fromEntries(['views','estimatedMinutesWatched','averageViewDuration','subscribersGained','subscribersLost','likes','comments','shares'].map(k=>[k,Number(r?.[k]||0)]));return {...s,watchHours:s.estimatedMinutesWatched/60,netSubscribers:s.subscribersGained-s.subscribersLost}};
     return {range,generatedAt:new Date(this.now()).toISOString(),warnings,summary:map(totals[0]),hasData:totals.length>0,previous:previous===null?null:{...map(previous[0]),hasData:previous.length>0},daily:daily===null?null:daily.map(r=>({day:r.day,...map(r)})),lastReportedDay:daily?.at(-1)?.day||null,channel:null,topVideos:top===null?null:top.map(r=>({id:r.video,...map(r)}))};
   }
-  async get(channelId,range){return this.studioCache('studio:'+channelId+':'+range.startDate+':'+range.endDate,async()=>this.enrich(channelId,await this.fetchReport(channelId,range)));}
-  async getVideo(channelId,id,range){validateVideoId(id);return this.studioCache('studio-video:'+channelId+':'+id+':'+range.startDate+':'+range.endDate,async()=>{
-    // Override Data metadata call for this report, retaining base report validation and isolation.
-    const base=new YouTubeAnalytics(async(url,options)=>url.startsWith('https://www.googleapis.com/youtube/v3/videos?')?Response.json({items:[]}):this.fetcher(url,options),{now:this.now});
-    const d=await base.fetchVideo(channelId,id,range);return this.enrich(channelId,d,id);
-  });}
-  async studioCache(key,run){
+  async get(channelId,range,{force=false}={}){
+    const key='studio:'+channelId+':'+range.startDate+':'+range.endDate;
+    if(force)this.cache.delete(key);
+    return this.studioCache(key,async()=>this.enrich(channelId,await this.fetchReport(channelId,range),null,{force}),{force});
+  }
+  async getVideo(channelId,id,range,{force=false}={}){
+    validateVideoId(id);
+    const key='studio-video:'+channelId+':'+id+':'+range.startDate+':'+range.endDate;
+    if(force)this.cache.delete(key);
+    return this.studioCache(key,async()=>{
+      // Override Data metadata call for this report, retaining base report validation and isolation.
+      const base=new YouTubeAnalytics(async(url,options)=>url.startsWith('https://www.googleapis.com/youtube/v3/videos?')?Response.json({items:[]}):this.fetcher(url,options),{now:this.now});
+      const d=await base.fetchVideo(channelId,id,range);return this.enrich(channelId,d,id,{force});
+    },{force});
+  }
+  async studioCache(key,run,{force=false}={}){
     const cached=this.cache.get(key),generation=this.generation;
-    if(cached&&this.now()-cached.at<(cached.data.warnings.length?120000:this.ttl))return {...cached.data,cached:true};
+    if(!force&&cached&&this.now()-cached.at<(cached.data.warnings.length?120000:this.ttl))return {...cached.data,cached:true};
     return this.single(key,async()=>{const d=await run();if(generation!==this.generation)throw staleError();this.cache.set(key,{at:this.now(),data:d});while(this.cache.size>24)this.cache.delete(this.cache.keys().next().value);return {...d,cached:false}});
   }
-  async enrich(channelId,d,id=null){
+  async enrich(channelId,d,id=null,{force=false}={}){
     const generation=this.generation;
-    const metadata=await this.metadata(channelId,id?[id]:(d.topVideos||[]).map(v=>v.id),{publicFallback:!id||d.hasData});d.warnings.push(...metadata.warnings);
+    const metadata=await this.metadata(channelId,id?[id]:(d.topVideos||[]).map(v=>v.id),{force,publicFallback:!id||d.hasData});d.warnings.push(...metadata.warnings);
     const byId=new Map(metadata.items.map(x=>[x.id,x]));
     if(id){const item=byId.get(id);d.video={...d.video,...(item?publicVideo(item):{}),lifetime:item?.statistics&&item.dataUpdatedAt&&this.now()-Date.parse(item.dataUpdatedAt)<30*DAY?{views:Number(item.statistics.viewCount||0),likes:item.statistics.likeCount===undefined?null:Number(item.statistics.likeCount),comments:item.statistics.commentCount===undefined?null:Number(item.statistics.commentCount)}:null};}
-    else{d.topVideos=d.topVideos?.map(v=>({...v,...(byId.get(v.id)?publicVideo(byId.get(v.id)):{} )}));const c=await this.store.read(channelId);if(c.channel&&this.now()-Date.parse(c.channelUpdatedAt)<30*DAY)d.channel=c.channel;}
+    else{
+      d.topVideos=d.topVideos?.map(v=>({...v,...(byId.get(v.id)?publicVideo(byId.get(v.id)):{} )}));
+      const c=await this.store.read(channelId);
+      if(!d.channel&&c.channel&&this.now()-Date.parse(c.channelUpdatedAt)<(force?60000:3600000))d.channel=c.channel;
+      if(!d.channel||force){
+        try{
+          const response=await this.dataRequest(channelId,'channels',{part:'snippet,statistics',id:channelId}),own=response.items?.find(x=>x.id===channelId);
+          if(own?.statistics){
+            const chStats={subscribers:own.statistics.hiddenSubscriberCount?null:Number(own.statistics.subscriberCount),lifetimeViews:Number(own.statistics.viewCount),videoCount:Number(own.statistics.videoCount),customUrl:own.snippet?.customUrl||''};
+            d.channel=chStats;
+            await this.persist(channelId,generation,channel=>{channel.channel=chStats;channel.channelUpdatedAt=new Date(this.now()).toISOString();});
+          }
+        }catch(e){if(['channel_changed'].includes(e.code))throw e;d.warnings.push(warning('channel',e));if(!d.channel&&c.channel)d.channel=c.channel;}
+      }
+    }
     const advanced=await this.advanced(channelId,d.range,id);d.warnings.push(...advanced.warnings);const {warnings:ignored,...fields}=advanced;Object.assign(d,fields);
     if(!id)await this.persist(channelId,generation,c=>saveDaily(c,d.daily,d.range,this.now()));
     const c=await this.store.read(channelId);d.reach={...aggregateReach(c.reach,d.range,id),status:c.reporting.status||'not_started',error:c.reporting.error||null,lastSync:c.reporting.lastSync||null};d.sync=c.catalog;if(!id)d.history=buildDailyHistory(c,d.range,this.now());return d;

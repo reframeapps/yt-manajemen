@@ -943,7 +943,7 @@ async function studioSyncTick(){
   try{
     const db=await readDb();if(!db.channel?.id||!hasAnalyticsAccess(await loadAnalyticsToken()))return;
     const c=await analytics.store.read(db.channel.id);
-    if(!c.catalog.lastSync||c.catalog.status==='partial'||Date.now()-Date.parse(c.catalog.lastSync)>86400000)await analytics.syncCatalog(db.channel.id);
+    if(!c.catalog.lastSync||c.catalog.status==='partial'||Date.now()-Date.parse(c.catalog.lastSync)>3600000)await analytics.syncCatalog(db.channel.id);
     if(!c.dailySync?.lastSync||Date.now()-Date.parse(c.dailySync.lastSync)>6*3600000)await analytics.syncDaily(db.channel.id);
     if((c.reporting.job&&(!c.reporting.lastSync||Date.now()-Date.parse(c.reporting.lastSync)>6*3600000))||(!c.reporting.job&&!c.reporting.lastAttempt))await analytics.syncReach(db.channel.id);
     if(c.validation?.version!=='4.5.0')await verifyAnalytics();
@@ -1069,13 +1069,15 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/analytics') {
       const range = analyticsRange(u.searchParams);
+      const force = u.searchParams.get('refresh') === '1' || u.searchParams.get('force') === '1';
       const db = await readDb(), token = await loadAnalyticsToken();
       const uploadToken = await loadToken();
       if (!uploadToken || !db.channel?.id) return json(res, 409, { code: 'not_connected', error: 'Hubungkan akun YouTube terlebih dahulu.' }, { 'cache-control': 'no-store' });
       if (!hasAnalyticsAccess(token)) return json(res, 403, { code: 'authorization_required', error: 'Klik Hubungkan Analytics untuk memberikan izin baca laporan channel.' }, { 'cache-control': 'no-store' });
       const channelId = db.channel.id, generation = tokenGeneration;
       try {
-        const report = await analytics.get(channelId, range);
+        if (force) analytics.clear();
+        const report = await analytics.get(channelId, range, { force });
         if (generation !== tokenGeneration) return json(res, 409, { code: 'channel_changed', error: 'Koneksi channel berubah. Muat ulang.' }, { 'cache-control': 'no-store' });
         const jobs = db.jobs.filter(j => j.youtubeVideoId && j.status !== 'cancelled' && (!j.channelId||j.channelId===channelId));
         const productions=(await contentStore.read()).contents;
@@ -1116,12 +1118,14 @@ const server = http.createServer(async (req, res) => {
     const videoAnalyticsMatch=pathname.match(/^\/api\/analytics\/videos(?:\/([^/]+))?$/);
     if(req.method==='GET'&&videoAnalyticsMatch){
       const range=analyticsRange(u.searchParams),id=videoAnalyticsMatch[1];if(id)validateVideoId(id);
+      const force=u.searchParams.get('refresh')==='1'||u.searchParams.get('force')==='1';
       const db=await readDb(),token=await loadAnalyticsToken();
       if(!await loadToken()||!db.channel?.id)return json(res,409,{code:'not_connected',error:'Hubungkan akun YouTube terlebih dahulu.'},{'cache-control':'no-store'});
       if(!hasAnalyticsAccess(token))return json(res,403,{code:'authorization_required',error:'Hubungkan Analytics untuk memberikan izin baca.'},{'cache-control':'no-store'});
       const generation=tokenGeneration;
       try{
-        const report=id?await analytics.getVideo(db.channel.id,id,range):await analytics.listVideos(db.channel.id,range);
+        if(force&&id)analytics.clear();
+        const report=id?await analytics.getVideo(db.channel.id,id,range,{force}):await analytics.listVideos(db.channel.id,range);
         if(generation!==tokenGeneration)return json(res,409,{code:'channel_changed',error:'Koneksi channel berubah. Muat ulang.'},{'cache-control':'no-store'});
         const jobs=db.jobs.filter(j=>j.youtubeVideoId&&j.status!=='cancelled');const productions=(await contentStore.read()).contents;
         if(id){const job=jobs.find(j=>j.youtubeVideoId===id);return json(res,200,{...report,connectedChannel:db.channel,video:{...report.video,title:report.video.title||job?.title||'Judul belum tersedia',contentId:job?.contentId||productions.find(c=>c.youtubeVideoId===id)?.id||null}},{'cache-control':'no-store'});}
