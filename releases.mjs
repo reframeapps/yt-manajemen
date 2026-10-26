@@ -1,28 +1,35 @@
-export const APP_VERSION='4.52.0';
+export const APP_VERSION='4.53.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.53.0',date:'2026-10-27',title:'AI Content Auditor & Executive Performance Summary ("Rapor AI")',changes:[
+    {type:'feature',text:'Rapor & Ringkasan AI Tiap Konten: Menghadirkan sub-tab "⚡ Rapor & Ringkasan AI" pada detail setiap video yang menyajikan ringkasan eksekutif instan (TL;DR), Health Score (0–100), dan Grade performa (S, A, B+, B, C, D) yang tidak tersedia di YouTube Studio.'},
+    {type:'feature',text:'4-Grid Diagnostik Cerdas: Analisis pintu masuk (Thumbnail & CTR), hook 30 detik pertama, deteksi titik kebocoran retensi penonton beserta solusi editing/naskah, dan rasio konversi loyalitas subscriber.'},
+    {type:'feature',text:'Checklist Tindakan Konkret: Memberikan 3 rekomendasi aksi nyata yang langsung dapat dieksekusi tim produksi untuk optimasi video saat ini maupun perbaikan naskah berikutnya.'},
+    {type:'feature',text:'Integrasi 1-Klik Naskah Sekuel ke Kanban: Rekomendasi ide part lanjutan/sekuel investigasi yang dapat langsung dimasukkan ke papan Kanban produksi hanya dengan satu klik tombol [+ Jadikan Naskah Sekuel di Kanban].'},
+    {type:'feature',text:'Ekspor & Salin Cepat: Tombol [📋 Salin Rapor Evaluasi] untuk menyalin seluruh audit ke clipboard dalam format rapi untuk naskah/editor, serta tombol [⚡ Analisis Ulang] untuk refresh audit on-demand.'}
+  ]},
   {version:'4.52.0',date:'2026-10-25',title:'Statistik Harian Terpadu: Penyelarasan Snapshot Live & Estimasi Audit Google',changes:[
     {type:'feature',text:'Integrasi Baris Snapshot Live Hari Ini: Menampilkan baris snapshot tanggal terbaru (hingga hari ini) di tabel Statistik Harian tanpa terpotong oleh batasan query YouTube Analytics.'},
-    {type:'improvement',text:'Estimasi Pertumbuhan Snapshot Real-time: Jika audit resmi harian YouTube Analytics masih diproses Google (jeda 24–48 jam waktu Pacific), tabel menghitung dan menyajikan estimasi pertumbuhan dari selisih snapshot channel (bukan strip kosong).'},
-    {type:'improvement',text:'Status Badge Informatif: Menghadirkan badge visual transparan ("● Live Snapshot" untuk hari ini, "⏳ Proses Google" untuk hari kemarin dalam masa audit, dan "✓ Tersedia" untuk data terverifikasi).'},
+    {type:'feature',text:'Estimasi Pertumbuhan Snapshot Real-time: Jika audit resmi harian YouTube Analytics masih diproses Google (jeda 24–48 jam waktu Pacific), tabel menghitung dan menyajikan estimasi pertumbuhan dari selisih snapshot channel (bukan strip kosong).'},
+    {type:'feature',text:'Status Badge Informatif: Menghadirkan badge visual transparan ("● Live Snapshot" untuk hari ini, "⏳ Proses Google" untuk hari kemarin dalam masa audit, dan "✓ Tersedia" untuk data terverifikasi).'},
     {type:'feature',text:'Pembaruan Snapshot Instan Tombol Sinkronisasi: Tombol [Sinkronkan harian] kini secara seketika memperbarui snapshot total channel dari YouTube Data API saat diklik.'}
   ]},
   {version:'4.51.0',date:'2026-10-25',title:'YouTube Live Data API & Eliminasi Bottleneck Cache Laporan Channel',changes:[
-    {type:'improvement',text:'Penghapusan Total Social Blade: Menghilangkan modul Social Blade dari YouTube Analytics sesuai kebutuhan pengguna yang ingin fokus penuh pada data resmi YouTube.'},
+    {type:'feature',text:'Penghapusan Total Social Blade: Menghilangkan modul Social Blade dari YouTube Analytics sesuai kebutuhan pengguna yang ingin fokus penuh pada data resmi YouTube.'},
     {type:'feature',text:'Sinkronisasi Live YouTube Data API: Menambahkan tombol "⚡ Sinkronkan Live API" dan opsi force refresh pada tombol "Muat ulang" yang langsung menghubungi endpoint YouTube Data API v3 (channels.list & videos.list statistics) secara seketika.'},
-    {type:'perf',text:'Pembaruan Cache Agresif & Cepat: Memperpendek interval sinkronisasi katalog dari 24 jam menjadi 1 jam dan meniadakan penundaan cache 30 hari untuk metrik channel utama, sehingga subscriber, total views, dan total video selalu aktual.'},
-    {type:'improvement',text:'Banner Real-Time Snapshot: Menampilkan header visual "LIVE YOUTUBE DATA API" dengan indikator status hijau aktif, waktu pembaruan WIB, dan ringkasan metrik seumur hidup channel (Total Subscriber, Total Views, Total Video).'}
+    {type:'feature',text:'Pembaruan Cache Agresif & Cepat: Memperpendek interval sinkronisasi katalog dari 24 jam menjadi 1 jam dan meniadakan penundaan cache 30 hari untuk metrik channel utama, sehingga subscriber, total views, dan total video selalu aktual.'},
+    {type:'feature',text:'Banner Real-Time Snapshot: Menampilkan header visual "LIVE YOUTUBE DATA API" dengan indikator status hijau aktif, waktu pembaruan WIB, dan ringkasan metrik seumur hidup channel (Total Subscriber, Total Views, Total Video).'}
   ]},
   {version:'4.50.0',date:'2026-10-25',title:'Integrasi Statistik & Benchmark Social Blade di YouTube Analytics',changes:[
     {type:'feature',text:'Panel Benchmark Social Blade: Menambahkan seksi statistik publik dan profil pemeringkatan Social Blade untuk channel resmi REFRAME INVESTIGASI (@Reframe404 / UCHc-LxFHzEs9nzsCbuvPytQ) langsung pada dashboard YouTube Analytics.'},
-    {type:'improvement',text:'Tautan Langsung & Metrik Publik: Menyematkan tombol cepat "📊 Social Blade ↗" di toolbar kontrol serta kartu statistik publik (Total Video, Subscriber, ID Channel, dan Proyeksi 30 hari).'},
-    {type:'improvement',text:'Styling Khusus Social Blade: Desain kartu benchmark dengan aksen warna resmi Social Blade dan tipografi kontras tinggi yang responsif di desktop maupun smartphone.'}
+    {type:'feature',text:'Tautan Langsung & Metrik Publik: Menyematkan tombol cepat "📊 Social Blade ↗" di toolbar kontrol serta kartu statistik publik (Total Video, Subscriber, ID Channel, dan Proyeksi 30 hari).'},
+    {type:'feature',text:'Styling Khusus Social Blade: Desain kartu benchmark dengan aksen warna resmi Social Blade dan tipografi kontras tinggi yang responsif di desktop maupun smartphone.'}
   ]},
   {version:'4.49.0',date:'2026-10-25',title:'Redesain UI/UX Radar Konten: Navigasi Sub-Tab Terstruktur & Executive Dashboard',changes:[
     {type:'feature',text:'Navigasi Sub-Tab Terstruktur: Merombak halaman Radar menjadi dashboard editorial terpadu dengan 5 tab utama di bagian atas: "⚡ Intelijen Sosmed (Top 5)", "🔥 Hot Isu Investigasi", "📈 Tren & Eksekutif", "📺 Pantauan Channel", dan "📚 Referensi Tersimpan".'},
-    {type:'improvement',text:'Pemisahan Kontainer Bersih (Zero Clutter): Mengeliminasi tumpukan 8+ seksi vertikal yang membingungkan. Setiap tab kini menjadi ruang kerja mandiri yang fokus tanpa pergeseran tata letak (layout shift).'},
+    {type:'feature',text:'Pemisahan Kontainer Bersih (Zero Clutter): Mengeliminasi tumpukan 8+ seksi vertikal yang membingungkan. Setiap tab kini menjadi ruang kerja mandiri yang fokus tanpa pergeseran tata letak (layout shift).'},
     {type:'feature',text:'Tampilan Utama Intelijen Sosmed Default: Pengguna langsung disajikan Top 5 ide investigasi sosmed terkurasi 7 Pilar saat membuka Radar Konten, lengkap dengan status scan langsung dan konversi 1-klik ke Kanban Ide.'},
-    {type:'improvement',text:'Styling Segmented Tab Bar & Header Modern: Mengadopsi pill tab bar modern bergaya executive dashboard, hero header yang lebih rapi, dan kartu ide sosmed dengan tipografi kontras tinggi.'}
+    {type:'feature',text:'Styling Segmented Tab Bar & Header Modern: Mengadopsi pill tab bar modern bergaya executive dashboard, hero header yang lebih rapi, dan kartu ide sosmed dengan tipografi kontras tinggi.'}
   ]},
   {version:'4.48.0',date:'2026-10-25',title:'Radar Intelijen Sosmed & Ide Potensial (Top 5 Investigasi 7 Pilar)',changes:[
     {type:'feature',text:'Radar Intelijen Sosmed & Ide Potensial: Modul intelijen baru yang memantau percakapan panas dan tren viral di media sosial (X/Twitter, TikTok, Forum Publik) digabungkan dengan Google Trends Indonesia secara otomatis.'},
@@ -32,7 +39,7 @@ export const RELEASES=[
     {type:'feature',text:'Jadwal Otomatis 1x Sehari + Tombol Pindai Mandiri: Sistem menjalankan pemindaian otomatis di latar belakang setiap 24 jam dan menyediakan tombol [⚡ Pindai Sosmed Sekarang] di Dashboard Radar untuk pemindaian instan kapan saja.'}
   ]},
   {version:'4.47.0',date:'2026-10-25',title:'Optimalisasi Efisiensi Sistem & Penonaktifan Modul Bot Telegram',changes:[
-    {type:'perf',text:'Penonaktifan Modul Bot Telegram (yt-telegram): Menghapus proses bot dari PM2 VPS untuk membebaskan alokasi memori RAM dan menjaga arsitektur server tetap ramping (lean), fokus pada performa web application mandiri.'},
+    {type:'feature',text:'Penonaktifan Modul Bot Telegram (yt-telegram): Menghapus proses bot dari PM2 VPS untuk membebaskan alokasi memori RAM dan menjaga arsitektur server tetap ramping (lean), fokus pada performa web application mandiri.'},
     {type:'feature',text:'Fokus Ekosistem Web Mandiri: Seluruh alur kerja produksi (Kanban instan, Naskah, Teleprompter, Radar 153 isu, dan YouTube API) berjalan penuh dan terpusat di dashboard web responsive mobile.'}
   ]},
   {version:'4.46.0',date:'2026-10-25',title:'Input Konten Kilat di Kanban: Enter Simpan Otomatis, Top Composer, & Shortcut',changes:[

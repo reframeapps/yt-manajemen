@@ -35,6 +35,7 @@ import { APP_VERSION, RELEASES } from './releases.mjs';
 import {fillContentWithEngine,CONTENT_ENGINE_VERSION} from './content-engine.mjs';
 import {RadarSocial} from './radar-social.mjs';
 import {videoIdFromInput,authRequiredError,isYouTubeAuthError,syncLinkedPublications} from './youtube-publication.mjs';
+import { auditVideo } from './content-auditor.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
@@ -1131,6 +1132,23 @@ const server = http.createServer(async (req, res) => {
         if(id){const job=jobs.find(j=>j.youtubeVideoId===id);return json(res,200,{...report,connectedChannel:db.channel,video:{...report.video,title:report.video.title||job?.title||'Judul belum tersedia',contentId:job?.contentId||productions.find(c=>c.youtubeVideoId===id)?.id||null}},{'cache-control':'no-store'});}
         return json(res,200,{...report,connectedChannel:db.channel,videos:report.videos.map(v=>{const job=jobs.find(j=>j.youtubeVideoId===v.id);return {...v,title:v.title||job?.title||'Judul belum tersedia',contentId:job?.contentId||productions.find(c=>c.youtubeVideoId===v.id)?.id||null}})},{'cache-control':'no-store'});
       }catch(e){return json(res,e.status||502,{code:e.code||'upstream_error',error:e.message},{'cache-control':'no-store'});}
+    }
+
+    const videoAuditMatch=pathname.match(/^\/api\/analytics\/videos\/([A-Za-z0-9_-]{11})\/audit$/);
+    if(videoAuditMatch&&(req.method==='GET'||req.method==='POST')){
+      const id=videoAuditMatch[1];validateVideoId(id);
+      const db=await readDb(),token=await loadAnalyticsToken();
+      if(!await loadToken()||!db.channel?.id)return json(res,409,{code:'not_connected',error:'Hubungkan akun YouTube terlebih dahulu.'},{'cache-control':'no-store'});
+      if(!hasAnalyticsAccess(token))return json(res,403,{code:'authorization_required',error:'Hubungkan Analytics untuk membaca laporan.'},{'cache-control':'no-store'});
+      const range=analyticsRange(u.searchParams);
+      const force=req.method==='POST'||u.searchParams.get('force')==='1';
+      try{
+        const report=await analytics.getVideo(db.channel.id,id,range,{force});
+        const productions=(await contentStore.read()).contents;
+        const linkedContent=productions.find(c=>c.youtubeVideoId===id)||null;
+        const audit=await auditVideo(report,{content:linkedContent,force});
+        return json(res,200,{video:report.video,audit,generatedAt:audit.generatedAt},{'cache-control':'no-store'});
+      }catch(e){return json(res,e.status||502,{code:e.code||'audit_error',error:e.message},{'cache-control':'no-store'});}
     }
     if(pathname==='/api/radar'&&req.method==='GET')return json(res,200,{...await radarStore.read({includeResearchPlans:false}),ai:await radarAI.status(u.searchParams.get('aiProvider') || undefined),syncBusy:radarSync.busy});
     if(pathname==='/api/radar/focus'&&req.method==='PATCH')return json(res,200,await radarStore.configureFocus(await readJson(req)),{'cache-control':'no-store'});
