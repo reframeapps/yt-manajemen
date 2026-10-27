@@ -178,7 +178,7 @@ window.renderRadar=body=>{
   if(existing){
     if(radarUi.tab==='social')window.HubRadarSocial.render(existing.querySelector('#radarSocialFront'));
     return;
-  }body.innerHTML=`<section id="radarPanel"><div class="radar-hero"><div><span class="eyebrow">EDITORIAL RADAR REFRAME</span><h2>Radar Konten & Intelijen Sosmed</h2><p>Isu penting, sinyal viral percakapan sosmed, konteks sumber, dan prioritas riset.</p></div><div class="feature-actions"><button class="btn primary" id="radarSync">Sinkronkan</button><button class="btn" id="radarSettings">Topik & Sumber</button><details class="radar-actions-menu"><summary class="btn">Menu Radar</summary><div class="radar-actions-popover"><button class="btn" id="radarDaily">Ringkasan harian</button><button class="btn" id="radarWeekly">Ringkasan mingguan</button><button class="btn" id="radarArchive">Arsip & jadwal</button><button class="btn" id="radarPromptLibrary">Pustaka prompt</button><button class="btn" id="radarUsage">Riwayat AI</button><button class="btn" id="radarPerformance">Performa konten</button></div></details></div></div><div class="radar-tabs" role="tablist">${[['social','⚡ Intelijen Sosmed (Top 5)'],['issues','🔥 Hot Isu Investigasi'],['trends','📈 Tren & Eksekutif'],['channels','📺 Pantauan Channel'],['references','📚 Referensi Tersimpan']].map(([id,title])=>`<button role="tab" data-r-tab="${id}" aria-selected="${id===radarUi.tab}">${title}</button>`).join('')}</div><div id="radarError" class="notice hide" role="alert"></div><section id="radarSocialFront" class="radar-social-front" aria-label="Radar Intelijen Sosmed & Ide Potensial"><p class="hint">Memuat radar intelijen sosmed…</p></section><div id="radarFocusSummary" class="radar-focus-summary hide" role="status"></div><section id="radarExecutiveFront" class="radar-executive-front hide" aria-label="Ringkasan eksekutif"><div class="radar-executive-tabs" role="tablist" aria-label="Periode ringkasan eksekutif"><button class="btn primary" role="tab" data-executive-period="daily" aria-selected="true">Harian</button><button class="btn" role="tab" data-executive-period="weekly" aria-selected="false">Mingguan</button></div><div id="radarExecutiveFrontBody" aria-live="polite"><p class="hint">Memuat ringkasan eksekutif…</p></div></section><section id="radarTrends" class="radar-trends hide" aria-label="Tren kata kunci"><p class="hint">Memuat tren kata kunci…</p></section><div id="radarTools" class="radar-tools hide"><input id="radarSearch" aria-label="Cari Radar" placeholder="Cari isu atau channel…"><select id="radarTopic" aria-label="Filter topik"><option value="">Semua topik</option></select><select id="radarStatus" aria-label="Filter status"><option value="">Semua status</option>${Object.entries(rStatus).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select><select id="radarPlatform" aria-label="Filter platform"><option value="">Semua sumber</option><option value="YouTube">Video YouTube</option><option value="Berita / Web">Artikel / berita</option></select><select id="radarPeriod" aria-label="Periode liputan"><option value="24">24 jam</option><option value="72" selected>3 hari</option><option value="168">7 hari</option></select><button class="btn" id="radarAdd">+ Link referensi</button></div><div id="radarCoverage" class="hide"></div><div id="radarMethodology"></div><div id="radarList" class="hide"><div class="hub-panel empty">Memuat Radar…</div></div><div id="radarFooter" class="hint"></div></section>`;body.querySelector('.radar-actions-menu').onclick=e=>{if(e.target.closest('button'))e.currentTarget.open=false;};$('#radarExecutiveFront').onclick=e=>{const button=e.target.closest('[data-executive-period],[data-executive-retry]');if(!button)return;if(button.dataset.executivePeriod)radarUi.executivePeriod=button.dataset.executivePeriod;radarInlineSchedule();};$('#radarSearch').value=radarUi.q;$('#radarSearch').oninput=e=>{radarUi.q=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarTopic').onchange=e=>{radarUi.topic=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarStatus').value=radarUi.status;$('#radarStatus').onchange=e=>{radarUi.status=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPlatform').value=radarUi.platform;$('#radarPlatform').onchange=e=>{radarUi.platform=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPeriod').value=radarUi.period;$('#radarPeriod').onchange=e=>{radarUi.period=Number(e.target.value);radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarAdd').onclick=()=>radarSource();$('#radarPromptLibrary').onclick=()=>radarRun(()=>radarPromptLibrary());$('#radarUsage').onclick=()=>radarRun(()=>radarUsage());$('#radarPerformance').onclick=()=>radarRun(()=>radarPerformance());$('#radarArchive').onclick=()=>radarRun(()=>radarArchives());$('#radarDaily').onclick=()=>radarRun(()=>radarDigest('daily'));$('#radarWeekly').onclick=()=>radarRun(()=>radarDigest('weekly'));$('#radarSettings').onclick=()=>radarSettings();$('#radarSync').onclick=()=>radarRun(async()=>{if(radarUi.loading)return;radarUi.loading=true;$('#radarSync').disabled=true;$('#radarSync').textContent='Menyinkronkan…';try{const result=await rPost('sync',{});await radarLoad();toast(`${result.news} link berita · ${result.videos} video diperiksa${result.errors.length?' · Ada sumber belum tersinkron':''}`)}finally{radarUi.loading=false;if($('#radarSync')){$('#radarSync').disabled=false;$('#radarSync').textContent='Sinkronkan'}}});body.querySelector('.radar-tabs').onclick=e=>{const b=e.target.closest('[data-r-tab]');if(!b)return;radarUi.tab=b.dataset.rTab;radarUi.limit=10;body.querySelectorAll('[data-r-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));radarList()};$('#radarList').onclick=e=>radarRun(async()=>{const b=e.target.closest('[data-r-issue],[data-r-channel-add],[data-r-channel-ai],[data-r-video],[data-r-more],[data-r-channel-view]');if(!b)return;if(b.hasAttribute('data-r-channel-view')){radarUi.channelAll=!radarUi.channelAll;return radarList()}if(b.hasAttribute('data-r-more')){radarUi.limit+=10;return radarList()}if(b.dataset.rIssue)return radarIssue(b.dataset.rIssue);if(b.hasAttribute('data-r-channel-add'))return radarChannel();if(b.dataset.rChannelAi)return radarAI('analysis',{channelId:b.dataset.rChannelAi,script:''});if(b.dataset.rVideo){const [channelId,id]=b.dataset.rVideo.split(':');const c=radarUi.data.channels.find(c=>c.id===channelId),v=c.videos.find(v=>v.id===id);return radarSource(null,{url:v.url,title:v.title,publisher:c.name,publishedAt:v.publishedAt,excerpt:v.description||''});}});$('#radarList').onchange=e=>{const select=e.target.closest('[data-r-video-feedback]');if(!select)return;radarRun(async()=>{const [id,videoId]=select.dataset.rVideoFeedback.split(':'),channel=radarUi.data.channels.find(c=>c.id===id);select.disabled=true;try{await rPost('channels/'+id+'/feedback',{videoId,choice:select.value,revision:channel.revision},'PATCH');await radarLoad();toast('Pilihan video tersimpan.');}catch(error){await radarLoad().catch(()=>{});throw error;}finally{if(select.isConnected)select.disabled=false;}});};if(!radarUi.refreshTimer)radarUi.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!rDialog.open&&!radarUi.loading&&$('#radarPanel')&&$('#radarPanel').offsetParent!==null)radarLoad().catch(()=>{});},5*60*1000);radarRun(()=>radarLoad());};
+  }body.innerHTML=`<section id="radarPanel"><div class="radar-hero"><div><span class="eyebrow">EDITORIAL RADAR REFRAME</span><h2>Radar Konten & Intelijen Sosmed</h2><p>Isu penting, sinyal viral percakapan sosmed, konteks sumber, dan prioritas riset.</p></div><div class="feature-actions"><button class="btn primary" id="radarSync">Sinkronkan</button><button class="btn" id="radarSettings">Topik & Sumber</button><details class="radar-actions-menu"><summary class="btn">Menu Radar</summary><div class="radar-actions-popover"><button class="btn" id="radarDaily">Ringkasan harian</button><button class="btn" id="radarWeekly">Ringkasan mingguan</button><button class="btn" id="radarArchive">Arsip & jadwal</button><button class="btn" id="radarPromptLibrary">Pustaka prompt</button><button class="btn" id="radarUsage">Riwayat AI</button><button class="btn" id="radarPerformance">Performa konten</button></div></details></div></div><div class="radar-tabs" role="tablist">${[['social','⚡ Intelijen Sosmed (Top 5)'],['issues','🔥 Hot Isu Investigasi'],['trends','📈 Tren & Eksekutif'],['channels','📺 Pantauan Channel'],['references','📚 Referensi Tersimpan']].map(([id,title])=>`<button role="tab" data-r-tab="${id}" aria-selected="${id===radarUi.tab}">${title}</button>`).join('')}</div><div id="radarError" class="notice hide" role="alert"></div><section id="radarSocialFront" class="radar-social-front" aria-label="Radar Intelijen Sosmed & Ide Potensial"><p class="hint">Memuat radar intelijen sosmed…</p></section><div id="radarFocusSummary" class="radar-focus-summary hide" role="status"></div><section id="radarExecutiveFront" class="radar-executive-front hide" aria-label="Ringkasan eksekutif"><div class="radar-executive-tabs" role="tablist" aria-label="Periode ringkasan eksekutif"><button class="btn primary" role="tab" data-executive-period="daily" aria-selected="true">Harian</button><button class="btn" role="tab" data-executive-period="weekly" aria-selected="false">Mingguan</button></div><div id="radarExecutiveFrontBody" aria-live="polite"><p class="hint">Memuat ringkasan eksekutif…</p></div></section><section id="radarTrends" class="radar-trends hide" aria-label="Tren kata kunci"><p class="hint">Memuat tren kata kunci…</p></section><div id="radarTools" class="radar-tools hide"><input id="radarSearch" aria-label="Cari Radar" placeholder="Cari isu atau channel…"><select id="radarTopic" aria-label="Filter topik"><option value="">Semua topik</option></select><select id="radarStatus" aria-label="Filter status"><option value="">Semua status</option>${Object.entries(rStatus).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select><select id="radarPlatform" aria-label="Filter platform"><option value="">Semua sumber</option><option value="YouTube">Video YouTube</option><option value="Berita / Web">Artikel / berita</option></select><select id="radarPeriod" aria-label="Periode liputan"><option value="24">24 jam</option><option value="72" selected>3 hari</option><option value="168">7 hari</option></select><button class="btn" id="radarAdd">+ Link referensi</button></div><div id="radarCoverage" class="hide"></div><div id="radarMethodology"></div><div id="radarList" class="hide"><div class="hub-panel empty">Memuat Radar…</div></div><div id="radarFooter" class="hint"></div></section>`;body.querySelector('.radar-actions-menu').onclick=e=>{if(e.target.closest('button'))e.currentTarget.open=false;};$('#radarExecutiveFront').onclick=e=>{const button=e.target.closest('[data-executive-period],[data-executive-retry]');if(!button)return;if(button.dataset.executivePeriod)radarUi.executivePeriod=button.dataset.executivePeriod;radarInlineSchedule();};$('#radarSearch').value=radarUi.q;$('#radarSearch').oninput=e=>{radarUi.q=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarTopic').onchange=e=>{radarUi.topic=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarStatus').value=radarUi.status;$('#radarStatus').onchange=e=>{radarUi.status=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPlatform').value=radarUi.platform;$('#radarPlatform').onchange=e=>{radarUi.platform=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPeriod').value=radarUi.period;$('#radarPeriod').onchange=e=>{radarUi.period=Number(e.target.value);radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarAdd').onclick=()=>radarSource();$('#radarPromptLibrary').onclick=()=>radarRun(()=>radarPromptLibrary());$('#radarUsage').onclick=()=>radarRun(()=>radarUsage());$('#radarPerformance').onclick=()=>radarRun(()=>radarPerformance());$('#radarArchive').onclick=()=>radarRun(()=>radarArchives());$('#radarDaily').onclick=()=>radarRun(()=>radarDigest('daily'));$('#radarWeekly').onclick=()=>radarRun(()=>radarDigest('weekly'));$('#radarSettings').onclick=()=>radarSettings();$('#radarSync').onclick=()=>radarRun(async()=>{if(radarUi.loading)return;radarUi.loading=true;$('#radarSync').disabled=true;$('#radarSync').textContent='Menyinkronkan…';try{const result=await rPost('sync',{});await radarLoad();toast(`${result.news} link berita · ${result.videos} video diperiksa${result.errors.length?' · Ada sumber belum tersinkron':''}`)}finally{radarUi.loading=false;if($('#radarSync')){$('#radarSync').disabled=false;$('#radarSync').textContent='Sinkronkan'}}});body.querySelector('.radar-tabs').onclick=e=>{const b=e.target.closest('[data-r-tab]');if(!b)return;radarUi.tab=b.dataset.rTab;radarUi.limit=10;body.querySelectorAll('[data-r-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));radarList()};$('#radarList').onclick=e=>radarRun(async()=>{const b=e.target.closest('[data-r-transcript],[data-r-issue],[data-r-channel-add],[data-r-channel-ai],[data-r-video],[data-r-more],[data-r-channel-view]');if(!b)return;if(b.dataset.rTranscript){const [channelId,id]=b.dataset.rTranscript.split(':');return radarOpenTranscriptModal(channelId,id);}if(!b)return;if(b.hasAttribute('data-r-channel-view')){radarUi.channelAll=!radarUi.channelAll;return radarList()}if(b.hasAttribute('data-r-more')){radarUi.limit+=10;return radarList()}if(b.dataset.rIssue)return radarIssue(b.dataset.rIssue);if(b.hasAttribute('data-r-channel-add'))return radarChannel();if(b.dataset.rChannelAi)return radarAI('analysis',{channelId:b.dataset.rChannelAi,script:''});if(b.dataset.rVideo){const [channelId,id]=b.dataset.rVideo.split(':');const c=radarUi.data.channels.find(c=>c.id===channelId),v=c.videos.find(v=>v.id===id);return radarSource(null,{url:v.url,title:v.title,publisher:c.name,publishedAt:v.publishedAt,excerpt:v.description||''});}});$('#radarList').onchange=e=>{const select=e.target.closest('[data-r-video-feedback]');if(!select)return;radarRun(async()=>{const [id,videoId]=select.dataset.rVideoFeedback.split(':'),channel=radarUi.data.channels.find(c=>c.id===id);select.disabled=true;try{await rPost('channels/'+id+'/feedback',{videoId,choice:select.value,revision:channel.revision},'PATCH');await radarLoad();toast('Pilihan video tersimpan.');}catch(error){await radarLoad().catch(()=>{});throw error;}finally{if(select.isConnected)select.disabled=false;}});};if(!radarUi.refreshTimer)radarUi.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!rDialog.open&&!radarUi.loading&&$('#radarPanel')&&$('#radarPanel').offsetParent!==null)radarLoad().catch(()=>{});},5*60*1000);radarRun(()=>radarLoad());};
 function radarAIPath(){return '/api/radar'+(radarUi.aiProvider?'?aiProvider='+encodeURIComponent(radarUi.aiProvider):'');}
 function radarVideoMetadata(video){return `<div class="radar-video">${/^https:\/\/i\.ytimg\.com\//.test(video.thumbnail)?'<img src="'+esc(video.thumbnail)+'" alt="Thumbnail video" loading="lazy">':''}<span class="hint">${rNum(video.viewCount)} views · ${esc(video.duration||'Durasi belum tersedia')}</span></div>`;}
 function radarGroupingReport(report){
@@ -263,7 +263,7 @@ function radarChannelPage(data,{q='',all=false}={}){
 }
 function radarChannelVideo(c,v){
  const a=v.analysis||{reasons:['Sinkronkan untuk mengumpulkan pengamatan.'],needs:[],status:'Mengumpulkan data',score:0},key=c.id+':'+v.id,links=(a.issueIds||[]).map(id=>radarUi.data.issues.find(i=>i.id===id)).filter(Boolean);
- return `<article class="hub-panel radar-opportunity"><div class="radar-channel-head"><span class="radar-chip">${esc(a.status)}</span><strong>${rNum(a.score)}/100 <small>prioritas riset</small></strong></div><div class="radar-video">${/^https:\/\/i\.ytimg\.com\//.test(v.thumbnail)?`<img src="${esc(v.thumbnail)}" alt="" loading="lazy">`:''}<div><h3><a href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">${esc(v.title)}</a></h3><p class="hint">${esc(c.name||c.url)} · ${esc(rDate(v.publishedAt))} · ${esc(v.duration||'Durasi belum tersedia')}</p><div class="radar-video-stats">${rNum(v.viewCount)} views · ${rNum(v.likeCount)} likes · ${rNum(v.commentCount)} komentar</div><p class="hint">${rNum(a.observationCount)} pengamatan views · Data ${esc(rDate(v.lastObservedAt||c.lastSyncAt))}</p></div></div><div class="radar-channel-reasons"><strong>Mengapa diprioritaskan?</strong><ul>${a.reasons.map(reason=>'<li>'+esc(reason)+'</li>').join('')}</ul></div>${a.needs.length?`<details class="radar-method"><summary>Kebutuhan riset & kecukupan data (${a.needs.length})</summary><ul>${a.needs.map(n=>'<li>'+esc(n)+'</li>').join('')}</ul></details>`:''}<p class="hint"><b>Pertanyaan riset:</b> ${esc(a.researchQuestion||'Apa bukti primer yang mendukung pembahasan ini?')}</p>${links.map(i=>`<p class="hint">Dalam kelompok <b>${esc(i.title)}</b> · ${i.sources.filter(s=>s.platform==='YouTube').length} video · ${i.sources.filter(s=>s.platform!=='YouTube').length} artikel / sumber lain${i.contentIds?.length?' · Sudah terhubung ke draft':''}</p><button class="btn mini" data-r-issue="${esc(i.id)}">Buka kelompok & ruang riset</button>`).join('')}${!links.length?`<button class="btn mini" data-r-video="${esc(key)}">Tambahkan ke Radar / referensi</button>`:''}<label class="radar-video-feedback">Pilihan Anda<select aria-label="Pilihan untuk ${esc(v.title)}" data-r-video-feedback="${esc(key)}"><option value=""${!a.feedback?' selected':''}>Belum ditandai</option><option value="relevant"${a.feedback==='relevant'?' selected':''}>Relevan</option><option value="less"${a.feedback==='less'?' selected':''}>Kurang relevan</option><option value="discussed"${a.feedback==='discussed'?' selected':''}>Sudah dibuat</option></select></label></article>`;
+ return `<article class="hub-panel radar-opportunity"><div class="radar-channel-head"><span class="radar-chip">${esc(a.status)}</span><strong>${rNum(a.score)}/100 <small>prioritas riset</small></strong></div><div class="radar-video">${/^https:\/\/i\.ytimg\.com\//.test(v.thumbnail)?`<img src="${esc(v.thumbnail)}" alt="" loading="lazy">`:''}<div><h3><a href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">${esc(v.title)}</a></h3><p class="hint">${esc(c.name||c.url)} · ${esc(rDate(v.publishedAt))} · ${esc(v.duration||'Durasi belum tersedia')}</p><div class="radar-video-stats">${rNum(v.viewCount)} views · ${rNum(v.likeCount)} likes · ${rNum(v.commentCount)} komentar</div><p class="hint">${rNum(a.observationCount)} pengamatan views · Data ${esc(rDate(v.lastObservedAt||c.lastSyncAt))}</p></div></div><div class="radar-channel-reasons"><strong>Mengapa diprioritaskan?</strong><ul>${a.reasons.map(reason=>'<li>'+esc(reason)+'</li>').join('')}</ul></div>${a.needs.length?`<details class="radar-method"><summary>Kebutuhan riset & kecukupan data (${a.needs.length})</summary><ul>${a.needs.map(n=>'<li>'+esc(n)+'</li>').join('')}</ul></details>`:''}<p class="hint"><b>Pertanyaan riset:</b> ${esc(a.researchQuestion||'Apa bukti primer yang mendukung pembahasan ini?')}</p>${links.map(i=>`<p class="hint">Dalam kelompok <b>${esc(i.title)}</b> · ${i.sources.filter(s=>s.platform==='YouTube').length} video · ${i.sources.filter(s=>s.platform!=='YouTube').length} artikel / sumber lain${i.contentIds?.length?' · Sudah terhubung ke draft':''}</p><button class="btn mini" data-r-issue="${esc(i.id)}">Buka kelompok & ruang riset</button>`).join('')}<button class="btn mini primary" data-r-transcript="${esc(key)}" title="Ekstrak transkrip YouTube video ini untuk ide & naskah konten">📝 Ekstrak Transkrip</button>${!links.length?`<button class="btn mini" data-r-video="${esc(key)}">Tambahkan ke Radar / referensi</button>`:''}<label class="radar-video-feedback">Pilihan Anda<select aria-label="Pilihan untuk ${esc(v.title)}" data-r-video-feedback="${esc(key)}"><option value=""${!a.feedback?' selected':''}>Belum ditandai</option><option value="relevant"${a.feedback==='relevant'?' selected':''}>Relevan</option><option value="less"${a.feedback==='less'?' selected':''}>Kurang relevan</option><option value="discussed"${a.feedback==='discussed'?' selected':''}>Sudah dibuat</option></select></label></article>`;
 }
 function radarChannelList(data){
  const page=radarChannelPage(data,{q:radarUi.q,all:radarUi.channelAll});
@@ -426,3 +426,438 @@ async function radarPerformance(){
 }
 
 async function radarFetchModal(title,url){radarModal(title,'<p data-r-wait class="hint">Memuat…</p>');rDialog.onclick=null;const loading=rDialog.querySelector('[data-r-wait]'),data=await api(url);return loading.isConnected&&rDialog.open?data:null;}
+
+async function radarOpenTranscriptModal(channelId, videoId) {
+  const c = (radarUi.data.channels || []).find(ch => ch.id === channelId);
+  const v = (c?.videos || []).find(vid => vid.id === videoId) || { id: videoId, title: 'Video YouTube' };
+  
+  radarModal('📝 Transkrip YouTube: ' + (v.title || videoId), `
+    <div class="radar-transcript-modal-body" id="radarTranscriptModalBox">
+      <div class="radar-transcript-loading">
+        <span class="studio-spinner"></span>
+        <p><strong>Mengekstrak transkrip YouTube…</strong></p>
+        <p class="hint">Mengambil teks percakapan dan subtitle otomatis dari video "${esc(v.title)}"…</p>
+      </div>
+    </div>
+  `);
+
+  try {
+    const res = await fetch('/api/radar/transcript?videoId=' + encodeURIComponent(videoId));
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Gagal mengekstrak transkrip.');
+    }
+    const t = data.transcript;
+    window._currentRadarTranscript = t;
+    window._currentRadarVideo = { id: videoId, title: v.title || t.title, channelName: c?.name || t.channelName, url: t.url };
+    radarRenderTranscriptView(t, window._currentRadarVideo);
+  } catch (err) {
+    const box = document.getElementById('radarTranscriptModalBox');
+    if (box) {
+      box.innerHTML = `
+        <div class="hub-panel an-error">
+          <h3>Gagal Mengekstrak Transkrip</h3>
+          <p>${esc(err.message)}</p>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button class="btn primary" id="btnRetryTranscript">Coba Lagi</button>
+            <button class="btn" id="btnOpenManualImport">Tambah Sumber Manual</button>
+          </div>
+        </div>
+      `;
+      const retryBtn = box.querySelector('#btnRetryTranscript');
+      if (retryBtn) retryBtn.onclick = () => radarOpenTranscriptModal(channelId, videoId);
+      const manualBtn = box.querySelector('#btnOpenManualImport');
+      if (manualBtn) manualBtn.onclick = () => {
+        rDialog.close();
+        radarSource(null, { url: v.url, title: v.title, publisher: c?.name || 'YouTube' });
+      };
+    }
+  }
+}
+
+function radarRenderTranscriptView(t, videoInfo) {
+  const box = document.getElementById('radarTranscriptModalBox');
+  if (!box) return;
+
+  box.innerHTML = `
+    <div class="radar-transcript-meta-bar">
+      <div class="meta-item">
+        <span class="meta-label">Channel</span>
+        <strong>${esc(videoInfo.channelName || t.channelName)}</strong>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Durasi</span>
+        <strong>${esc(t.durationFormatted)}</strong>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Total Kata</span>
+        <strong>${rNum(t.wordCount)} kata</strong>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Bahasa</span>
+        <span class="radar-chip">${esc(t.language.toUpperCase())}</span>
+      </div>
+      <div class="meta-item">
+        <a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer" class="btn mini">Tonton di YouTube ↗</a>
+      </div>
+    </div>
+
+    <div class="radar-transcript-actions-bar">
+      <button class="btn primary" id="btnGenIdeaFromTranscript" title="Gunakan AI untuk merumuskan ide investigasi dan angle baru">💡 Jadikan Ide Konten</button>
+      <button class="btn primary" id="btnGenScriptFromTranscript" title="Gunakan AI untuk menyusun naskah investigasi siap produksi">🎬 Buat Naskah Konten</button>
+      <button class="btn" id="btnCopyTranscriptText" title="Salin seluruh transkrip ke clipboard">📋 Salin Transkrip</button>
+      <button class="btn" id="btnAddToRadarIssue" title="Tambahkan video ini sebagai sumber ke ruang riset Radar">➕ Tambah ke Riset Radar</button>
+    </div>
+
+    <div id="radarAiSynthesisContainer"></div>
+
+    <div class="radar-transcript-toolbar">
+      <input type="search" id="radarTranscriptSearch" placeholder="🔍 Cari kata atau fakta dalam transkrip..." aria-label="Cari transkrip">
+      <div class="radar-transcript-view-toggles">
+        <button class="btn mini active" id="btnViewTimed">Dengan Waktu [MM:SS]</button>
+        <button class="btn mini" id="btnViewClean">Paragraf Bersih</button>
+      </div>
+    </div>
+
+    <div class="radar-transcript-content" id="radarTranscriptContentBox">
+      ${t.paragraphs.map(p => `
+        <div class="radar-transcript-paragraph" data-ts="${esc(p.timestamp)}">
+          <span class="transcript-ts">${esc(p.timestamp)}</span>
+          <span class="transcript-text">${esc(p.text)}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  const copyBtn = box.querySelector('#btnCopyTranscriptText');
+  if (copyBtn) {
+    copyBtn.onclick = () => {
+      const fullText = t.paragraphs.map(p => `[${p.timestamp}] ${p.text}`).join('\n\n');
+      navigator.clipboard.writeText(fullText).then(() => {
+        toast('Seluruh transkrip berhasil disalin ke clipboard!');
+      }).catch(() => {
+        toast('Gagal menyalin transkrip.');
+      });
+    };
+  }
+
+  const addRadarBtn = box.querySelector('#btnAddToRadarIssue');
+  if (addRadarBtn) {
+    addRadarBtn.onclick = () => {
+      rDialog.close();
+      radarSource(null, { url: videoInfo.url, title: videoInfo.title, publisher: videoInfo.channelName, excerpt: t.fullText.slice(0, 300) });
+    };
+  }
+
+  const contentBox = box.querySelector('#radarTranscriptContentBox');
+  const btnTimed = box.querySelector('#btnViewTimed');
+  const btnClean = box.querySelector('#btnViewClean');
+  let currentMode = 'timed';
+
+  const updateView = () => {
+    const q = (box.querySelector('#radarTranscriptSearch')?.value || '').toLowerCase().trim();
+    if (currentMode === 'timed') {
+      contentBox.innerHTML = t.paragraphs.map(p => {
+        const match = !q || p.text.toLowerCase().includes(q);
+        if (!match) return '';
+        const highlighted = q ? esc(p.text).replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>') : esc(p.text);
+        return `<div class="radar-transcript-paragraph"><span class="transcript-ts">${esc(p.timestamp)}</span><span class="transcript-text">${highlighted}</span></div>`;
+      }).filter(Boolean).join('') || '<div class="empty">Tidak ada kata kunci yang cocok dalam transkrip.</div>';
+    } else {
+      contentBox.innerHTML = t.paragraphs.map(p => {
+        const match = !q || p.text.toLowerCase().includes(q);
+        if (!match) return '';
+        const highlighted = q ? esc(p.text).replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>') : esc(p.text);
+        return `<p class="transcript-clean-p">${highlighted}</p>`;
+      }).filter(Boolean).join('') || '<div class="empty">Tidak ada kata kunci yang cocok dalam transkrip.</div>';
+    }
+  };
+
+  btnTimed.onclick = () => {
+    currentMode = 'timed';
+    btnTimed.classList.add('active');
+    btnClean.classList.remove('active');
+    updateView();
+  };
+  btnClean.onclick = () => {
+    currentMode = 'clean';
+    btnClean.classList.add('active');
+    btnTimed.classList.remove('active');
+    updateView();
+  };
+
+  const searchInput = box.querySelector('#radarTranscriptSearch');
+  if (searchInput) {
+    searchInput.oninput = () => updateView();
+  }
+
+  const ideaBtn = box.querySelector('#btnGenIdeaFromTranscript');
+  if (ideaBtn) {
+    ideaBtn.onclick = () => radarTriggerGenerateIdea(t, videoInfo);
+  }
+
+  const scriptBtn = box.querySelector('#btnGenScriptFromTranscript');
+  if (scriptBtn) {
+    scriptBtn.onclick = () => radarTriggerGenerateScript(t, videoInfo);
+  }
+}
+
+async function radarTriggerGenerateIdea(t, videoInfo) {
+  const container = document.getElementById('radarAiSynthesisContainer');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="hub-panel radar-ai-synth-box">
+      <div class="radar-ai-loading">
+        <span class="studio-spinner"></span>
+        <div>
+          <strong>Merumuskan Ide Investigasi Orisinal…</strong>
+          <p class="hint">Menganalisis transkrip dengan 3 Lensa Editorial REFRAME (The System, Hidden History, Human Mirror)…</p>
+        </div>
+      </div>
+    </div>
+  `;
+  container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  try {
+    const res = await fetch('/api/radar/transcript/idea', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        videoId: t.videoId,
+        title: videoInfo.title,
+        channelName: videoInfo.channelName,
+        transcriptText: t.fullText,
+        durationFormatted: t.durationFormatted,
+        wordCount: t.wordCount,
+        format: 'long'
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Gagal menghasilkan ide.');
+    const idea = data.idea;
+
+    container.innerHTML = `
+      <div class="hub-panel radar-ai-synth-box">
+        <div class="synth-head">
+          <div class="synth-title-wrap">
+            <span class="synth-badge">💡 REKOMENDASI IDE INVESTIGASI ORISINAL</span>
+            <span class="radar-chip">${esc(idea.pillar || 'Investigasi')}</span>
+            <span class="radar-chip">${esc(idea.format === 'shorts' ? 'Shorts' : 'Long Video')}</span>
+          </div>
+          <button class="btn mini" id="btnCloseIdeaCard" title="Tutup kartu ide">✕</button>
+        </div>
+
+        <div class="synth-field">
+          <label>Judul Rekomendasi (Dapat diedit):</label>
+          <input type="text" id="synthIdeaTitle" value="${esc(idea.title)}" />
+        </div>
+
+        <div class="synth-field">
+          <label>Sudut Pandang / Angle Baru:</label>
+          <p class="synth-text">${esc(idea.recommendedAngle)}</p>
+        </div>
+
+        <div class="synth-field">
+          <label>Hook Pembuka (15-30 Detik):</label>
+          <blockquote class="synth-hook">${esc(idea.suggestedHook)}</blockquote>
+        </div>
+
+        ${idea.keyFindings?.length ? `
+          <div class="synth-field">
+            <label>Temuan Kunci dari Transkrip:</label>
+            <ul class="synth-list">
+              ${idea.keyFindings.map(f => `<li>${esc(f)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+
+        <div class="synth-field">
+          <label>Analisis 3 Lensa REFRAME (The System & Capital / History / Human):</label>
+          <p class="synth-text" style="white-space:pre-line">${esc(idea.counterPerspective)}</p>
+        </div>
+
+        <div class="synth-actions">
+          <button class="btn primary" id="btnSaveIdeaToKanban">✓ Masukkan ke Papan Kanban Ide</button>
+          <button class="btn" id="btnDevelopToScript">🎬 Lanjutkan Langsung Jadi Naskah</button>
+        </div>
+      </div>
+    `;
+
+    container.querySelector('#btnCloseIdeaCard').onclick = () => { container.innerHTML = ''; };
+
+    const saveKanbanBtn = container.querySelector('#btnSaveIdeaToKanban');
+    saveKanbanBtn.onclick = async () => {
+      saveKanbanBtn.disabled = true;
+      saveKanbanBtn.textContent = 'Menyimpan ke Kanban…';
+      try {
+        idea.title = container.querySelector('#synthIdeaTitle').value || idea.title;
+        const r = await fetch('/api/radar/transcript/to-kanban-idea', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idea, sourceVideo: videoInfo })
+        });
+        const resData = await r.json();
+        if (!r.ok || !resData.ok) throw new Error(resData.error || 'Gagal menyimpan ide.');
+        saveKanbanBtn.textContent = '✓ Berhasil Masuk di Kanban';
+        saveKanbanBtn.classList.remove('primary');
+        toast(`Ide investigasi "${idea.title}" berhasil dimasukkan ke Kanban!`);
+      } catch (e) {
+        saveKanbanBtn.disabled = false;
+        saveKanbanBtn.textContent = '✓ Masukkan ke Papan Kanban Ide';
+        toast(e.message);
+      }
+    };
+
+    container.querySelector('#btnDevelopToScript').onclick = () => {
+      radarTriggerGenerateScript(t, videoInfo, idea);
+    };
+  } catch (err) {
+    container.innerHTML = `
+      <div class="hub-panel an-error">
+        <h3>Gagal Merumuskan Ide</h3>
+        <p>${esc(err.message)}</p>
+        <button class="btn primary" id="btnRetryIdeaGen">Coba Lagi</button>
+      </div>
+    `;
+    container.querySelector('#btnRetryIdeaGen').onclick = () => radarTriggerGenerateIdea(t, videoInfo);
+  }
+}
+
+async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
+  const container = document.getElementById('radarAiSynthesisContainer');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="hub-panel radar-ai-synth-box">
+      <div class="synth-head">
+        <span class="synth-badge">🎬 GENERATOR NASKAH INVESTIGASI REFRAME</span>
+        <button class="btn mini" id="btnCloseScriptDialog">✕</button>
+      </div>
+      <p>Pilih format naskah yang ingin dibuat dari transkrip video ini:</p>
+      <div style="display:flex;gap:12px;margin:12px 0;">
+        <button class="btn primary" id="btnSelectFormatLong">📹 Video Panjang (Investigasi 12–16 Menit)</button>
+        <button class="btn" id="btnSelectFormatShorts">📱 Video Shorts (60 Detik)</button>
+      </div>
+    </div>
+  `;
+  container.querySelector('#btnCloseScriptDialog').onclick = () => { container.innerHTML = ''; };
+
+  const startScriptGen = async (format) => {
+    container.innerHTML = `
+      <div class="hub-panel radar-ai-synth-box">
+        <div class="radar-ai-loading">
+          <span class="studio-spinner"></span>
+          <div>
+            <strong>Menyusun Naskah Produksi (${format === 'shorts' ? 'Shorts' : 'Long Video'})…</strong>
+            <p class="hint">Membuat breakdown Scene Visual, Audio/VO, dan Teks Grafis standar REFRAME…</p>
+          </div>
+        </div>
+      </div>
+    `;
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    try {
+      const res = await fetch('/api/radar/transcript/script', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoId: t.videoId,
+          title: videoInfo.title,
+          channelName: videoInfo.channelName,
+          transcriptText: t.fullText,
+          durationFormatted: t.durationFormatted,
+          wordCount: t.wordCount,
+          format,
+          idea: existingIdea
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Gagal menghasilkan naskah.');
+      const scriptData = data.scriptData;
+
+      container.innerHTML = `
+        <div class="hub-panel radar-ai-synth-box">
+          <div class="synth-head">
+            <div class="synth-title-wrap">
+              <span class="synth-badge">🎬 NASKAH SIAP PRODUKSI</span>
+              <span class="radar-chip">${esc(scriptData.format === 'shorts' ? 'Shorts (60s)' : 'Long Video')}</span>
+            </div>
+            <button class="btn mini" id="btnCloseScriptCard">✕</button>
+          </div>
+
+          <div class="synth-field">
+            <label>Judul Naskah:</label>
+            <input type="text" id="synthScriptTitle" value="${esc(scriptData.title)}" />
+          </div>
+
+          <div class="synth-field">
+            <label>Hook Pembuka 15-30 Detik:</label>
+            <blockquote class="synth-hook">${esc(scriptData.hook)}</blockquote>
+          </div>
+
+          <div class="synth-field">
+            <label>Naskah / Script Breakdown (Visual, Audio/VO, Teks Layar):</label>
+            <textarea id="synthScriptBody" rows="12" class="synth-script-textarea">${esc(scriptData.script)}</textarea>
+          </div>
+
+          ${scriptData.productionNotes ? `
+            <div class="synth-field">
+              <label>Catatan Produksi & Kebutuhan Aset:</label>
+              <p class="synth-text" style="white-space:pre-line">${esc(scriptData.productionNotes)}</p>
+            </div>
+          ` : ''}
+
+          <div class="synth-actions">
+            <button class="btn primary" id="btnSaveScriptAndOpen">✓ Simpan & Buka di Editor Naskah</button>
+            <button class="btn" id="btnCopyScriptText">📋 Salin Naskah Saja</button>
+          </div>
+        </div>
+      `;
+
+      container.querySelector('#btnCloseScriptCard').onclick = () => { container.innerHTML = ''; };
+
+      container.querySelector('#btnCopyScriptText').onclick = () => {
+        const fullScript = `JUDUL: ${scriptData.title}\nFORMAT: ${scriptData.format}\nHOOK: ${scriptData.hook}\n\nNASKAH:\n${scriptData.script}\n\nCATATAN PRODUKSI:\n${scriptData.productionNotes}`;
+        navigator.clipboard.writeText(fullScript).then(() => toast('Naskah berhasil disalin ke clipboard!'));
+      };
+
+      const saveBtn = container.querySelector('#btnSaveScriptAndOpen');
+      saveBtn.onclick = async () => {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Menyimpan naskah ke proyek…';
+        try {
+          scriptData.title = container.querySelector('#synthScriptTitle').value || scriptData.title;
+          scriptData.script = container.querySelector('#synthScriptBody').value || scriptData.script;
+          const r = await fetch('/api/radar/transcript/to-kanban-script', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scriptData, sourceVideo: videoInfo })
+          });
+          const resData = await r.json();
+          if (!r.ok || !resData.ok) throw new Error(resData.error || 'Gagal menyimpan naskah.');
+          rDialog.close();
+          navigate('library');
+          await openContent(resData.content.id);
+          toast(`Naskah "${scriptData.title}" dibuka di editor!`);
+        } catch (e) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = '✓ Simpan & Buka di Editor Naskah';
+          toast(e.message);
+        }
+      };
+    } catch (err) {
+      container.innerHTML = `
+        <div class="hub-panel an-error">
+          <h3>Gagal Menyusun Naskah</h3>
+          <p>${esc(err.message)}</p>
+          <button class="btn primary" id="btnRetryScriptGen">Coba Lagi</button>
+        </div>
+      `;
+      container.querySelector('#btnRetryScriptGen').onclick = () => startScriptGen(format);
+    }
+  };
+
+  container.querySelector('#btnSelectFormatLong').onclick = () => startScriptGen('long');
+  container.querySelector('#btnSelectFormatShorts').onclick = () => startScriptGen('shorts');
+}

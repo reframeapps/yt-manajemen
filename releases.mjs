@@ -1,6 +1,13 @@
-export const APP_VERSION='4.55.0';
+export const APP_VERSION='4.56.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.56.0',date:'2026-10-27',title:'Radar Ekstraksi Transkrip YouTube Pantauan, Generator Ide & Naskah Konten, dan Perbaikan Bug Store',changes:[
+    {type:'feature',text:'Ekstraksi Transkrip YouTube Publik Channel Pantauan: Menghadirkan tombol [📝 Ekstrak Transkrip] pada setiap video dari channel kompetitor & referensi yang dipantau. Mengambil transkrip verbatim lengkap dengan timestamp, durasi, jumlah kata, dan opsi pencarian kata kunci instan tanpa membebani kuota API YouTube.'},
+    {type:'feature',text:'Sintesis Ide Konten Investigasi (1-Klik ke Kanban): Dari transkrip video kompetitor, AI merumuskan ide konten orisinal dengan sudut pandang counter-investigasi, hook pembuka 15–30 detik, 3 temuan kunci data, dan analisis 3 Lensa Editorial REFRAME (The System & Capital, Hidden History, Human Mirror) yang dapat langsung disimpan ke papan Kanban.'},
+    {type:'feature',text:'Generator Naskah Produksi Konten (Long & Shorts): Mengubah transkrip referensi menjadi naskah lengkap siap produksi berformat scene (Visual, Voiceover, Teks Grafis Layar, dan Catatan Produksi) untuk video panjang (12–16 menit) maupun Shorts (60 detik) yang langsung tersimpan dan terbuka di editor naskah Hub.'},
+    {type:'fix',text:'Perbaikan Bug Duplikasi & Histori Konten: Memperbaiki fungsi snapshot dan duplikasi di Content Store yang sebelumnya memotong data richText, sources, assets, dan publicationLinks sehingga kini format naskah tebal/warna, storyboard, dan histori revisi pulih 100%.'},
+    {type:'fix',text:'Perbaikan Trailing Slash Sinkronisasi Channel: Menangani URL handle YouTube dengan akhiran garis miring (/@channel/) pada Radar Sync agar tidak menghasilkan error 404 saat sinkronisasi katalog video.'}
+  ]},
   {version:'4.55.0',date:'2026-10-27',title:'Perhitungan Evaluasi Sistem Deterministik (Peer-Channel Q1–Q3) & Pemisahan Narasi AI',changes:[
     {type:'feature',text:'Perhitungan 100% Deterministik oleh Sistem: Seluruh skor kesehatan (0–100), peringkat video channel (misal: "Peringkat #2 dari 10 video channel"), rentang tipikal (Interquartile Range Q1–Q3), dan deteksi penurunan kurva retensi dihitung secara matematis oleh sistem berdasarkan data riil channel, bukan tebakan atau halusinasi AI.'},
     {type:'feature',text:'Pemisahan Tegas Peran AI sebagai Narator: AI (Gemini) tidak lagi menghitung atau memanipulasi angka, melainkan hanya bertugas menarasikan kesimpulan eksekutif, menganalisis akar masalah (root cause) titik kebocoran penonton, serta merumuskan rekomendasi naskah dan ide sekuel investigasi.'},

@@ -105,8 +105,12 @@ function checkBoardRevision(db, revision) {
   if (!Number.isInteger(revision) || revision !== db.boardRevision) throw fail('Kolom berubah di tab lain. Muat versi terbaru.',409);
 }
 function snapshot(content) {
-  const { history, sources, assets, publicationLinks, youtubePublication, richText, ...rest } = content;
-  return rest;
+  const { history, youtubePublication, ...rest } = content;
+  return {
+    ...rest,
+    ...(content.publicationLinks ? { publicationLinks: structuredClone(content.publicationLinks) } : {}),
+    ...(content.richText ? { richText: structuredClone(content.richText) } : {})
+  };
 }
 export class ContentStore {
   constructor(file) { this.file = file; this.chain = Promise.resolve(); this.loaded = null; }
@@ -226,7 +230,7 @@ export class ContentStore {
       const item = db.contents.find(c => c.id === id);
       if (!item) throw fail('Konten tidak ditemukan', 404);
       const now = new Date().toISOString();
-      const copy = { ...snapshot(item), youtubeVideoId:'', youtubePublication:null, publicationLinks:[], id: crypto.randomUUID(), title: (item.title + ' (salinan)'), stage: db.columns[0].id, archived: false, plannedPublishAt: null, deadline: null, checklist: blank().checklist, revision: 1, createdAt: now, updatedAt: now, history: [] };
+      const copy = { ...snapshot(item), youtubeVideoId:'', youtubePublication:null, publicationLinks:[], id: crypto.randomUUID(), title: (item.title + ' (salinan)'), stage: db.columns[0].id, archived: false, plannedPublishAt: null, deadline: null, checklist: blank().checklist, revision: 1, createdAt: now, updatedAt: now, history: [], sources: (item.sources||[]).map(s=>({...s,id:crypto.randomUUID()})), assets: (item.assets||[]).map(a=>({...a,id:crypto.randomUUID()})) };
       db.contents.unshift(copy); return copy;
     });
   }

@@ -36,6 +36,13 @@ import {fillContentWithEngine,CONTENT_ENGINE_VERSION} from './content-engine.mjs
 import {RadarSocial} from './radar-social.mjs';
 import {videoIdFromInput,authRequiredError,isYouTubeAuthError,syncLinkedPublications} from './youtube-publication.mjs';
 import { auditVideo } from './content-auditor.mjs';
+import {
+  extractYouTubeTranscript,
+  synthesizeIdeaFromTranscript,
+  synthesizeScriptFromTranscript,
+  saveTranscriptIdeaToKanban,
+  saveTranscriptScriptToKanban
+} from './radar-transcript.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
@@ -1171,6 +1178,57 @@ const server = http.createServer(async (req, res) => {
     if(pathname==='/api/radar/social-intelligence'&&req.method==='GET')return json(res,200,await radarSocial.getReport(),{'cache-control':'no-store'});
     if(pathname==='/api/radar/social-intelligence/scan'&&req.method==='POST')return json(res,200,await radarSocial.scan({force:true}));
     if(pathname==='/api/radar/social-intelligence/to-kanban'&&req.method==='POST'){const body=await readJson(req);return json(res,201,await radarSocial.toKanban(body?.id));}
+    if(pathname==='/api/radar/transcript'&&req.method==='GET'){
+      const videoId=u.searchParams.get('videoId')||u.searchParams.get('v')||u.searchParams.get('url');
+      const lang=u.searchParams.get('lang')||'id';
+      if(!videoId)return json(res,400,{ok:false,error:'ID atau link video YouTube wajib disertakan.'},{'cache-control':'no-store'});
+      try{
+        const transcript=await extractYouTubeTranscript(videoId,{lang});
+        return json(res,200,{ok:true,transcript},{'cache-control':'no-store'});
+      }catch(e){
+        return json(res,e.status||422,{ok:false,code:e.code||'transcript_error',error:e.message},{'cache-control':'no-store'});
+      }
+    }
+    if(pathname==='/api/radar/transcript/idea'&&req.method==='POST'){
+      const body=await readJson(req);
+      if(!body||!body.transcriptText)return json(res,400,{ok:false,error:'Teks transkrip wajib disertakan.'});
+      try{
+        const result=await synthesizeIdeaFromTranscript({videoId:body.videoId,title:body.title,channelName:body.channelName,fullText:body.transcriptText,durationFormatted:body.durationFormatted,wordCount:body.wordCount},{format:body.format||'long'});
+        return json(res,200,{ok:true,...result},{'cache-control':'no-store'});
+      }catch(e){
+        return json(res,e.status||502,{ok:false,error:e.message},{'cache-control':'no-store'});
+      }
+    }
+    if(pathname==='/api/radar/transcript/script'&&req.method==='POST'){
+      const body=await readJson(req);
+      if(!body||!body.transcriptText)return json(res,400,{ok:false,error:'Teks transkrip wajib disertakan.'});
+      try{
+        const result=await synthesizeScriptFromTranscript({videoId:body.videoId,title:body.title,channelName:body.channelName,fullText:body.transcriptText,durationFormatted:body.durationFormatted,wordCount:body.wordCount},body.idea||null,{format:body.format||'long'});
+        return json(res,200,{ok:true,...result},{'cache-control':'no-store'});
+      }catch(e){
+        return json(res,e.status||502,{ok:false,error:e.message},{'cache-control':'no-store'});
+      }
+    }
+    if(pathname==='/api/radar/transcript/to-kanban-idea'&&req.method==='POST'){
+      const body=await readJson(req);
+      if(!body||!body.idea)return json(res,400,{ok:false,error:'Data ide wajib disertakan.'});
+      try{
+        const result=await saveTranscriptIdeaToKanban(contentStore,body.idea,body.sourceVideo||{});
+        return json(res,201,{ok:true,content:result.content},{'cache-control':'no-store'});
+      }catch(e){
+        return json(res,e.status||500,{ok:false,error:e.message},{'cache-control':'no-store'});
+      }
+    }
+    if(pathname==='/api/radar/transcript/to-kanban-script'&&req.method==='POST'){
+      const body=await readJson(req);
+      if(!body||!body.scriptData)return json(res,400,{ok:false,error:'Data naskah wajib disertakan.'});
+      try{
+        const result=await saveTranscriptScriptToKanban(contentStore,body.scriptData,body.sourceVideo||{});
+        return json(res,201,{ok:true,content:result.content},{'cache-control':'no-store'});
+      }catch(e){
+        return json(res,e.status||500,{ok:false,error:e.message},{'cache-control':'no-store'});
+      }
+    }
     if(pathname==='/api/radar/sync'&&req.method==='POST')return json(res,200,await radarSync.sync({force:true}));
     if(pathname==='/api/radar/ai/check'&&req.method==='POST')return json(res,200,await radarAI.checkConnection(await readJson(req)));
     if(pathname==='/api/radar/ai/test'&&req.method==='POST')return json(res,200,await radarAI.checkGeneration(await readJson(req)));
