@@ -1,6 +1,12 @@
-export const APP_VERSION='4.56.0';
+export const APP_VERSION='4.57.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.57.0',date:'2026-10-27',title:'Aktivasi Multi-Provider AI (Groq gpt-oss-120b & Gemini 3.5 Flash) dengan Auto-Fallback dan Konfigurasi Kunci API',changes:[
+    {type:'feature',title:'Aktivasi Kunci API Groq & Gemini dengan Dual Provider Engine',desc:'Mengaktifkan kunci API Groq (openai/gpt-oss-120b dan gpt-oss-20b) dan Gemini (gemini-3.5-flash) dengan kemampuan eksekusi sub-detik pada Radar AI dan generator naskah/ide investigasi.'},
+    {type:'feature',title:'Auto-Fallback Antar Provider AI (Groq ↔ Gemini)',desc:'Sistem secara otomatis mencoba provider utama (Groq) dan beralih mulus ke provider cadangan (Gemini) atau mode heuristik jika salah satu provider mengalami rate limit, overload, atau kendala jaringan.'},
+    {type:'fix',title:'Pembaruan Model Gemini ke Generasi 3.5/3.8 Flash',desc:'Memperbarui konfigurasi default Gemini ke gemini-3.5-flash guna menghindari penolakan model legacy (gemini-2.5-flash) dari Google API.'},
+    {type:'feature',title:'Dukungan Multi-Engine pada Generator Transkrip Radar',desc:'Memungkinkan ekstraksi transkrip diubah menjadi ide dan naskah konten secara instan menggunakan Groq JSON mode maupun Gemini structured generation.'}
+  ]},
   {version:'4.56.0',date:'2026-10-27',title:'Radar Ekstraksi Transkrip YouTube Pantauan, Generator Ide & Naskah Konten, dan Perbaikan Bug Store',changes:[
     {type:'feature',text:'Ekstraksi Transkrip YouTube Publik Channel Pantauan: Menghadirkan tombol [📝 Ekstrak Transkrip] pada setiap video dari channel kompetitor & referensi yang dipantau. Mengambil transkrip verbatim lengkap dengan timestamp, durasi, jumlah kata, dan opsi pencarian kata kunci instan tanpa membebani kuota API YouTube.'},
     {type:'feature',text:'Sintesis Ide Konten Investigasi (1-Klik ke Kanban): Dari transkrip video kompetitor, AI merumuskan ide konten orisinal dengan sudut pandang counter-investigasi, hook pembuka 15–30 detik, 3 temuan kunci data, dan analisis 3 Lensa Editorial REFRAME (The System & Capital, Hidden History, Human Mirror) yang dapat langsung disimpan ke papan Kanban.'},

@@ -16,7 +16,7 @@ const ACTIONS = {
 };
 const PROVIDERS = {
   openai: { name: 'OpenAI', keyVariable: 'OPENAI_API_KEY', modelVariable: 'OPENAI_MODEL', modelsVariable:'OPENAI_MODELS', defaultModel:'gpt-4.1-mini' },
-  gemini: { name: 'Gemini', keyVariable: 'GEMINI_API_KEY', modelVariable: 'GEMINI_MODEL' },
+  gemini: { name: 'Gemini', keyVariable: 'GEMINI_API_KEY', modelVariable: 'GEMINI_MODEL', defaultModel:'gemini-3.5-flash' },
   groq: { name: 'Groq', keyVariable: 'GROQ_API_KEY', modelVariable: 'GROQ_MODEL', modelsVariable:'GROQ_MODELS', defaultModel:'openai/gpt-oss-120b' }
 };
 const modelName = (model, provider) => typeof model === 'string' && !/^(?:sk-|gsk_|AIza)/.test(model) && (

@@ -135,8 +135,10 @@ test('saveTranscriptScriptToKanban persists full script to content store', async
 });
 
 test('synthesizeIdeaFromTranscript gracefully uses heuristic when AI is not configured', async () => {
-  const oldKey = process.env.GEMINI_API_KEY;
+  const oldGeminiKey = process.env.GEMINI_API_KEY;
+  const oldGroqKey = process.env.GROQ_API_KEY;
   delete process.env.GEMINI_API_KEY;
+  delete process.env.GROQ_API_KEY;
   try {
     const dummyTranscript = {
       title: 'Krisis Air Bersih Jakarta',
@@ -150,6 +152,7 @@ test('synthesizeIdeaFromTranscript gracefully uses heuristic when AI is not conf
     assert.equal(res.source, 'heuristic');
     assert.ok(res.idea.title.includes('Krisis Air Bersih'));
   } finally {
-    if (oldKey) process.env.GEMINI_API_KEY = oldKey;
+    if (oldGeminiKey) process.env.GEMINI_API_KEY = oldGeminiKey;
+    if (oldGroqKey) process.env.GROQ_API_KEY = oldGroqKey;
   }
 });

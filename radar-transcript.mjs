@@ -234,11 +234,76 @@ TEKS LAYAR: SIMAK DOKUMEN SELENGKAPNYA DI DESKRIPSI`,
   };
 }
 
-export async function synthesizeIdeaFromTranscript(transcriptData, { format = 'long', fetcher = fetch } = {}) {
+async function generateAiJson(prompt, { fetcher = fetch, timeoutMs = 25000, temperature = 0.4 } = {}) {
+  const preferred = (process.env.AI_PROVIDER || 'groq').toLowerCase();
+  const groqKey = process.env.GROQ_API_KEY;
+  const groqModel = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
   const geminiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 
-  if (!geminiKey) {
+  const providers = preferred === 'gemini'
+    ? [{ name: 'gemini', key: geminiKey, model: geminiModel }, { name: 'groq', key: groqKey, model: groqModel }]
+    : [{ name: 'groq', key: groqKey, model: groqModel }, { name: 'gemini', key: geminiKey, model: geminiModel }];
+
+  for (const p of providers) {
+    if (!p.key) continue;
+    try {
+      if (p.name === 'groq') {
+        const res = await fetcher('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${p.key}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: p.model,
+            messages: [{ role: 'user', content: prompt }],
+            response_format: { type: 'json_object' }
+          }),
+          signal: AbortSignal.timeout(timeoutMs)
+        });
+        if (res.ok) {
+          const d = await res.json();
+          const raw = d.choices?.[0]?.message?.content || '';
+          const clean = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(clean);
+          if (parsed && typeof parsed === 'object') {
+            return { ok: true, source: 'groq', model: p.model, data: parsed };
+          }
+        }
+      } else if (p.name === 'gemini') {
+        const res = await fetcher(`https://generativelanguage.googleapis.com/v1beta/models/${p.model}:generateContent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': p.key
+          },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature,
+              responseMimeType: 'application/json'
+            }
+          }),
+          signal: AbortSignal.timeout(timeoutMs)
+        });
+        if (res.ok) {
+          const d = await res.json();
+          const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const clean = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const parsed = JSON.parse(clean);
+          if (parsed && typeof parsed === 'object') {
+            return { ok: true, source: 'gemini', model: p.model, data: parsed };
+          }
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
+export async function synthesizeIdeaFromTranscript(transcriptData, { format = 'long', fetcher = fetch } = {}) {
+  if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
     return {
       ok: true,
       source: 'heuristic',
@@ -286,65 +351,35 @@ Berikan jawaban HANYA dalam format JSON valid (tanpa markdown pembuka/penutup):
   "editorialNotes": "Catatan kritis untuk reporter & editor naskah mengenai dokumen/arsip yang wajib dicari"
 }`;
 
-  try {
-    const response = await fetcher(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': geminiKey
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.4,
-          responseMimeType: 'application/json'
-        }
-      }),
-      signal: AbortSignal.timeout(35000)
-    });
-
-    if (!response.ok) {
-      return {
-        ok: true,
-        source: 'heuristic-fallback',
-        idea: generateHeuristicIdea(transcriptData, { format })
-      };
-    }
-
-    const jsonResp = await response.json();
-    const rawText = jsonResp.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
-
-    return {
-      ok: true,
-      source: 'gemini',
-      model,
-      idea: {
-        title: parsed.title || generateHeuristicIdea(transcriptData, { format }).title,
-        format: parsed.format || format,
-        pillar: parsed.pillar || 'Investigasi',
-        recommendedAngle: parsed.recommendedAngle || '',
-        suggestedHook: parsed.suggestedHook || '',
-        keyFindings: Array.isArray(parsed.keyFindings) ? parsed.keyFindings : [],
-        counterPerspective: parsed.counterPerspective || '',
-        editorialNotes: parsed.editorialNotes || ''
-      }
-    };
-  } catch (err) {
+  const aiRes = await generateAiJson(prompt, { fetcher, timeoutMs: 25000, temperature: 0.4 });
+  if (!aiRes || !aiRes.data) {
     return {
       ok: true,
       source: 'heuristic-fallback',
       idea: generateHeuristicIdea(transcriptData, { format })
     };
   }
+
+  const parsed = aiRes.data;
+  return {
+    ok: true,
+    source: aiRes.source,
+    model: aiRes.model,
+    idea: {
+      title: parsed.title || generateHeuristicIdea(transcriptData, { format }).title,
+      format: parsed.format || format,
+      pillar: parsed.pillar || 'Investigasi',
+      recommendedAngle: parsed.recommendedAngle || '',
+      suggestedHook: parsed.suggestedHook || '',
+      keyFindings: Array.isArray(parsed.keyFindings) ? parsed.keyFindings : [],
+      counterPerspective: parsed.counterPerspective || '',
+      editorialNotes: parsed.editorialNotes || ''
+    }
+  };
 }
 
 export async function synthesizeScriptFromTranscript(transcriptData, ideaData, { format = 'long', fetcher = fetch } = {}) {
-  const geminiKey = process.env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-
-  if (!geminiKey) {
+  if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
     return {
       ok: true,
       source: 'heuristic',
@@ -388,56 +423,29 @@ Berikan jawaban HANYA dalam format JSON valid (tanpa markdown pembuka/penutup):
   "estimatedDurationMin": ${format === 'shorts' ? 1 : 14}
 }`;
 
-  try {
-    const response = await fetcher(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': geminiKey
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.5,
-          responseMimeType: 'application/json'
-        }
-      }),
-      signal: AbortSignal.timeout(45000)
-    });
-
-    if (!response.ok) {
-      return {
-        ok: true,
-        source: 'heuristic-fallback',
-        scriptData: generateHeuristicScript(transcriptData, ideaData, { format })
-      };
-    }
-
-    const jsonResp = await response.json();
-    const rawText = jsonResp.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-    const parsed = JSON.parse(cleanJson);
-
-    return {
-      ok: true,
-      source: 'gemini',
-      model,
-      scriptData: {
-        title: parsed.title || ideaData?.title || transcriptData.title,
-        format: parsed.format || format,
-        hook: parsed.hook || ideaData?.suggestedHook || '',
-        script: parsed.script || '',
-        productionNotes: parsed.productionNotes || '',
-        estimatedDurationMin: parsed.estimatedDurationMin || (format === 'shorts' ? 1 : 14)
-      }
-    };
-  } catch (err) {
+  const aiRes = await generateAiJson(prompt, { fetcher, timeoutMs: 35000, temperature: 0.5 });
+  if (!aiRes || !aiRes.data) {
     return {
       ok: true,
       source: 'heuristic-fallback',
       scriptData: generateHeuristicScript(transcriptData, ideaData, { format })
     };
   }
+
+  const parsed = aiRes.data;
+  return {
+    ok: true,
+    source: aiRes.source,
+    model: aiRes.model,
+    scriptData: {
+      title: parsed.title || ideaData?.title || transcriptData.title,
+      format: parsed.format || format,
+      hook: parsed.hook || ideaData?.suggestedHook || '',
+      script: parsed.script || '',
+      productionNotes: parsed.productionNotes || '',
+      estimatedDurationMin: parsed.estimatedDurationMin || (format === 'shorts' ? 1 : 14)
+    }
+  };
 }
 
 export async function saveTranscriptIdeaToKanban(contentStore, idea, sourceVideo) {
