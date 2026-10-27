@@ -1,6 +1,12 @@
-export const APP_VERSION='4.53.0';
+export const APP_VERSION='4.54.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.54.0',date:'2026-10-27',title:'Penyempurnaan Metode Penilaian AI Content Auditor (Model Adaptif Durasi & Bayes)',changes:[
+    {type:'feature',text:'Normalisasi Durasi & Format Konten: Penilaian retensi kini mengidentifikasi format video (Shorts, Ringkas, Sedang, Investigasi Panjang). Video investigasi panjang (15–25 menit) dengan APV 30–35% tidak lagi dipenalti secara keliru, melainkan dinilai proporsional berdasarkan Average View Duration (AVD) jam tonton riil.'},
+    {type:'feature',text:'Deteksi Menit Riil Titik Bocor & Hook 30 Detik: Titik kebocoran retensi kini menyajikan estimasi menit:detik riil (misal: Menit 04:12) agar editor dapat langsung melompat ke timeline editing, serta hook awal diukur dari retensi 30 detik pertama.'},
+    {type:'feature',text:'Pembobotan Algoritma & Churn Netto: Interaksi penonton dibobot sesuai sinyal rekomendasi YouTube (Share 4x, Komentar 2.5x, Like 1x), dan konversi loyalitas subscriber kini memperhitungkan rasio unsubscriber (churn) per 1.000 views.'},
+    {type:'feature',text:'Kalibrasi Sampel Bayes & Kurva Kontinu: Mengeliminasi lompatan skor bertangga dengan interpolasi kontinu yang presisi, serta menerapkan peredam Bayes agar video bersampel kecil (<300 views) tidak mengalami bias ekstrem.'}
+  ]},
   {version:'4.53.0',date:'2026-10-27',title:'AI Content Auditor & Executive Performance Summary ("Rapor AI")',changes:[
     {type:'feature',text:'Rapor & Ringkasan AI Tiap Konten: Menghadirkan sub-tab "⚡ Rapor & Ringkasan AI" pada detail setiap video yang menyajikan ringkasan eksekutif instan (TL;DR), Health Score (0–100), dan Grade performa (S, A, B+, B, C, D) yang tidak tersedia di YouTube Studio.'},
     {type:'feature',text:'4-Grid Diagnostik Cerdas: Analisis pintu masuk (Thumbnail & CTR), hook 30 detik pertama, deteksi titik kebocoran retensi penonton beserta solusi editing/naskah, dan rasio konversi loyalitas subscriber.'},
