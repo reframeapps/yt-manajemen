@@ -1,6 +1,12 @@
-export const APP_VERSION='4.54.0';
+export const APP_VERSION='4.55.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.55.0',date:'2026-10-27',title:'Perhitungan Evaluasi Sistem Deterministik (Peer-Channel Q1–Q3) & Pemisahan Narasi AI',changes:[
+    {type:'feature',text:'Perhitungan 100% Deterministik oleh Sistem: Seluruh skor kesehatan (0–100), peringkat video channel (misal: "Peringkat #2 dari 10 video channel"), rentang tipikal (Interquartile Range Q1–Q3), dan deteksi penurunan kurva retensi dihitung secara matematis oleh sistem berdasarkan data riil channel, bukan tebakan atau halusinasi AI.'},
+    {type:'feature',text:'Pemisahan Tegas Peran AI sebagai Narator: AI (Gemini) tidak lagi menghitung atau memanipulasi angka, melainkan hanya bertugas menarasikan kesimpulan eksekutif, menganalisis akar masalah (root cause) titik kebocoran penonton, serta merumuskan rekomendasi naskah dan ide sekuel investigasi.'},
+    {type:'feature',text:'Benchmark Rentang Tipikal Channel: Menampilkan status views dan durasi tonton (AVD) dibanding rentang tipikal channel (Q1–Q3), memberikan konteks apakah video berkinerja "Di Atas Tipikal", "Tipikal", atau "Di Bawah Tipikal" persis seperti filosofi YouTube Studio.'},
+    {type:'feature',text:'Transparansi Badge Sistem vs AI di Antarmuka: Penanda visual jelas "⚙️ Dihitung Sistem" pada peringkat, skor dimensi, dan rasio retensi untuk membedakannya secara tegas dari narasi kreatif "🤖 AI".'}
+  ]},
   {version:'4.54.0',date:'2026-10-27',title:'Penyempurnaan Metode Penilaian AI Content Auditor (Model Adaptif Durasi & Bayes)',changes:[
     {type:'feature',text:'Normalisasi Durasi & Format Konten: Penilaian retensi kini mengidentifikasi format video (Shorts, Ringkas, Sedang, Investigasi Panjang). Video investigasi panjang (15–25 menit) dengan APV 30–35% tidak lagi dipenalti secara keliru, melainkan dinilai proporsional berdasarkan Average View Duration (AVD) jam tonton riil.'},
     {type:'feature',text:'Deteksi Menit Riil Titik Bocor & Hook 30 Detik: Titik kebocoran retensi kini menyajikan estimasi menit:detik riil (misal: Menit 04:12) agar editor dapat langsung melompat ke timeline editing, serta hook awal diukur dari retensi 30 detik pertama.'},

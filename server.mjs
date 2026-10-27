@@ -1144,9 +1144,10 @@ const server = http.createServer(async (req, res) => {
       const force=req.method==='POST'||u.searchParams.get('force')==='1';
       try{
         const report=await analytics.getVideo(db.channel.id,id,range,{force});
+        let channelVideos=[];try{const list=await analytics.listVideos(db.channel.id,range);channelVideos=list.videos||[];}catch{}
         const productions=(await contentStore.read()).contents;
         const linkedContent=productions.find(c=>c.youtubeVideoId===id)||null;
-        const audit=await auditVideo(report,{content:linkedContent,force});
+        const audit=await auditVideo(report,{channelVideos,content:linkedContent,force});
         return json(res,200,{video:report.video,audit,generatedAt:audit.generatedAt},{'cache-control':'no-store'});
       }catch(e){return json(res,e.status||502,{code:e.code||'audit_error',error:e.message},{'cache-control':'no-store'});}
     }

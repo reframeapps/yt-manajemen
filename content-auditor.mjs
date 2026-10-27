@@ -50,7 +50,7 @@ export function detectHookRetention(retentionRows) {
   return {
     position: Number(hookRow.position || 0),
     watchRatio: pct,
-    score: pct >= 75 ? 'Sangat Kuat' : pct >= 60 ? 'Standar' : 'Perlu Penguatan'
+    score: pct >= 70 ? 'Kuat' : pct >= 52 ? 'Standar' : 'Perlu Penguatan'
   };
 }
 
@@ -65,7 +65,6 @@ export function detectDropoffPoint(retentionRows, totalDurationSec = 0) {
     const diff = prev - curr;
     const pos = Number(retentionRows[i].position || 0);
 
-    // Prioritaskan drop di atas 8% durasi (setelah intro) agar tidak tertukar dengan bounce awal
     const weightedDiff = pos >= 0.08 ? diff * 1.05 : diff;
     if (weightedDiff > maxDrop) {
       maxDrop = weightedDiff;
@@ -86,7 +85,53 @@ export function detectDropoffPoint(retentionRows, totalDurationSec = 0) {
   return dropPoint;
 }
 
-export function computeHealthScore(report) {
+export function calculateChannelBenchmarks(channelVideos, currentVideoId) {
+  if (!Array.isArray(channelVideos) || channelVideos.length < 3) {
+    return null;
+  }
+  const valid = channelVideos.filter(v => Number.isFinite(v.views) && v.views >= 0);
+  if (valid.length < 3) return null;
+
+  const viewsArr = valid.map(v => v.views).sort((a, b) => a - b);
+  const avdArr = valid.map(v => v.averageViewDuration || 0).sort((a, b) => a - b);
+  const apvArr = valid.map(v => v.averageViewPercentage || 0).sort((a, b) => a - b);
+
+  const getPercentile = (arr, p) => {
+    if (!arr.length) return 0;
+    const idx = (p / 100) * (arr.length - 1);
+    const low = Math.floor(idx);
+    const high = Math.ceil(idx);
+    return Math.round((arr[low] + arr[high]) / 2);
+  };
+
+  const viewsQ1 = getPercentile(viewsArr, 25);
+  const viewsMed = getPercentile(viewsArr, 50);
+  const viewsQ3 = getPercentile(viewsArr, 75);
+
+  const avdQ1 = getPercentile(avdArr, 25);
+  const avdMed = getPercentile(avdArr, 50);
+  const avdQ3 = getPercentile(avdArr, 75);
+
+  const apvQ1 = getPercentile(apvArr, 25);
+  const apvMed = getPercentile(apvArr, 50);
+  const apvQ3 = getPercentile(apvArr, 75);
+
+  const sorted = [...valid].sort((a, b) => (b.views || 0) - (a.views || 0));
+  const rankIdx = sorted.findIndex(v => v.id === currentVideoId);
+  const rank = rankIdx >= 0 ? rankIdx + 1 : null;
+  const totalRanked = sorted.length;
+
+  return {
+    totalRanked,
+    rank,
+    rankText: rank ? `Peringkat #${rank} dari ${totalRanked} video channel` : `Peringkat #${totalRanked} dari ${totalRanked} video`,
+    views: { q1: viewsQ1, median: viewsMed, q3: viewsQ3 },
+    avd: { q1: avdQ1, median: avdMed, q3: avdQ3 },
+    apv: { q1: apvQ1, median: apvMed, q3: apvQ3 }
+  };
+}
+
+export function computeHealthScore(report, { channelVideos = [] } = {}) {
   const summary = report.summary || {};
   const v = report.video || {};
   const views = FINITE(summary.views || v.lifetime?.views);
@@ -102,7 +147,6 @@ export function computeHealthScore(report) {
   const ctr = report.reach?.ctr !== null && report.reach?.ctr !== undefined ? Number(report.reach.ctr) : null;
   const impressions = FINITE(report.reach?.impressions);
 
-  // 1. Klasifikasi Durasi & Format Konten
   const totalDurationSec = estimateVideoDuration(report);
   let format = 'long';
   let formatLabel = 'Investigasi Panjang (>12m)';
@@ -120,15 +164,45 @@ export function computeHealthScore(report) {
     formatLabel = `Investigasi Panjang (${Math.round(totalDurationSec / 60)}m)`;
   }
 
-  // 2. Clickability Score (0-100) — Kurva Halus & Bonus Skala Impresi
+  const channelBench = calculateChannelBenchmarks(channelVideos, report.id);
+
+  let viewsStatus = 'Tipikal Channel';
+  let viewsPercentile = 60;
+  let avdStatus = 'Tipikal Channel';
+  let avdPercentile = 60;
+
+  if (channelBench) {
+    if (views > channelBench.views.q3) {
+      viewsStatus = '🟢 Di Atas Tipikal Channel';
+      viewsPercentile = Math.min(98, Math.max(78, channelBench.rank ? Math.round(((channelBench.totalRanked - channelBench.rank + 1) / channelBench.totalRanked) * 100) : 85));
+    } else if (views < channelBench.views.q1) {
+      viewsStatus = '🟠 Di Bawah Tipikal Channel';
+      viewsPercentile = Math.max(20, channelBench.rank ? Math.round(((channelBench.totalRanked - channelBench.rank + 1) / channelBench.totalRanked) * 100) : 35);
+    } else {
+      viewsStatus = '🔵 Tipikal / Sesuai Rata-rata';
+      viewsPercentile = channelBench.rank ? Math.round(((channelBench.totalRanked - channelBench.rank + 1) / channelBench.totalRanked) * 100) : 60;
+    }
+
+    if (avgDuration > channelBench.avd.q3) {
+      avdStatus = '🟢 Di Atas Tipikal Channel';
+      avdPercentile = 86;
+    } else if (avgDuration < channelBench.avd.q1) {
+      avdStatus = '🟠 Di Bawah Tipikal Channel';
+      avdPercentile = 42;
+    } else {
+      avdStatus = '🔵 Tipikal Channel';
+      avdPercentile = 65;
+    }
+  }
+
+  // Clickability (CTR)
   let clickScore = 70;
   let ctrSource = 'laporan';
   if (ctr !== null && Number.isFinite(ctr)) {
     const ctrPoints = [[1.0, 40], [2.5, 55], [4.0, 70], [5.5, 82], [7.5, 92], [10.0, 98]];
     let baseClick = interpolate(ctr, ctrPoints);
     if (impressions >= 10000 && ctr >= 4.5) {
-      const scaleBonus = Math.min(6, Math.round(Math.log10(impressions / 5000) * 3));
-      baseClick += scaleBonus;
+      baseClick += Math.min(6, Math.round(Math.log10(impressions / 5000) * 3));
     }
     clickScore = Math.min(99, Math.max(35, baseClick));
   } else if (impressions > 0 && views > 0) {
@@ -142,47 +216,23 @@ export function computeHealthScore(report) {
   } else if (views >= 1000) {
     clickScore = 76;
     ctrSource = 'estimasi_views';
-  } else {
-    clickScore = 70;
-    ctrSource = 'estimasi_awal';
   }
 
-  // 3. Retention Score (0-100) — Adaptif Format & Bobot Jam Tonton Riil (AVD)
-  let retentionScore = 70;
-  if (avgPercentage > 0) {
+  // Retention Score
+  let retentionScore = avdPercentile;
+  if (!channelBench && avgPercentage > 0) {
     let apvPoints;
-    if (format === 'shorts') {
-      apvPoints = [[25, 40], [45, 55], [60, 70], [75, 84], [90, 94], [115, 100]];
-    } else if (format === 'short') {
-      apvPoints = [[18, 40], [30, 55], [42, 70], [52, 83], [64, 93], [80, 100]];
-    } else if (format === 'medium') {
-      apvPoints = [[14, 40], [24, 55], [34, 70], [44, 83], [54, 93], [68, 100]];
-    } else {
-      // Long form investigasi: 35%+ APV adalah top tier, 26% sudah sehat
-      apvPoints = [[10, 40], [18, 55], [26, 70], [35, 83], [44, 93], [55, 100]];
-    }
-
-    let baseRet = interpolate(avgPercentage, apvPoints);
-
-    // Bonus kedalaman jam tonton per penonton (AVD)
-    if (avgDuration >= 600) baseRet += 5; // 10+ menit AVD
-    else if (avgDuration >= 420) baseRet += 3; // 7+ menit AVD
-    else if (avgDuration >= 240) baseRet += 1; // 4+ menit AVD
-
-    // Penyelarasan Relative Retention bawaan YouTube Analytics (bila tersedia)
-    if (Array.isArray(report.retention) && report.retention.length > 0) {
-      const validRelatives = report.retention.filter(r => Number.isFinite(r.relativePerformance));
-      if (validRelatives.length > 0) {
-        const avgRel = validRelatives.reduce((acc, r) => acc + r.relativePerformance, 0) / validRelatives.length;
-        const relBonus = Math.round((avgRel - 0.5) * 10);
-        baseRet += relBonus;
-      }
-    }
-
-    retentionScore = Math.min(99, Math.max(35, baseRet));
+    if (format === 'shorts') apvPoints = [[25, 40], [45, 55], [60, 70], [75, 84], [90, 94], [115, 100]];
+    else if (format === 'short') apvPoints = [[18, 40], [30, 55], [42, 70], [52, 83], [64, 93], [80, 100]];
+    else if (format === 'medium') apvPoints = [[14, 40], [24, 55], [34, 70], [44, 83], [54, 93], [68, 100]];
+    else apvPoints = [[10, 40], [18, 55], [26, 70], [35, 83], [44, 93], [55, 100]];
+    retentionScore = Math.min(99, Math.max(35, interpolate(avgPercentage, apvPoints)));
+    if (avgDuration >= 600) retentionScore += 5;
+    else if (avgDuration >= 420) retentionScore += 3;
+    else if (avgDuration >= 240) retentionScore += 1;
   }
 
-  // 4. Engagement Score (0-100) — Pembobotan Algoritma (Share 4x, Komentar 2.5x, Like 1x)
+  // Engagement Score
   let engagementScore = 70;
   let weightedEngRate = 0;
   if (views > 0) {
@@ -192,7 +242,7 @@ export function computeHealthScore(report) {
     engagementScore = Math.min(99, Math.max(35, interpolate(weightedEngRate, engPoints)));
   }
 
-  // 5. Conversion & Loyalty Score (0-100) — Memperhitungkan Churn / Net Subscriber
+  // Conversion Score
   let conversionScore = 70;
   let netSubsPer1k = 0;
   if (views > 0) {
@@ -201,71 +251,54 @@ export function computeHealthScore(report) {
     conversionScore = Math.min(99, Math.max(30, interpolate(netSubsPer1k, convPoints)));
   }
 
-  // 6. Skor Mentah Terbobot
-  const rawOverall = Math.round(
-    clickScore * 0.25 +
-    retentionScore * 0.35 +
-    engagementScore * 0.20 +
-    conversionScore * 0.20
-  );
-
-  // 7. Kalibrasi Sampel Bayes (Menghindari bias sampel mikro <300 views)
-  const sampleConfidence = views > 0
-    ? Math.min(1.0, Math.max(0.40, Math.log10(views + 5) / 2.8))
-    : 0.5;
-  const overall = Math.round(rawOverall * sampleConfidence + 70 * (1 - sampleConfidence));
-
-  let confidenceLabel = 'Sampel Matang (>1.000 views)';
-  if (views < 100) {
-    confidenceLabel = 'Akumulasi Awal (<100 views, terkalibrasi)';
-  } else if (views < 500) {
-    confidenceLabel = 'Pertumbuhan Awal (100–500 views)';
-  } else if (views < 1000) {
-    confidenceLabel = 'Mendekati Stabil (500–1.000 views)';
+  // Sistem menghitung skor objektif keseluruhan (100% deterministik sistem)
+  let overall = 70;
+  if (channelBench) {
+    overall = Math.round(viewsPercentile * 0.40 + avdPercentile * 0.35 + clickScore * 0.25);
+  } else {
+    overall = Math.round(clickScore * 0.25 + retentionScore * 0.35 + engagementScore * 0.20 + conversionScore * 0.20);
+    const conf = views > 0 ? Math.min(1.0, Math.max(0.40, Math.log10(views + 5) / 2.8)) : 0.5;
+    overall = Math.round(overall * conf + 70 * (1 - conf));
   }
+  overall = Math.min(99, Math.max(30, overall));
 
-  // Pemetaan Grade & Status
   let grade = 'B';
-  let status = 'Stabil / Solid Performer';
+  let status = 'Tipikal / Sesuai Ekspektasi';
   let badgeColor = '#2563eb';
 
-  if (overall >= 90) {
+  if (overall >= 88) {
     grade = 'S';
-    status = '🔥 TIER-1 / VIRAL BREAKTHROUGH';
+    status = '🔥 TIER-1 / OUTPERFORMING (Top Channel)';
     badgeColor = '#d97706';
-  } else if (overall >= 80) {
+  } else if (overall >= 78) {
     grade = 'A';
-    status = '🟢 OUTPERFORMING (Top 15% Channel)';
+    status = '🟢 DI ATAS TIPIKAL CHANNEL';
     badgeColor = '#16a34a';
-  } else if (overall >= 70) {
-    grade = 'B+';
-    status = '🔵 SOLID PERFORMER (Di Atas Rata-rata)';
-    badgeColor = '#2563eb';
-  } else if (overall >= 60) {
+  } else if (overall >= 62) {
     grade = 'B';
-    status = '🟡 AVERAGE (Performa Standar)';
-    badgeColor = '#ca8a04';
-  } else if (overall >= 50) {
+    status = '🔵 TIPIKAL / SESUAI EKSPEKTASI';
+    badgeColor = '#2563eb';
+  } else if (overall >= 48) {
     grade = 'C';
-    status = '🟠 UNDERPERFORMING (Perlu Optimasi)';
+    status = '🟠 DI BAWAH TIPIKAL CHANNEL';
     badgeColor = '#ea580c';
   } else {
     grade = 'D';
-    status = '🔴 PERLU PEROMBAKAN TOTAL';
+    status = '🔴 PERLU EVALUASI TOTAL';
     badgeColor = '#dc2626';
   }
 
   return {
     overall,
-    rawOverall,
-    sampleConfidence: Math.round(sampleConfidence * 100) / 100,
-    confidenceLabel,
     grade,
     status,
     badgeColor,
     format,
     formatLabel,
     totalDurationSec,
+    channelBench,
+    viewsStatus,
+    avdStatus,
     breakdown: {
       clickScore,
       retentionScore,
@@ -273,84 +306,97 @@ export function computeHealthScore(report) {
       conversionScore
     },
     metricsSummary: {
+      views,
+      impressions,
       ctr: ctr !== null ? Math.round(ctr * 10) / 10 : null,
       ctrSource,
       apv: Math.round(avgPercentage * 10) / 10,
       avdSec: avgDuration,
       avdMin: Math.round((avgDuration / 60) * 10) / 10,
       weightedEngRate: Math.round(weightedEngRate * 10) / 10,
-      netSubsPer1k: Math.round(netSubsPer1k * 10) / 10,
-      views,
-      impressions
+      netSubs,
+      netSubsPer1k: Math.round(netSubsPer1k * 10) / 10
     }
   };
 }
 
-export function generateHeuristicAudit(report, health) {
-  const v = report.video || {};
+export function computeSystemDiagnostics(report, health) {
   const s = report.summary || {};
   const reach = report.reach || {};
   const retention = report.retention || [];
-  const searchTerms = (report.searchTerms || []).map(st => st.key).slice(0, 3);
+  const m = health.metricsSummary || {};
   const totalDurationSec = health.totalDurationSec || estimateVideoDuration(report);
   const drop = detectDropoffPoint(retention, totalDurationSec);
   const hook = detectHookRetention(retention);
-  const views = FINITE(s.views || v.lifetime?.views);
-  const subsGained = FINITE(s.subscribersGained);
-  const subsLost = FINITE(s.subscribersLost);
-  const netSubs = subsGained - subsLost;
   const ctr = reach.ctr !== null && reach.ctr !== undefined ? Number(reach.ctr) : null;
-  const avgPct = FINITE(report.averageViewPercentage);
-  const m = health.metricsSummary || {};
 
-  const executiveSummary = views > 5000 || health.overall >= 80
-    ? `Video "${v.title || 'ini'}" (${health.formatLabel}) mencatatkan performa ${health.status} dengan indeks kesehatan ${health.overall}/100. Daya tahan penonton mencapai ${m.avdMin || 0} menit per pemutaran dengan konversi bersih +${netSubs} subscriber, membuktikan topik investigasi ini memiliki resonansi tinggi bagi audiens.`
-    : `Video "${v.title || 'ini'}" (${health.formatLabel}) berada pada performa ${health.status} (${health.overall}/100) dalam status ${health.confidenceLabel}. Penonton awal merespons cukup baik, namun penguatan struktur hook 30 detik pertama dan pergantian ritme visual diperlukan agar durasi tonton meningkat signifikan.`;
-
-  const hookDiag = hook
-    ? {
-        score: hook.score,
-        explanation: `Retensi 30 detik pertama tercatat ${hook.watchRatio}%. ${hook.watchRatio >= 75 ? 'Pembukaan langsung ke inti misteri investigasi terbukti ampuh mempertahankan perhatian penonton awal.' : hook.watchRatio >= 60 ? 'Intro cukup stabil, namun sekitar ' + (100 - hook.watchRatio) + '% penonton melompat keluar sebelum pemaparan kasus utama.' : 'Terjadi penurunan drastis di awal. Pangkas bumper atau salam pembuka dan langsung sajikan fakta kontroversial di 15 detik pertama.'}`
-      }
-    : avgPct >= 35
-      ? { score: 'Kuat', explanation: `Hook pembuka berhasil mempertahankan penonton dengan rata-rata ditonton ${avgPct.toFixed(1)}% (${m.avdMin || 0} menit). Pacing awal sudah sesuai standar dokumenter investigasi.` }
-      : { score: 'Perlu Penguatan', explanation: `Rata-rata tonton berada di ${avgPct.toFixed(1)}%. Penonton membutuhkan visualisasi fakta mengejutkan atau pertanyaan provokatif di 15 detik pertama untuk mengunci rasa penasaran.` };
-
-  const dropDiag = drop
-    ? {
-        point: drop.timestampFormatted ? `Menit ${drop.timestampFormatted} (${Math.round(drop.position * 100)}% durasi)` : `Posisi ${Math.round(drop.position * 100)}% durasi video`,
-        dropPercent: `-${drop.dropPercent}%`,
-        cause: `Penurunan terbesar (${drop.dropPercent}% penonton keluar) terdeteksi pada ${drop.timestampFormatted ? 'menit ' + drop.timestampFormatted : 'titik ini'}. Biasanya dipicu oleh paparan narasi statis tanpa variasi footage dokumen atau alur data teknis yang terlalu padat.`,
-        recommendation: 'Ganti pembacaan teks panjang di segmen ini dengan potongan dokumen bertinta merah, infografis diagram hubungan aktor, atau perubahan tempo musik latar.'
-      }
-    : {
-        point: 'Pertengahan Durasi',
-        dropPercent: 'Normal',
-        cause: 'Kurva retensi berjalan landai tanpa penurunan drastis mendadak.',
-        recommendation: 'Pertahankan variasi b-roll dan transisi adegan setiap 8–12 detik untuk menjaga tensi investigasi.'
-      };
-
-  const clickDiag = ctr !== null
-    ? {
-        score: ctr >= 6.0 ? 'Tinggi' : ctr >= 4.0 ? 'Standar' : 'Rendah',
-        explanation: `CTR thumbnail berada di angka ${ctr.toFixed(1)}%${reach.impressions ? ` dari total ${reach.impressions.toLocaleString('id-ID')} impresi` : ''}. ${ctr >= 6.0 ? 'Kombinasi judul dramatis dan thumbnail kontras bekerja sangat optimal menarik penonton.' : 'Judul dan thumbnail perlu penegasan kontras warna tokoh dan pengurangan kata agar lebih terbaca di feed smartphone.'}`
-      }
-    : {
-        score: health.breakdown?.clickScore >= 80 ? 'Kuat (Estimasi)' : 'Standar',
-        explanation: `Data CTR spesifik masih dalam antrean pemrosesan YouTube Reporting API. Pola distribusi judul (${m.views?.toLocaleString('id-ID') || 0} views) menunjukkan daya pikat yang sehat.`
-      };
-
-  const convDiag = {
-    score: netSubs >= 20 ? 'Sangat Baik' : netSubs >= 5 ? 'Standar' : 'Perlu Optimasi',
-    explanation: `Menghasilkan +${subsGained} subscriber baru (${subsLost > 0 ? `dengan -${subsLost} berhenti subscribe, ` : ''}bersih: ${netSubs > 0 ? '+' : ''}${netSubs}). ${m.netSubsPer1k >= 5 ? 'Rasio konversi sangat tinggi terhadap penonton baru, menandakan kredibilitas investigasi diakui audiens.' : 'Pastikan menyelipkan call-to-action ajakan berlangganan di momen puncak pembongkaran data penting.'}`
+  const clickability = {
+    score: ctr !== null ? (ctr >= 6.0 ? 'Tinggi' : ctr >= 4.0 ? 'Tipikal' : 'Perlu Optimasi') : (health.breakdown.clickScore >= 80 ? 'Kuat (Estimasi)' : 'Standar'),
+    ctr,
+    impressions: reach.impressions || 0,
+    text: ctr !== null
+      ? `CTR thumbnail sebesar ${ctr.toFixed(1)}%${reach.impressions ? ` dari total ${reach.impressions.toLocaleString('id-ID')} impresi` : ''}.`
+      : `Data CTR spesifik dalam pelaporan YouTube Reporting. Estimasi penonton: ${m.views?.toLocaleString('id-ID') || 0} views.`
   };
 
+  const hookDiag = {
+    score: hook ? hook.score : (m.apv >= 35 ? 'Kuat' : 'Perlu Penguatan'),
+    ratio: hook ? hook.watchRatio : null,
+    text: hook
+      ? `Retensi 30 detik pertama sebesar ${hook.watchRatio}% penonton bertahan.`
+      : `Rata-rata tonton sebesar ${m.apv}% durasi (${m.avdMin} menit).`
+  };
+
+  const dropoff = {
+    point: drop ? (drop.timestampFormatted ? `Menit ${drop.timestampFormatted} (${Math.round(drop.position * 100)}% durasi)` : `Posisi ${Math.round(drop.position * 100)}% durasi`) : 'Pertengahan Durasi',
+    dropPercent: drop ? `-${drop.dropPercent}%` : 'Normal',
+    timestampFormatted: drop?.timestampFormatted || null,
+    timestampSec: drop?.timestampSec || null,
+    detected: !!drop
+  };
+
+  const conversion = {
+    score: m.netSubsPer1k >= 5 ? 'Sangat Baik' : m.netSubsPer1k >= 1.5 ? 'Standar' : 'Perlu Optimasi',
+    netSubs: m.netSubs,
+    netSubsPer1k: m.netSubsPer1k,
+    text: `Konversi netto ${m.netSubs > 0 ? '+' : ''}${m.netSubs} subscriber (${m.netSubsPer1k} per 1.000 views).`
+  };
+
+  return { clickability, hook: hookDiag, dropoff, conversion };
+}
+
+export function generateHeuristicAudit(report, health, diagnostics) {
+  const diag = diagnostics || computeSystemDiagnostics(report, health);
+  const v = report.video || {};
+  const m = health.metricsSummary || {};
+  const bench = health.channelBench;
+  const searchTerms = (report.searchTerms || []).map(st => st.key).slice(0, 3);
+
+  const rankStr = bench?.rankText ? `${bench.rankText} · ` : '';
+  const executiveSummary = m.views > (bench?.views?.median || 3000) || health.overall >= 78
+    ? `Video "${v.title || 'ini'}" (${health.formatLabel}) meraih status ${health.status} (${rankStr}skor ${health.overall}/100). Durasi tonton mencapai ${m.avdMin} menit (${health.avdStatus}) dengan konversi netto ${m.netSubs > 0 ? '+' : ''}${m.netSubs} subscriber, membuktikan investigasi ini berhasil mengikat audiens di atas rata-rata.`
+    : `Video "${v.title || 'ini'}" (${health.formatLabel}) berada pada status ${health.status} (${rankStr}skor ${health.overall}/100). Penonton awal mencatatkan ${m.views.toLocaleString('id-ID')} views (${health.viewsStatus}), dengan ruang penguatan pada pacing naskah dan hook pembuka agar durasi tonton meningkat.`;
+
+  const hookExplanation = `${diag.hook.text} ${diag.hook.score === 'Kuat' ? 'Pembukaan langsung ke inti investigasi terbukti efektif mempertahankan audiens sejak intro.' : 'Pangkas salam atau pembuka yang bertele-tele dan langsung letakkan fakta mengejutkan di 15 detik awal.'}`;
+
+  const dropCause = diag.dropoff.detected
+    ? `Terdeteksi penurunan ${diag.dropoff.dropPercent} penonton pada ${diag.dropoff.point}. Titik ini umumnya terjadi saat tempo narasi melambat atau pemaparan dokumen statis terlalu panjang tanpa pergantian visual.`
+    : 'Kurva retensi penonton stabil tanpa penurunan ekstrem.';
+
+  const dropRecom = diag.dropoff.detected
+    ? 'Ganti pembacaan teks panjang di menit ini dengan motion graphic bagan alur, sorotan dokumen berlingkar merah, atau perubahan tensi musik latar.'
+    : 'Pertahankan transisi adegan setiap 8–12 detik untuk menjaga tensi cerita investigasi.';
+
+  const clickExplanation = `${diag.clickability.text} ${diag.clickability.score === 'Tinggi' ? 'Visual thumbnail kontras tinggi dan judul dramatis berhasil menarik klik.' : 'Tingkatkan kontras ekspresi tokoh dan kurangi teks thumbnail maksimal 3-4 kata kapital agar jelas di smartphone.'}`;
+
+  const convExplanation = `${diag.conversion.text} ${diag.conversion.score === 'Sangat Baik' ? 'Rasio konversi sangat sehat, menandakan pemaparan materi memiliki kredibilitas tinggi.' : 'Sematkan ajakan berlangganan (call-to-action) tepat di momen pengungkapan fakta kunci investigasi.'}`;
+
   const actionItems = [
-    views > 1000
-      ? `Buat Part Lanjutan / Sekuel: Lanjutkan sudut pandang dari video ini dengan mengangkat aktor atau aliran dana turunan.`
-      : `Optimasi Thumbnail & Judul: Uji coba ganti thumbnail dengan ekspresi wajah tokoh dan teks maksimal 3-4 kata kapital.`,
-    `Sematkan Komentar (Pin Comment): Taruh komentar pertanyaan pemancing diskusi penonton di kolom komentar untuk melipatgandakan engagement.`,
-    `Evaluasi Naskah: Di naskah berikutnya, pastikan pemaparan dokumen resmi disajikan dalam bentuk poin cepat, bukan narasi panjang.`
+    m.views > 1000
+      ? `Buat Part Lanjutan / Sekuel: Lanjutkan penelusuran dari video ini dengan mengangkat sudut pandang aktor atau aliran dana turunan.`
+      : `Optimasi Thumbnail & Judul: Uji coba thumbnail alternatif dengan ekspresi tokoh dominan dan judul lebih provokatif.`,
+    `Sematkan Komentar (Pin Comment): Berikan pertanyaan diskusi di kolom komentar untuk melipatgandakan engagement.`,
+    `Evaluasi Menit Bocor: Pada naskah berikutnya, hindari jeda data teknis statis di titik serupa (${diag.dropoff.point}).`
   ];
 
   const sequelIdeas = [
@@ -367,119 +413,86 @@ export function generateHeuristicAudit(report, health) {
   ];
 
   return {
-    source: 'heuristic',
+    source: 'system',
     generatedAt: new Date().toISOString(),
     health,
+    systemDiagnostics: diag,
     executiveSummary,
-    hookDiagnosis: hookDiag,
-    dropoffDiagnosis: dropDiag,
-    clickabilityDiagnosis: clickDiag,
-    conversionDiagnosis: convDiag,
+    hookDiagnosis: { score: diag.hook.score, explanation: hookExplanation },
+    dropoffDiagnosis: { point: diag.dropoff.point, dropPercent: diag.dropoff.dropPercent, cause: dropCause, recommendation: dropRecom },
+    clickabilityDiagnosis: { score: diag.clickability.score, explanation: clickExplanation },
+    conversionDiagnosis: { score: diag.conversion.score, explanation: convExplanation },
     actionItems,
     sequelIdeas,
     topSearchTerms: searchTerms
   };
 }
 
-export async function auditVideo(report, { aiProvider, force = false, content = null, fetcher = fetch, now = Date.now } = {}) {
-  const health = computeHealthScore(report);
+export async function auditVideo(report, { channelVideos = [], aiProvider, force = false, content = null, fetcher = fetch, now = Date.now } = {}) {
+  // 1. SISTEM MENGHITUNG 100% METRIK & DIAGNOSTIK SECARA DETERMINISTIK
+  const health = computeHealthScore(report, { channelVideos });
+  const diag = computeSystemDiagnostics(report, health);
   const v = report.video || {};
   const s = report.summary || {};
   const reach = report.reach || {};
-  const retention = report.retention || [];
   const searchTerms = (report.searchTerms || []).map(st => st.key).slice(0, 5);
-  const totalDurationSec = health.totalDurationSec || estimateVideoDuration(report);
-  const drop = detectDropoffPoint(retention, totalDurationSec);
-  const hook = detectHookRetention(retention);
+  const bench = health.channelBench;
+  const m = health.metricsSummary;
 
   const geminiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 
   if (!geminiKey) {
-    return generateHeuristicAudit(report, health);
+    return generateHeuristicAudit(report, health, diag);
   }
 
-  const payloadContext = {
+  // 2. FAKTA HASIL PERHITUNGAN SISTEM YANG DIKIRIM KE AI
+  const systemCalculatedFacts = {
     title: v.title || 'Video Investigasi',
     id: report.id,
     format: health.formatLabel,
-    durationSec: totalDurationSec,
-    durationFormatted: `${Math.floor(totalDurationSec / 60)}m ${totalDurationSec % 60}s`,
-    views: FINITE(s.views || v.lifetime?.views),
-    watchHours: FINITE(s.watchHours),
-    avgDurationSec: FINITE(s.averageViewDuration),
-    avgDurationMin: Math.round((FINITE(s.averageViewDuration) / 60) * 10) / 10,
-    avgPercentage: FINITE(report.averageViewPercentage),
-    ctr: reach.ctr !== null && reach.ctr !== undefined ? Number(reach.ctr) : null,
-    impressions: FINITE(reach.impressions),
-    likes: FINITE(s.likes),
-    comments: FINITE(s.comments),
-    shares: FINITE(s.shares),
-    subscribersGained: FINITE(s.subscribersGained),
-    subscribersLost: FINITE(s.subscribersLost),
-    netSubscribers: FINITE(s.subscribersGained) - FINITE(s.subscribersLost),
-    hook30sRetention: hook ? `${hook.watchRatio}% (${hook.score})` : null,
-    biggestDropPoint: drop ? `${drop.timestampFormatted ? `Menit ${drop.timestampFormatted}` : `${Math.round(drop.position * 100)}%`} (drop -${drop.dropPercent}%)` : null,
-    searchKeywords: searchTerms,
-    sampleConfidence: health.confidenceLabel,
-    linkedPillar: content?.pillarId || 'Investigasi',
-    linkedTitle: content?.title || null
+    channelRank: bench?.rankText || 'Tolok ukur sebanding',
+    views: `${m.views.toLocaleString('id-ID')} views (${health.viewsStatus})`,
+    typicalChannelViews: bench ? `${bench.views.q1.toLocaleString('id-ID')} - ${bench.views.q3.toLocaleString('id-ID')} views` : 'Data pembanding channel terbatas',
+    avd: `${m.avdMin} menit (${health.avdStatus})`,
+    typicalChannelAvd: bench ? `${Math.round(bench.avd.q1/60*10)/10}m - ${Math.round(bench.avd.q3/60*10)/10}m` : 'Data pembanding channel terbatas',
+    ctr: m.ctr !== null ? `${m.ctr}% CTR` : 'Data CTR dalam antrean pelaporan',
+    hook30s: diag.hook.text,
+    biggestDropPoint: `${diag.dropoff.point} (penurunan ${diag.dropoff.dropPercent} penonton)`,
+    conversion: diag.conversion.text,
+    systemScore: `${health.overall}/100 (Grade: ${health.grade}, Status: ${health.status})`
   };
 
-  const prompt = `Anda adalah Senior Content Strategist & Video Editor untuk channel YouTube dokumenter investigasi "REFRAME INVESTIGASI" (@Reframe404).
-Channel ini berfokus pada 7 pilar: Politik, Ekonomi, Geopolitik, Sisi Gelap, Hukum, Investigasi, Kebijakan.
+  const prompt = `Anda adalah Senior Content Editor & Strategist untuk channel berita investigasi "REFRAME INVESTIGASI" (@Reframe404).
 
-Berikut data performa analitik riil yang telah diukur dengan metode penilaian multi-faktor terkalibrasi:
-${JSON.stringify(payloadContext, null, 2)}
+SISTEM TELAH SELESAI MENGHITUNG FAKTA METRIK RIIL VIDEO BERIKUT:
+${JSON.stringify(systemCalculatedFacts, null, 2)}
 
-Skor kesehatan algoritma terhitung: ${health.overall}/100 (Grade: ${health.grade}, Status: ${health.status}).
-Komponen breakdown:
-- Daya Tarik (CTR): ${health.breakdown.clickScore}/100
-- Retensi Durasi (${health.formatLabel}): ${health.breakdown.retentionScore}/100
-- Interaksi Pemirsa (Bobot Share/Komentar): ${health.breakdown.engagementScore}/100
-- Konversi Loyalitas Subscriber: ${health.breakdown.conversionScore}/100
+PERATURAN MUTLAK:
+1. PERHITUNGAN TELAH SELESAI DILAKUKAN OLEH SISTEM. ANDA HANYA BERTUGAS MENARASIKAN FAKTA TERSEBUT.
+2. JANGAN mengubah skor, persentase, peringkat, atau menit yang telah dihitung sistem di atas.
+3. Gunakan Bahasa Indonesia yang berbobot, tajam, dan elegan khas jurnalisme investigasi.
 
-Tugas Anda:
-Berikan Rapor Evaluasi Performa yang tajam, kritis, profesional, dan SANGAT APLIKATIF (bukan sekadar mengulang angka).
-Gunakan Bahasa Indonesia yang elegan, cerdas, dan bernas khas media investigasi.
-Jika ada titik kebocoran retensi (menit tertentu), berikan analisis naskah/editing penyebabnya dan solusinya.
-
-Keluarkan HANYA JSON valid (tanpa markdown backtick, tanpa teks pembuka/penutup) dengan struktur persis seperti ini:
+Keluarkan HANYA JSON valid (tanpa markdown backtick, tanpa kata pengantar) dengan struktur:
 {
-  "executiveSummary": "2-3 kalimat padat merangkum status performa video, penyebab utama, dan dampaknya.",
-  "hookDiagnosis": {
-    "score": "Kuat / Perlu Penguatan / Lemah",
-    "explanation": "Evaluasi apakah hook 30 detik pertama berhasil mengikat penonton dan sarannya."
-  },
-  "dropoffDiagnosis": {
-    "point": "Sebutkan titik menit atau posisi durasi",
-    "dropPercent": "persentase drop",
-    "cause": "Penyebab kebosanan penonton dari sisi naskah atau tempo visual di titik itu.",
-    "recommendation": "Saran perbaikan konkret untuk editing/naskah di titik serupa."
-  },
-  "clickabilityDiagnosis": {
-    "score": "Tinggi / Standar / Rendah",
-    "explanation": "Evaluasi efektivitas daya tarik judul dan thumbnail berdasarkan CTR dan impresi."
-  },
-  "conversionDiagnosis": {
-    "score": "Sangat Baik / Standar / Kurang",
-    "explanation": "Evaluasi konversi penonton menjadi subscriber dan kredibilitas materi."
-  },
+  "executiveSummary": "2-3 kalimat narasi eksekutif merangkum performa video berdasarkan fakta peringkat dan rentang tipikal di atas.",
+  "dropoffCause": "Penjelasan kemungkinan penyebab naskah atau tempo editing mengapa penonton keluar di ${diag.dropoff.point}.",
+  "dropoffRecommendation": "Solusi konkret perbaikan editing/naskah di titik tersebut.",
   "actionItems": [
-    "Aksi konkret 1 (Lakukan sekarang)",
-    "Aksi konkret 2 (Untuk video ini)",
-    "Aksi konkret 3 (Untuk video berikutnya)"
+    "Tindakan konkret 1 (Langkah optimasi saat ini)",
+    "Tindakan konkret 2 (Untuk video ini)",
+    "Tindakan konkret 3 (Untuk naskah berikutnya)"
   ],
   "sequelIdeas": [
     {
-      "title": "Ide Judul Part Lanjutan 1 (Gaya REFRAME INVESTIGASI)",
-      "hook": "Inti konflik / sudut pandang investigasi lanjutan",
-      "pillar": "Pilih salah satu dari 7 pilar"
+      "title": "Ide Judul Naskah Sekuel 1 (Gaya REFRAME INVESTIGASI)",
+      "hook": "Premis/inti investigasi lanjutan",
+      "pillar": "Pilih dari: Politik / Ekonomi / Geopolitik / Sisi Gelap / Hukum / Investigasi / Kebijakan"
     },
     {
-      "title": "Ide Judul Part Lanjutan 2 (Gaya REFRAME INVESTIGASI)",
-      "hook": "Inti konflik / sudut pandang investigasi lanjutan",
-      "pillar": "Pilih salah satu dari 7 pilar"
+      "title": "Ide Judul Naskah Sekuel 2 (Gaya REFRAME INVESTIGASI)",
+      "hook": "Premis/inti investigasi lanjutan",
+      "pillar": "Pilih dari: Politik / Ekonomi / Geopolitik / Sisi Gelap / Hukum / Investigasi / Kebijakan"
     }
   ]
 }`;
@@ -502,7 +515,7 @@ Keluarkan HANYA JSON valid (tanpa markdown backtick, tanpa teks pembuka/penutup)
     });
 
     if (!response.ok) {
-      return generateHeuristicAudit(report, health);
+      return generateHeuristicAudit(report, health, diag);
     }
 
     const jsonResp = await response.json();
@@ -515,16 +528,31 @@ Keluarkan HANYA JSON valid (tanpa markdown backtick, tanpa teks pembuka/penutup)
       model,
       generatedAt: new Date(now()).toISOString(),
       health,
-      executiveSummary: parsed.executiveSummary || 'Ringkasan performa selesai dianalisis.',
-      hookDiagnosis: parsed.hookDiagnosis || { score: 'Standar', explanation: 'Hook berjalan normal.' },
-      dropoffDiagnosis: parsed.dropoffDiagnosis || { point: 'Pertengahan', dropPercent: 'Normal', cause: 'Fluktuasi wajar.', recommendation: 'Pertahankan ritme.' },
-      clickabilityDiagnosis: parsed.clickabilityDiagnosis || { score: 'Standar', explanation: 'CTR thumbnail berada di rentang normal.' },
-      conversionDiagnosis: parsed.conversionDiagnosis || { score: 'Standar', explanation: 'Konversi berjalan normal.' },
-      actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : ['Pertahankan konsistensi upload.'],
+      systemDiagnostics: diag,
+      executiveSummary: parsed.executiveSummary || `${systemCalculatedFacts.channelRank}. ${systemCalculatedFacts.views}.`,
+      hookDiagnosis: {
+        score: diag.hook.score,
+        explanation: `${diag.hook.text} ${diag.hook.score === 'Kuat' ? 'Pembukaan langsung memikat perhatian penonton investigasi.' : 'Perlu penajaman visual di 15 detik awal.'}`
+      },
+      dropoffDiagnosis: {
+        point: diag.dropoff.point,
+        dropPercent: diag.dropoff.dropPercent,
+        cause: parsed.dropoffCause || `Terdeteksi penurunan penonton pada ${diag.dropoff.point}.`,
+        recommendation: parsed.dropoffRecommendation || 'Percepat transisi b-roll dan variasi visual di segmen serupa.'
+      },
+      clickabilityDiagnosis: {
+        score: diag.clickability.score,
+        explanation: diag.clickability.text
+      },
+      conversionDiagnosis: {
+        score: diag.conversion.score,
+        explanation: diag.conversion.text
+      },
+      actionItems: Array.isArray(parsed.actionItems) ? parsed.actionItems : ['Pertahankan konsistensi topik investigasi.'],
       sequelIdeas: Array.isArray(parsed.sequelIdeas) ? parsed.sequelIdeas : [],
       topSearchTerms: searchTerms
     };
   } catch (err) {
-    return generateHeuristicAudit(report, health);
+    return generateHeuristicAudit(report, health, diag);
   }
 }

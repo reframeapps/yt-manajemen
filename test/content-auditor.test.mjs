@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  calculateChannelBenchmarks,
   computeHealthScore,
+  computeSystemDiagnostics,
   detectDropoffPoint,
   detectHookRetention,
   parseIsoDuration,
@@ -17,6 +19,20 @@ test('interpolate smoothly maps values without cliff jumps', () => {
   assert.equal(interpolate(15, points), 50);
   assert.equal(interpolate(25, points), 70);
   assert.equal(interpolate(50, points), 100);
+});
+
+test('calculateChannelBenchmarks computes typical range and ranking', () => {
+  const channelVideos = [
+    { id: 'v1', views: 10000, averageViewDuration: 400, averageViewPercentage: 35 },
+    { id: 'v2', views: 5000, averageViewDuration: 300, averageViewPercentage: 28 },
+    { id: 'v3', views: 2000, averageViewDuration: 200, averageViewPercentage: 20 }
+  ];
+  const bench = calculateChannelBenchmarks(channelVideos, 'v1');
+  assert.ok(bench);
+  assert.equal(bench.rank, 1);
+  assert.equal(bench.totalRanked, 3);
+  assert.equal(bench.views.median, 5000);
+  assert.ok(bench.rankText.includes('Peringkat #1'));
 });
 
 test('parseIsoDuration correctly extracts duration in seconds', () => {
@@ -44,7 +60,7 @@ test('detectHookRetention finds early retention ratio', () => {
   const hook = detectHookRetention(retention);
   assert.ok(hook);
   assert.equal(hook.watchRatio, 78);
-  assert.equal(hook.score, 'Sangat Kuat');
+  assert.equal(hook.score, 'Kuat');
 });
 
 test('detectDropoffPoint calculates exact timestamp formatted', () => {
@@ -55,7 +71,6 @@ test('detectDropoffPoint calculates exact timestamp formatted', () => {
     { position: 0.35, watchRatio: 0.65 }, // drop 0.25 at 35%
     { position: 0.4, watchRatio: 0.60 }
   ];
-  // 35% of 1200 seconds (20 mins) = 420 seconds = 07:00
   const drop = detectDropoffPoint(retention, 1200);
   assert.ok(drop);
   assert.equal(drop.position, 0.35);
@@ -63,69 +78,66 @@ test('detectDropoffPoint calculates exact timestamp formatted', () => {
   assert.equal(drop.timestampFormatted, '7:00');
 });
 
-test('computeHealthScore adapts fairly to long-form investigative content vs small samples', () => {
-  // Long-form video (20 mins) with 34% APV has 6.8 mins AVD -> should get top grade
-  const longReport = {
+test('computeHealthScore adapts to channel peer benchmarks accurately', () => {
+  const channelVideos = [
+    { id: 'v1', views: 18000, averageViewDuration: 410, averageViewPercentage: 34.2 },
+    { id: 'v2', views: 8000, averageViewDuration: 300, averageViewPercentage: 28 },
+    { id: 'v3', views: 4000, averageViewDuration: 240, averageViewPercentage: 24 },
+    { id: 'v4', views: 1500, averageViewDuration: 180, averageViewPercentage: 20 }
+  ];
+  const currentReport = {
+    id: 'v1',
     video: { duration: 'PT20M00S' },
     summary: { views: 18000, watchHours: 2000, averageViewDuration: 410, likes: 600, comments: 80, shares: 50, subscribersGained: 120, subscribersLost: 10 },
     averageViewPercentage: 34.2,
     reach: { ctr: 6.2, impressions: 250000 }
   };
-  const longHealth = computeHealthScore(longReport);
-  assert.ok(longHealth.overall >= 80);
-  assert.ok(['S', 'A'].includes(longHealth.grade));
-  assert.equal(longHealth.format, 'long');
-  assert.equal(longHealth.sampleConfidence, 1.0);
-
-  // Small sample (30 views) should have tempered confidence, not jumping to S tier
-  const tinyReport = {
-    video: { duration: 'PT10M00S' },
-    summary: { views: 30, averageViewDuration: 250, likes: 3, comments: 1, shares: 0, subscribersGained: 1, subscribersLost: 0 },
-    averageViewPercentage: 41.0,
-    reach: { ctr: 8.0, impressions: 300 }
-  };
-  const tinyHealth = computeHealthScore(tinyReport);
-  assert.ok(tinyHealth.sampleConfidence < 0.8);
-  assert.ok(tinyHealth.confidenceLabel.includes('Akumulasi Awal'));
+  const health = computeHealthScore(currentReport, { channelVideos });
+  assert.ok(health.overall >= 80);
+  assert.ok(['S', 'A'].includes(health.grade));
+  assert.equal(health.channelBench.rank, 1);
+  assert.ok(health.viewsStatus.includes('Di Atas Tipikal'));
 });
 
-test('generateHeuristicAudit produces complete audit schema with timestamped drop and hook', () => {
+test('computeSystemDiagnostics produces deterministic metrics without AI dependency', () => {
   const report = {
     id: 'test-12345',
-    video: { title: 'KASUS ANGGARAN SILUMAN RP50 TRILIUN', duration: 'PT15M00S', lifetime: { views: 15000 } },
-    summary: { views: 12000, averageViewDuration: 360, subscribersGained: 80, subscribersLost: 5 },
-    averageViewPercentage: 40.0,
-    reach: { ctr: 6.5, impressions: 150000 },
+    summary: { views: 10000, subscribersGained: 50, subscribersLost: 5 },
+    reach: { ctr: 5.4, impressions: 120000 },
     retention: [
       { position: 0.0, watchRatio: 1.0 },
-      { position: 0.08, watchRatio: 0.82 },
-      { position: 0.40, watchRatio: 0.55 }
-    ],
-    searchTerms: [{ key: 'anggaran siluman' }]
+      { position: 0.08, watchRatio: 0.75 },
+      { position: 0.40, watchRatio: 0.50 }
+    ]
   };
   const health = computeHealthScore(report);
-  const audit = generateHeuristicAudit(report, health);
-
-  assert.equal(audit.source, 'heuristic');
-  assert.ok(audit.executiveSummary.length > 20);
-  assert.ok(audit.hookDiagnosis.score);
-  assert.ok(audit.dropoffDiagnosis.recommendation);
-  assert.ok(audit.clickabilityDiagnosis.score);
-  assert.ok(audit.conversionDiagnosis.score);
-  assert.equal(audit.actionItems.length, 3);
-  assert.equal(audit.sequelIdeas.length, 2);
+  const diag = computeSystemDiagnostics(report, health);
+  assert.equal(diag.hook.score, 'Kuat');
+  assert.equal(diag.hook.ratio, 75);
+  assert.ok(diag.dropoff.point);
+  assert.equal(diag.clickability.score, 'Tipikal');
+  assert.equal(diag.conversion.score, 'Standar');
 });
 
-test('auditVideo falls back cleanly when AI is absent or fails', async () => {
+test('generateHeuristicAudit and auditVideo generate consistent schema where AI only narrates', async () => {
   const report = {
     id: 'video-abc',
-    video: { title: 'UJI PERFORMA' },
-    summary: { views: 500 }
+    video: { title: 'UJI PERFORMA INVESTIGASI' },
+    summary: { views: 5000, averageViewDuration: 300, subscribersGained: 20, subscribersLost: 2 },
+    averageViewPercentage: 30.0,
+    reach: { ctr: 5.0, impressions: 50000 },
+    retention: [
+      { position: 0.0, watchRatio: 1.0 },
+      { position: 0.1, watchRatio: 0.72 }
+    ]
   };
   const audit = await auditVideo(report, {
-    fetcher: async () => { throw new Error('API simulated error'); }
+    fetcher: async () => { throw new Error('Simulated network error'); }
   });
   assert.ok(audit);
+  assert.ok(audit.health.overall);
   assert.ok(audit.executiveSummary);
-  assert.ok(audit.health.grade);
+  assert.equal(audit.actionItems.length, 3);
+  assert.equal(audit.sequelIdeas.length, 2);
+  assert.ok(audit.systemDiagnostics);
 });
