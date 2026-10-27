@@ -168,32 +168,86 @@ export function generateHeuristicIdea(transcriptData, { format = 'long' } = {}) 
   };
 }
 
+export const DEFAULT_SHORTS_PROMPT = `Bertindaklah sebagai Senior Short-Form Scriptwriter & Retention Strategist.
+Tugasmu adalah membuat naskah voice over (VO) video vertikal durasi maksimal 30 detik berdasarkan topik yang saya berikan. Naskah harus terasa seperti mini investigative documentary / business thriller yang cepat, tajam, provokatif, dan mempertahankan retensi penonton hingga detik terakhir.
+Gunakan formula narasi retensi tinggi: H-C-B-C-D-C (Hook – Context – Bridge – Climax – Disclaimer – CTA).
+ATURAN VO & KATA (DURASI 30 DETIK)
+Target Ideal: 65 – 85 kata.
+HARD LIMIT: Maksimal 90 kata (Tidak boleh lebih dari 90 kata).
+Gaya Bahasa: Kalimat pendek (4–8 kata per kalimat), active voice, kata konkret, ritme cepat, padat, dan komunikatif (conversational storytelling). Buang semua kata hubung yang tidak perlu.
+Aturan Angka: Maksimal gunakan 1 data/statistik paling brutal/mengejutkan.
+Dilarang: Jangan gunakan salam pembuka ("Halo guys", "Tahukah kamu"), kalimat penyambung bertele-tele, filler words, atau kesimpulan normatif ("Kita harus lebih bijak").
+STRUKTUR NARASI (30 DETIK)
+A. HOOK (0–3 DETIK)
+Menghentikan scroll & membuka curiosity gap. Hancurkan asumsi umum, berikan hipotesis/pernyataan kontroversial yang faktual. Langsung ke inti.
+B. CONTEXT (3–8 DETIK)
+Bangun latar belakang dan stakes (apa yang dipertaruhkan) dalam 1-2 kalimat ultra-singkat.
+C. BRIDGE (8–11 DETIK)
+Pertanyaan retoris atau transisi tajam menuju inti masalah (misal: "Tapi siapa yang sebenarnya untung?" atau "Ini rahasia kotornya.").
+D. CLIMAX / WOW FACTOR (11–21 DETIK)
+Sajian utama. Tembakkan 1 data terkuat, bedah mekanisme/insentif di balik layar, atau ungkap fakta tersembunyi yang membuktikan hook.
+E. DISCLAIMER / LOGIC LOCK (21–25 DETIK)
+Antisipasi keraguan penonton kritis. Kunci logika naskah dalam 1 kalimat pendek agar tetap kredibel dan faktual.
+F. CTA (25–30 DETIK)
+1 kalimat penutup yang memicu perspective shift atau pertanyaan pancingan diskusi keras di kolom komentar.
+OUTPUT FINAL
+Berikan output hanya dalam format berikut:
+A. CORE ANGLE
+(1 kalimat: Perspektif utama yang membuat cerita ini menarik).
+B. HOOK UTAMA & 3 ALTERNATIF
+Hook Utama (Terpilih):
+Alternatif A (Kontroversial):
+Alternatif B (Misteri):
+Alternatif C (Contrarian):
+C. NASKAH VOICE OVER FINAL (30 DETIK)
+Tuliskan naskah VO utuh lengkap dengan penanda strukturnya:
+TOTAL KATA: [Tuliskan jumlah kata di sini, wajib ≤ 90 kata]`;
+
 export function generateHeuristicScript(transcriptData, ideaData, { format = 'long' } = {}) {
   const title = ideaData?.title || `Investigasi: ${transcriptData.title}`;
   const hook = ideaData?.suggestedHook || `Semua orang mengira kasus ini sederhana, sampai kita melihat data di balik layarnya.`;
   const channel = transcriptData.channelName || 'Kompetitor';
 
   if (format === 'shorts') {
+    const cleanHook = hook.replace(/^["'\s]+|["'\s]+$/g, '');
+    const coreAngle = ideaData?.recommendedAngle || `Membongkar alur kekuasaan dan motif tersembunyi di balik kasus ${transcriptData.title}.`;
+    const hooks = {
+      main: cleanHook,
+      controversial: `Semua orang fokus pada sensasi, tapi sengaja menutup mata dari aliran uangnya.`,
+      mystery: `Di balik kabar viral ini, ada satu dokumen yang sengaja tidak pernah dibahas.`,
+      contrarian: `Ini bukan sekadar kelalaian individu, melainkan desain sistem yang disengaja.`
+    };
+
+    const voScript = `[HOOK (0–3s)]
+${cleanHook}
+
+[CONTEXT (3–8s)]
+Kasus ${transcriptData.title.slice(0, 40)} mengguncang publik. Taruhannya bukan sekadar reputasi, tapi uang rakyat.
+
+[BRIDGE (8–11s)]
+Tapi siapa yang sebenarnya paling diuntungkan?
+
+[CLIMAX (11–21s)]
+Data audit mengungkap anomali bernilai miliaran rupiah. Ada regulasi khusus yang sengaja meloloskan transaksi ini tanpa pengawasan terbuka.
+
+[DISCLAIMER (21–25s)]
+Ini bukan teori konspirasi, melainkan fakta dokumen resmi terbuka.
+
+[CTA (25–30s)]
+Menurut kalian, ini murni kelalaian atau skenario terencana? Tulis di komentar.`;
+
+    const wordCount = voScript.split(/\s+/).filter(Boolean).length;
+
     return {
       title,
       format: 'shorts',
-      hook,
-      script: `[SCENE 1: HOOK (00:00 - 00:15)]
-VISUAL: Cuplikan headline berita cepat, transisi glitch merah hitam.
-AUDIO/VO: "${hook}"
-TEKS LAYAR: JANGAN PERCAYA BEGITU SAJA!
-
-[SCENE 2: BEDAH FAKTA & ANOMALI (00:15 - 00:45)]
-VISUAL: Tampilan data statistik, dokumen resmi, dan sorotan grafik angka kerugian.
-AUDIO/VO: "Banyak yang mengira isu ini cuma kebetulan. Padahal kalau kita telusuri transkrip dan jejak kebijakannya, ada pola berulang yang terstruktur. Ini bukan sekadar kelalaian individu, tapi desain sistem."
-TEKS LAYAR: 3 FAKTA TERSEMBUNYI
-
-[SCENE 3: REFLEKSI & CALL TO ACTION (00:45 - 00:60)]
-VISUAL: Host REFRAME to camera / motion graphic logo REFRAME INVESTIGASI.
-AUDIO/VO: "Menurut kalian, apakah ini murni ketidaksengajaan atau permainan kepentingan? Tulis argumen kalian di komentar, dan subscribe REFRAME untuk investigasi lengkapnya."
-TEKS LAYAR: BAGAIMANA MENURUTMU? #REFRAME`,
-      productionNotes: `Gunakan musik suspense tempo 120 bpm, sound effect whoosh & typing data, durasi total 58 detik.`,
-      estimatedDurationMin: 1
+      coreAngle,
+      hook: cleanHook,
+      hooks,
+      script: voScript,
+      wordCount,
+      productionNotes: `Visual b-roll cepat, glitch merah-hitam, teks on-screen tebal per poin, tempo VO 130 kata/menit, SFX riset & data beep. Total waktu ≤ 30 detik (Formula H-C-B-C-D-C).`,
+      estimatedDurationMin: 0.5
     };
   }
 
@@ -378,7 +432,7 @@ Berikan jawaban HANYA dalam format JSON valid (tanpa markdown pembuka/penutup):
   };
 }
 
-export async function synthesizeScriptFromTranscript(transcriptData, ideaData, { format = 'long', fetcher = fetch } = {}) {
+export async function synthesizeScriptFromTranscript(transcriptData, ideaData, { format = 'long', customPrompt = '', fetcher = fetch } = {}) {
   if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
     return {
       ok: true,
@@ -394,15 +448,52 @@ Hook pembuka yang disiapkan: ${ideaData.suggestedHook || ''}
 Temuan kunci: ${(ideaData.keyFindings || []).join('; ')}
 ` : '';
 
-  const prompt = `Anda adalah Lead Scriptwriter & Peneliti Narasi di kanal YouTube "REFRAME INVESTIGASI" (@Reframe404).
+  let prompt = '';
+  if (format === 'shorts') {
+    const shortsInstructions = (customPrompt && typeof customPrompt === 'string' && customPrompt.trim())
+      ? customPrompt.trim()
+      : DEFAULT_SHORTS_PROMPT;
+
+    prompt = `${shortsInstructions}
+
+TOPIK / BAHAN TRANSKRIP:
+- Judul Video Asli: "${transcriptData.title}" (${transcriptData.channelName})
+${ideaContext}
+Cuplikan Transkrip Referensi:
+"""
+${transcriptSnippet}
+"""
+
+Keluarkan HANYA JSON valid:
+{
+  "title": "Judul Naskah Shorts Menarik",
+  "format": "shorts",
+  "coreAngle": "1 kalimat perspektif utama yang membuat cerita ini menarik",
+  "hook": "Teks hook utama terpilih",
+  "hooks": {
+    "main": "Hook Utama (Terpilih)",
+    "controversial": "Alternatif A (Kontroversial)",
+    "mystery": "Alternatif B (Misteri)",
+    "contrarian": "Alternatif C (Contrarian)"
+  },
+  "script": "[HOOK (0-3s)]\\n...\\n\\n[CONTEXT (3-8s)]\\n...\\n\\n[BRIDGE (8-11s)]\\n...\\n\\n[CLIMAX (11-21s)]\\n...\\n\\n[DISCLAIMER (21-25s)]\\n...\\n\\n[CTA (25-30s)]\\n...",
+  "wordCount": 75,
+  "productionNotes": "Rekomendasi visual b-roll dan teks layar"
+}`;
+  } else {
+    const longInstructions = (customPrompt && typeof customPrompt === 'string' && customPrompt.trim())
+      ? `\nInstruksi Khusus Editor:\n${customPrompt.trim()}\n`
+      : '';
+
+    prompt = `Anda adalah Lead Scriptwriter & Peneliti Narasi di kanal YouTube "REFRAME INVESTIGASI" (@Reframe404).
 Channel Anda memproduksi video investigasi dokumenter berkualitas tinggi dengan gaya bercerita mendalam, sinematik, padat data, dan menyentuh emosi pemirsa.
 
 Tugas Anda:
 Tuliskan NASKAH LENGKAP PRODUKSI untuk video investigasi orisinal berdasarkan transkrip video referensi berikut:
 - Video Asli: "${transcriptData.title}" (${transcriptData.channelName})
 ${ideaContext}
-Format: ${format === 'shorts' ? 'Shorts (Durasi 55–60 detik, retensi tinggi)' : 'Long Video Investigasi (12–16 menit, narasi terstruktur dan kaya visual)'}
-
+Format: Long Video Investigasi (12–16 menit, narasi terstruktur dan kaya visual)
+${longInstructions}
 Cuplikan Transkrip Referensi:
 """
 ${transcriptSnippet}
@@ -416,12 +507,13 @@ Instruksi Format Naskah:
 Berikan jawaban HANYA dalam format JSON valid (tanpa markdown pembuka/penutup):
 {
   "title": "Judul Naskah Siap Produksi",
-  "format": "${format === 'shorts' ? 'shorts' : 'long'}",
+  "format": "long",
   "hook": "Teks hook 15-30 detik pertama",
   "script": "Naskah lengkap format Scene 1, Scene 2, dst dengan rincian VISUAL, AUDIO/VO, dan TEKS LAYAR",
   "productionNotes": "Rekomendasi aset grafis, arsip berita, dan dokumen primer yang perlu disiapkan editor",
-  "estimatedDurationMin": ${format === 'shorts' ? 1 : 14}
+  "estimatedDurationMin": 14
 }`;
+  }
 
   const aiRes = await generateAiJson(prompt, { fetcher, timeoutMs: 35000, temperature: 0.5 });
   if (!aiRes || !aiRes.data) {
@@ -433,6 +525,9 @@ Berikan jawaban HANYA dalam format JSON valid (tanpa markdown pembuka/penutup):
   }
 
   const parsed = aiRes.data;
+  const scriptText = parsed.script || '';
+  const calculatedWords = scriptText.split(/\s+/).filter(Boolean).length;
+
   return {
     ok: true,
     source: aiRes.source,
@@ -440,10 +535,18 @@ Berikan jawaban HANYA dalam format JSON valid (tanpa markdown pembuka/penutup):
     scriptData: {
       title: parsed.title || ideaData?.title || transcriptData.title,
       format: parsed.format || format,
+      coreAngle: parsed.coreAngle || ideaData?.recommendedAngle || '',
       hook: parsed.hook || ideaData?.suggestedHook || '',
-      script: parsed.script || '',
+      hooks: parsed.hooks || {
+        main: parsed.hook || ideaData?.suggestedHook || '',
+        controversial: '',
+        mystery: '',
+        contrarian: ''
+      },
+      script: scriptText,
+      wordCount: parsed.wordCount || calculatedWords,
       productionNotes: parsed.productionNotes || '',
-      estimatedDurationMin: parsed.estimatedDurationMin || (format === 'shorts' ? 1 : 14)
+      estimatedDurationMin: parsed.estimatedDurationMin || (format === 'shorts' ? 0.5 : 14)
     }
   };
 }
@@ -504,10 +607,17 @@ export async function saveTranscriptScriptToKanban(contentStore, scriptData, sou
   const pillars = db.pillars || [];
   const matchedPillar = pillars.find(p => p.name?.toLowerCase().includes('investigasi')) || pillars[0];
 
-  const brief = `[NASKAH INVESTIGASI DARI PANTAUAN TRANSKRIP]
+  const hooksSummary = scriptData.hooks && typeof scriptData.hooks === 'object'
+    ? `\n\nALTERNATIF HOOK PEMBUKA:\n- Terpilih: ${scriptData.hooks.main || scriptData.hook || ''}\n- Kontroversial: ${scriptData.hooks.controversial || '-'}\n- Misteri: ${scriptData.hooks.mystery || '-'}\n- Contrarian: ${scriptData.hooks.contrarian || '-'}`
+    : '';
+
+  const coreAngleSummary = scriptData.coreAngle ? `\nCORE ANGLE: ${scriptData.coreAngle}` : '';
+  const wordCountSummary = scriptData.wordCount ? ` (${scriptData.wordCount} Kata)` : '';
+
+  const brief = `[NASKAH INVESTIGASI DARI PANTAUAN TRANSKRIP - ${scriptData.format === 'shorts' ? 'SHORTS 30s' : 'LONG VIDEO'}]
 Inspirasi: ${sourceVideo.title || ''} (${sourceVideo.channelName || 'YouTube'})
 URL: ${sourceVideo.url || ''}
-Estimasi Durasi: ${scriptData.estimatedDurationMin || 14} Menit`;
+Estimasi Durasi: ${scriptData.estimatedDurationMin || (scriptData.format === 'shorts' ? 0.5 : 14)} Menit${wordCountSummary}${coreAngleSummary}${hooksSummary}`;
 
   const payload = {
     title: scriptData.title,
@@ -519,7 +629,7 @@ Estimasi Durasi: ${scriptData.estimatedDurationMin || 14} Menit`;
     hook: scriptData.hook || '',
     script: scriptData.script || '',
     productionNotes: scriptData.productionNotes || '',
-    tags: `radar, pantauan, transkrip, naskah, investigasi`,
+    tags: `radar, pantauan, transkrip, naskah, ${scriptData.format === 'shorts' ? 'shorts' : 'long'}`,
     sources: sourceVideo.url ? [{
       id: crypto.randomUUID(),
       label: `${sourceVideo.channelName || 'YouTube'}: ${sourceVideo.title}`,

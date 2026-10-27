@@ -487,3 +487,104 @@
   padding: 16px;
   color: #166534;
 }
+.synth-custom-prompt-details {
+  margin: 12px 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px 12px;
+}
+.synth-custom-prompt-details summary {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+  cursor: pointer;
+  user-select: none;
+}
+.synth-prompt-textarea {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  line-height: 1.45;
+  margin-top: 8px;
+  resize: vertical;
+}
+.synth-prompt-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.synth-word-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 750;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+.synth-word-badge.warning {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.synth-angle-box {
+  background: #ffffff;
+  border-left: 4px solid #4f46e5;
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e1b4b;
+  margin-bottom: 8px;
+}
+.synth-hook-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.synth-hook-pill {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.synth-hook-pill:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+.synth-hook-pill.active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  font-weight: 650;
+}
+.synth-hook-pill .pill-tag {
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #475569;
+  white-space: nowrap;
+}
+.synth-hook-pill.active .pill-tag {
+  background: #3b82f6;
+  color: #ffffff;
+}

@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { ContentStore } from '../content-store.mjs';
 import {
+  DEFAULT_SHORTS_PROMPT,
   formatTimestamp,
   extractVideoId,
   generateHeuristicIdea,
@@ -72,8 +73,15 @@ test('generateHeuristicScript creates production-ready script format for long an
 
   const shortScript = generateHeuristicScript(dummyTranscript, dummyIdea, { format: 'shorts' });
   assert.equal(shortScript.format, 'shorts');
-  assert.match(shortScript.script, /\[SCENE 1: HOOK/);
-  assert.equal(shortScript.estimatedDurationMin, 1);
+  assert.match(shortScript.script, /\[HOOK/);
+  assert.match(shortScript.script, /\[CONTEXT/);
+  assert.match(shortScript.script, /\[BRIDGE/);
+  assert.match(shortScript.script, /\[CLIMAX/);
+  assert.match(shortScript.script, /\[DISCLAIMER/);
+  assert.match(shortScript.script, /\[CTA/);
+  assert.ok(shortScript.wordCount <= 90);
+  assert.ok(shortScript.hooks.main && shortScript.hooks.controversial);
+  assert.equal(shortScript.estimatedDurationMin, 0.5);
 });
 
 test('saveTranscriptIdeaToKanban persists idea to content store with source link and brief', async t => {
@@ -155,4 +163,12 @@ test('synthesizeIdeaFromTranscript gracefully uses heuristic when AI is not conf
     if (oldGeminiKey) process.env.GEMINI_API_KEY = oldGeminiKey;
     if (oldGroqKey) process.env.GROQ_API_KEY = oldGroqKey;
   }
+});
+
+test('DEFAULT_SHORTS_PROMPT contains H-C-B-C-D-C formula and word limits', () => {
+  assert.ok(DEFAULT_SHORTS_PROMPT.includes('H-C-B-C-D-C'));
+  assert.ok(DEFAULT_SHORTS_PROMPT.includes('Senior Short-Form Scriptwriter'));
+  assert.ok(DEFAULT_SHORTS_PROMPT.includes('Maksimal 90 kata'));
+  assert.ok(DEFAULT_SHORTS_PROMPT.includes('CORE ANGLE'));
+  assert.ok(DEFAULT_SHORTS_PROMPT.includes('HOOK UTAMA & 3 ALTERNATIF'));
 });

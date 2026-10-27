@@ -1,6 +1,12 @@
-export const APP_VERSION='4.57.0';
+export const APP_VERSION='4.58.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.58.0',date:'2026-10-28',title:'Prompt Bawaan Shorts Formula H-C-B-C-D-C (30 Detik Retensi Tinggi), Kustomisasi Prompt Dinamis & Pilihan Hook',changes:[
+    {type:'feature',title:'Prompt Bawaan Shorts Formula H-C-B-C-D-C 30 Detik',desc:'Menerapkan prompt standar Senior Short-Form Scriptwriter & Retention Strategist berbasis formula H-C-B-C-D-C (Hook, Context, Bridge, Climax, Disclaimer, CTA) dengan target 65–85 kata (maks 90 kata) dan kalimat aktif 4–8 kata.'},
+    {type:'feature',title:'Kustomisasi Prompt Naskah Shorts Dinamis',desc:'Menambahkan panel kustomisasi prompt interaktif pada modal generator naskah di Radar Pantauan. Pengguna dapat menyesuaikan instruksi prompt, menyimpan preferensi ke browser, atau mereset ke prompt bawaan kapan saja.'},
+    {type:'feature',title:'Multi-Hook Selector & Counter Kata Real-Time',desc:'Generator naskah Shorts kini menghasilkan Core Angle, Hook Utama, dan 3 Hook Alternatif (Kontroversial, Misteri, Contrarian) yang dapat diklik untuk langsung mengganti baris hook pada naskah, disertai badge indikator jumlah kata.'},
+    {type:'feature',title:'Ekspor & Integrasi Kanban Terstruktur',desc:'Opsi salin lengkap (Angle, 4 Hook, dan Naskah VO) serta penyimpanan otomatis ke Kanban Board dengan dokumentasi hook alternatif pada brief konten.'}
+  ]},
   {version:'4.57.0',date:'2026-10-27',title:'Aktivasi Multi-Provider AI (Groq gpt-oss-120b & Gemini 3.5 Flash) dengan Auto-Fallback dan Konfigurasi Kunci API',changes:[
     {type:'feature',title:'Aktivasi Kunci API Groq & Gemini dengan Dual Provider Engine',desc:'Mengaktifkan kunci API Groq (openai/gpt-oss-120b dan gpt-oss-20b) dan Gemini (gemini-3.5-flash) dengan kemampuan eksekusi sub-detik pada Radar AI dan generator naskah/ide investigasi.'},
     {type:'feature',title:'Auto-Fallback Antar Provider AI (Groq ↔ Gemini)',desc:'Sistem secara otomatis mencoba provider utama (Groq) dan beralih mulus ke provider cadangan (Gemini) atau mode heuristik jika salah satu provider mengalami rate limit, overload, atau kendala jaringan.'},

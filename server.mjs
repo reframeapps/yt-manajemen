@@ -37,6 +37,7 @@ import {RadarSocial} from './radar-social.mjs';
 import {videoIdFromInput,authRequiredError,isYouTubeAuthError,syncLinkedPublications} from './youtube-publication.mjs';
 import { auditVideo } from './content-auditor.mjs';
 import {
+  DEFAULT_SHORTS_PROMPT,
   extractYouTubeTranscript,
   synthesizeIdeaFromTranscript,
   synthesizeScriptFromTranscript,
@@ -1207,6 +1208,9 @@ const server = http.createServer(async (req, res) => {
         return json(res,e.status||502,{ok:false,error:e.message},{'cache-control':'no-store'});
       }
     }
+    if(pathname==='/api/radar/transcript/default-shorts-prompt'&&req.method==='GET'){
+      return json(res,200,{ok:true,prompt:DEFAULT_SHORTS_PROMPT},{'cache-control':'no-store'});
+    }
     if(pathname==='/api/radar/transcript/script'&&req.method==='POST'){
       const body=await readJson(req);
       if(!body||(!body.transcriptText&&!body.videoId))return json(res,400,{ok:false,error:'Teks transkrip atau videoId wajib disertakan.'});
@@ -1219,7 +1223,11 @@ const server = http.createServer(async (req, res) => {
           body.durationFormatted=body.durationFormatted||t.durationFormatted;
           body.wordCount=body.wordCount||t.wordCount;
         }
-        const result=await synthesizeScriptFromTranscript({videoId:body.videoId,title:body.title,channelName:body.channelName,fullText:body.transcriptText,durationFormatted:body.durationFormatted,wordCount:body.wordCount},body.idea||null,{format:body.format||'long'});
+        const result=await synthesizeScriptFromTranscript(
+          {videoId:body.videoId,title:body.title,channelName:body.channelName,fullText:body.transcriptText,durationFormatted:body.durationFormatted,wordCount:body.wordCount},
+          body.idea||null,
+          {format:body.format||'long',customPrompt:body.customPrompt||''}
+        );
         return json(res,200,{ok:true,...result},{'cache-control':'no-store'});
       }catch(e){
         return json(res,e.status||502,{ok:false,error:e.message},{'cache-control':'no-store'});

@@ -724,9 +724,46 @@ async function radarTriggerGenerateIdea(t, videoInfo) {
   }
 }
 
+const DEFAULT_SHORTS_PROMPT = `Bertindaklah sebagai Senior Short-Form Scriptwriter & Retention Strategist.
+Tugasmu adalah membuat naskah voice over (VO) video vertikal durasi maksimal 30 detik berdasarkan topik yang saya berikan. Naskah harus terasa seperti mini investigative documentary / business thriller yang cepat, tajam, provokatif, dan mempertahankan retensi penonton hingga detik terakhir.
+Gunakan formula narasi retensi tinggi: H-C-B-C-D-C (Hook – Context – Bridge – Climax – Disclaimer – CTA).
+ATURAN VO & KATA (DURASI 30 DETIK)
+Target Ideal: 65 – 85 kata.
+HARD LIMIT: Maksimal 90 kata (Tidak boleh lebih dari 90 kata).
+Gaya Bahasa: Kalimat pendek (4–8 kata per kalimat), active voice, kata konkret, ritme cepat, padat, dan komunikatif (conversational storytelling). Buang semua kata hubung yang tidak perlu.
+Aturan Angka: Maksimal gunakan 1 data/statistik paling brutal/mengejutkan.
+Dilarang: Jangan gunakan salam pembuka ("Halo guys", "Tahukah kamu"), kalimat penyambung bertele-tele, filler words, atau kesimpulan normatif ("Kita harus lebih bijak").
+STRUKTUR NARASI (30 DETIK)
+A. HOOK (0–3 DETIK)
+Menghentikan scroll & membuka curiosity gap. Hancurkan asumsi umum, berikan hipotesis/pernyataan kontroversial yang faktual. Langsung ke inti.
+B. CONTEXT (3–8 DETIK)
+Bangun latar belakang dan stakes (apa yang dipertaruhkan) dalam 1-2 kalimat ultra-singkat.
+C. BRIDGE (8–11 DETIK)
+Pertanyaan retoris atau transisi tajam menuju inti masalah (misal: "Tapi siapa yang sebenarnya untung?" atau "Ini rahasia kotornya.").
+D. CLIMAX / WOW FACTOR (11–21 DETIK)
+Sajian utama. Tembakkan 1 data terkuat, bedah mekanisme/insentif di balik layar, atau ungkap fakta tersembunyi yang membuktikan hook.
+E. DISCLAIMER / LOGIC LOCK (21–25 DETIK)
+Antisipasi keraguan penonton kritis. Kunci logika naskah dalam 1 kalimat pendek agar tetap kredibel dan faktual.
+F. CTA (25–30 DETIK)
+1 kalimat penutup yang memicu perspective shift atau pertanyaan pancingan diskusi keras di kolom komentar.
+OUTPUT FINAL
+Berikan output hanya dalam format berikut:
+A. CORE ANGLE
+(1 kalimat: Perspektif utama yang membuat cerita ini menarik).
+B. HOOK UTAMA & 3 ALTERNATIF
+Hook Utama (Terpilih):
+Alternatif A (Kontroversial):
+Alternatif B (Misteri):
+Alternatif C (Contrarian):
+C. NASKAH VOICE OVER FINAL (30 DETIK)
+Tuliskan naskah VO utuh lengkap dengan penanda strukturnya:
+TOTAL KATA: [Tuliskan jumlah kata di sini, wajib ≤ 90 kata]`;
+
 async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
   const container = document.getElementById('radarAiSynthesisContainer');
   if (!container) return;
+
+  const savedCustomShortsPrompt = localStorage.getItem('reframe_custom_shorts_prompt') || DEFAULT_SHORTS_PROMPT;
 
   container.innerHTML = `
     <div class="hub-panel radar-ai-synth-box">
@@ -735,22 +772,47 @@ async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
         <button class="btn mini" id="btnCloseScriptDialog">✕</button>
       </div>
       <p>Pilih format naskah yang ingin dibuat dari transkrip video ini:</p>
-      <div style="display:flex;gap:12px;margin:12px 0;">
+      <div style="display:flex;gap:12px;margin:12px 0;flex-wrap:wrap;">
         <button class="btn primary" id="btnSelectFormatLong">📹 Video Panjang (Investigasi 12–16 Menit)</button>
-        <button class="btn" id="btnSelectFormatShorts">📱 Video Shorts (60 Detik)</button>
+        <button class="btn" id="btnSelectFormatShorts" style="background:#4338ca;color:#fff;border-color:#3730a3;">📱 Video Shorts (Formula H-C-B-C-D-C 30 Detik)</button>
       </div>
+
+      <details class="synth-custom-prompt-details" id="detailsCustomPrompt">
+        <summary>⚙️ Kustomisasi Prompt Naskah Shorts (Formula H-C-B-C-D-C 30s)</summary>
+        <p class="hint" style="margin:6px 0;">Anda dapat menyesuaikan prompt bawaan di bawah ini (durasi, aturan kata, formula retensi H-C-B-C-D-C). Sistem akan mengingat kustomisasi Anda untuk generasi berikutnya.</p>
+        <textarea id="customShortsPromptText" rows="10" class="synth-prompt-textarea">${esc(savedCustomShortsPrompt)}</textarea>
+        <div class="synth-prompt-actions">
+          <button class="btn mini primary" id="btnSaveCustomPrompt">💾 Simpan Kustomisasi</button>
+          <button class="btn mini" id="btnResetCustomPrompt">↺ Reset ke Bawaan</button>
+        </div>
+      </details>
     </div>
   `;
   container.querySelector('#btnCloseScriptDialog').onclick = () => { container.innerHTML = ''; };
 
+  const promptTextarea = container.querySelector('#customShortsPromptText');
+  container.querySelector('#btnSaveCustomPrompt').onclick = () => {
+    localStorage.setItem('reframe_custom_shorts_prompt', promptTextarea.value.trim());
+    toast('Prompt Shorts berhasil disimpan di browser!');
+  };
+  container.querySelector('#btnResetCustomPrompt').onclick = () => {
+    promptTextarea.value = DEFAULT_SHORTS_PROMPT;
+    localStorage.removeItem('reframe_custom_shorts_prompt');
+    toast('Prompt Shorts direset ke bawaan H-C-B-C-D-C.');
+  };
+
   const startScriptGen = async (format) => {
+    const customPrompt = (format === 'shorts')
+      ? (promptTextarea.value.trim() || DEFAULT_SHORTS_PROMPT)
+      : '';
+
     container.innerHTML = `
       <div class="hub-panel radar-ai-synth-box">
         <div class="radar-ai-loading">
           <span class="studio-spinner"></span>
           <div>
-            <strong>Menyusun Naskah Produksi (${format === 'shorts' ? 'Shorts' : 'Long Video'})…</strong>
-            <p class="hint">Membuat breakdown Scene Visual, Audio/VO, dan Teks Grafis standar REFRAME…</p>
+            <strong>Menyusun Naskah Produksi (${format === 'shorts' ? 'Shorts 30 Detik (H-C-B-C-D-C)' : 'Long Video'})…</strong>
+            <p class="hint">Membuat narasi retensi tinggi dengan analisis data transkrip…</p>
           </div>
         </div>
       </div>
@@ -769,6 +831,7 @@ async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
           durationFormatted: t.durationFormatted,
           wordCount: t.wordCount,
           format,
+          customPrompt,
           idea: existingIdea
         })
       });
@@ -776,12 +839,23 @@ async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
       if (!res.ok || !data.ok) throw new Error(data.error || 'Gagal menghasilkan naskah.');
       const scriptData = data.scriptData;
 
+      const calcWordCount = (txt) => (txt || '').split(/\s+/).filter(Boolean).length;
+      let currentWordCount = scriptData.wordCount || calcWordCount(scriptData.script);
+
+      const isShorts = scriptData.format === 'shorts';
+      const hooks = scriptData.hooks || {};
+
       container.innerHTML = `
         <div class="hub-panel radar-ai-synth-box">
           <div class="synth-head">
             <div class="synth-title-wrap">
               <span class="synth-badge">🎬 NASKAH SIAP PRODUKSI</span>
-              <span class="radar-chip">${esc(scriptData.format === 'shorts' ? 'Shorts (60s)' : 'Long Video')}</span>
+              <span class="radar-chip">${esc(isShorts ? 'Shorts (30 Detik)' : 'Long Video (12–16m)')}</span>
+              ${isShorts ? `
+                <span id="synthWordBadge" class="synth-word-badge ${currentWordCount > 90 ? 'warning' : ''}">
+                  📊 ${currentWordCount} Kata (Target 65–85, Maks 90)
+                </span>
+              ` : ''}
             </div>
             <button class="btn mini" id="btnCloseScriptCard">✕</button>
           </div>
@@ -791,13 +865,28 @@ async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
             <input type="text" id="synthScriptTitle" value="${esc(scriptData.title)}" />
           </div>
 
+          ${isShorts && scriptData.coreAngle ? `
+            <div class="synth-field">
+              <label>A. Core Angle (Perspektif Utama):</label>
+              <div class="synth-angle-box">${esc(scriptData.coreAngle)}</div>
+            </div>
+          ` : ''}
+
           <div class="synth-field">
-            <label>Hook Pembuka 15-30 Detik:</label>
-            <blockquote class="synth-hook">${esc(scriptData.hook)}</blockquote>
+            <label>${isShorts ? 'B. Pilihan Hook Pembuka (Klik untuk gunakan di naskah):' : 'Hook Pembuka 15-30 Detik:'}</label>
+            <blockquote class="synth-hook" id="synthHookDisplay">${esc(scriptData.hook)}</blockquote>
+            ${isShorts && (hooks.main || hooks.controversial || hooks.mystery || hooks.contrarian) ? `
+              <div class="synth-hook-pills" id="synthHookPills">
+                ${hooks.main ? `<button type="button" class="synth-hook-pill active" data-hook="${esc(hooks.main)}"><span class="pill-tag">Terpilih</span> <span>${esc(hooks.main)}</span></button>` : ''}
+                ${hooks.controversial ? `<button type="button" class="synth-hook-pill" data-hook="${esc(hooks.controversial)}"><span class="pill-tag">Kontroversial</span> <span>${esc(hooks.controversial)}</span></button>` : ''}
+                ${hooks.mystery ? `<button type="button" class="synth-hook-pill" data-hook="${esc(hooks.mystery)}"><span class="pill-tag">Misteri</span> <span>${esc(hooks.mystery)}</span></button>` : ''}
+                ${hooks.contrarian ? `<button type="button" class="synth-hook-pill" data-hook="${esc(hooks.contrarian)}"><span class="pill-tag">Contrarian</span> <span>${esc(hooks.contrarian)}</span></button>` : ''}
+              </div>
+            ` : ''}
           </div>
 
           <div class="synth-field">
-            <label>Naskah / Script Breakdown (Visual, Audio/VO, Teks Layar):</label>
+            <label>${isShorts ? 'C. Naskah Voice Over Final (30 Detik - Formula H-C-B-C-D-C):' : 'Naskah / Script Breakdown (Visual, Audio/VO, Teks Layar):'}</label>
             <textarea id="synthScriptBody" rows="12" class="synth-script-textarea">${esc(scriptData.script)}</textarea>
           </div>
 
@@ -810,17 +899,76 @@ async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
 
           <div class="synth-actions">
             <button class="btn primary" id="btnSaveScriptAndOpen">✓ Simpan & Buka di Editor Naskah</button>
-            <button class="btn" id="btnCopyScriptText">📋 Salin Naskah Saja</button>
+            <button class="btn" id="btnCopyScriptText">📋 Salin Naskah VO</button>
+            ${isShorts ? `<button class="btn" id="btnCopyFullShorts">📋 Salin Lengkap (Angle + 4 Hook + VO)</button>` : ''}
           </div>
         </div>
       `;
 
       container.querySelector('#btnCloseScriptCard').onclick = () => { container.innerHTML = ''; };
 
-      container.querySelector('#btnCopyScriptText').onclick = () => {
-        const fullScript = `JUDUL: ${scriptData.title}\nFORMAT: ${scriptData.format}\nHOOK: ${scriptData.hook}\n\nNASKAH:\n${scriptData.script}\n\nCATATAN PRODUKSI:\n${scriptData.productionNotes}`;
-        navigator.clipboard.writeText(fullScript).then(() => toast('Naskah berhasil disalin ke clipboard!'));
+      const scriptBodyEl = container.querySelector('#synthScriptBody');
+      const hookDisplayEl = container.querySelector('#synthHookDisplay');
+      const wordBadgeEl = container.querySelector('#synthWordBadge');
+
+      scriptBodyEl.oninput = () => {
+        if (wordBadgeEl) {
+          const words = calcWordCount(scriptBodyEl.value);
+          wordBadgeEl.className = 'synth-word-badge ' + (words > 90 ? 'warning' : '');
+          wordBadgeEl.textContent = `📊 ${words} Kata (Target 65–85, Maks 90)`;
+        }
       };
+
+      if (isShorts) {
+        container.querySelectorAll('.synth-hook-pill').forEach(btn => {
+          btn.onclick = () => {
+            container.querySelectorAll('.synth-hook-pill').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const newHook = btn.dataset.hook;
+            scriptData.hook = newHook;
+            if (hookDisplayEl) hookDisplayEl.textContent = newHook;
+
+            // Replace hook inside script body if it matches [HOOK (0-3s)] pattern
+            const currentScript = scriptBodyEl.value;
+            const hookRegex = /(\[HOOK[^\]]*\]\s*)([^\n]+)/i;
+            if (hookRegex.test(currentScript)) {
+              scriptBodyEl.value = currentScript.replace(hookRegex, `$1${newHook}`);
+            } else {
+              scriptBodyEl.value = `[HOOK (0–3s)]\n${newHook}\n\n` + currentScript;
+            }
+            if (wordBadgeEl) {
+              const words = calcWordCount(scriptBodyEl.value);
+              wordBadgeEl.className = 'synth-word-badge ' + (words > 90 ? 'warning' : '');
+              wordBadgeEl.textContent = `📊 ${words} Kata (Target 65–85, Maks 90)`;
+            }
+            toast('Hook naskah diperbarui!');
+          };
+        });
+      }
+
+      container.querySelector('#btnCopyScriptText').onclick = () => {
+        navigator.clipboard.writeText(scriptBodyEl.value).then(() => toast('Naskah berhasil disalin ke clipboard!'));
+      };
+
+      const copyFullBtn = container.querySelector('#btnCopyFullShorts');
+      if (copyFullBtn) {
+        copyFullBtn.onclick = () => {
+          const fullReport = `A. CORE ANGLE
+${scriptData.coreAngle || '-'}
+
+B. HOOK UTAMA & 3 ALTERNATIF
+Hook Utama (Terpilih): ${hooks.main || scriptData.hook || '-'}
+Alternatif A (Kontroversial): ${hooks.controversial || '-'}
+Alternatif B (Misteri): ${hooks.mystery || '-'}
+Alternatif C (Contrarian): ${hooks.contrarian || '-'}
+
+C. NASKAH VOICE OVER FINAL (30 DETIK)
+${scriptBodyEl.value}
+
+TOTAL KATA: ${calcWordCount(scriptBodyEl.value)} kata`;
+          navigator.clipboard.writeText(fullReport).then(() => toast('Laporan lengkap Shorts berhasil disalin!'));
+        };
+      }
 
       const saveBtn = container.querySelector('#btnSaveScriptAndOpen');
       saveBtn.onclick = async () => {
@@ -828,7 +976,8 @@ async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
         saveBtn.textContent = 'Menyimpan naskah ke proyek…';
         try {
           scriptData.title = container.querySelector('#synthScriptTitle').value || scriptData.title;
-          scriptData.script = container.querySelector('#synthScriptBody').value || scriptData.script;
+          scriptData.script = scriptBodyEl.value || scriptData.script;
+          scriptData.wordCount = calcWordCount(scriptData.script);
           const r = await fetch('/api/radar/transcript/to-kanban-script', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
