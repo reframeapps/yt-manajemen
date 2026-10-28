@@ -1102,9 +1102,27 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
   const renderResults = (data) => {
     const resultsContainer = modal.querySelector('#mmResultsContainer');
     if (!resultsContainer) return;
-    const analysis = data.analysis || {};
-    const variants = data.variants || [];
-    const seo = data.seo || {};
+    const analysis = {
+      main_subject: data.analysis?.main_subject || data.niche || data.symbol_object || '-',
+      primary_emotion: data.analysis?.primary_emotion || data.mood || '-',
+      core_conflict: data.analysis?.core_conflict || data.content_gist || '-'
+    };
+    const seo = {
+      primary_video_title: data.seo?.primary_video_title || data.seo_title || '-',
+      alternative_titles: data.seo?.alternative_titles || [],
+      video_description: data.seo?.video_description || data.seo_caption || '-',
+      tags: data.seo?.tags || []
+    };
+    const rawVariants = Array.isArray(data.variants) ? data.variants : [];
+    const variants = rawVariants.map((v, idx) => ({
+      ...v,
+      option_title: v.option_title || `OPSI ${idx + 1} — ${v.title || 'Investigasi'}`,
+      thumbnail_title_3_words: v.thumbnail_title_3_words || v.title || '',
+      badge_points: (Array.isArray(v.badge_points) && v.badge_points.length) ? v.badge_points : (data.warning_points || []),
+      public_figure_notes: v.public_figure_notes || data.real_figures_note || 'Gunakan foto arsip/resmi subjek, edit duotone B&W dengan rim-light neon green.',
+      sub_headline: v.sub_headline || '',
+      ctr_hook: v.ctr_hook || ''
+    }));
 
     let html = `
       <div class="mm-section">
@@ -1115,15 +1133,15 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;">
           <div>
             <div class="mm-vfield-label">Subjek Utama / Sasaran:</div>
-            <div style="color:#fff;font-weight:600;font-size:13.5px;">${esc(analysis.main_subject || '-')}</div>
+            <div style="color:#fff;font-weight:600;font-size:13.5px;">${esc(analysis.main_subject)}</div>
           </div>
           <div>
             <div class="mm-vfield-label">Emosi Utama yang Ditargetkan:</div>
-            <div style="color:#00ff41;font-weight:600;font-size:13.5px;">${esc(analysis.primary_emotion || '-')}</div>
+            <div style="color:#00ff41;font-weight:600;font-size:13.5px;">${esc(analysis.primary_emotion)}</div>
           </div>
           <div style="grid-column: 1 / -1;">
             <div class="mm-vfield-label">Inti Skandal / Konflik:</div>
-            <div style="color:#d1d5db;font-size:13px;line-height:1.5;">${esc(analysis.core_conflict || '-')}</div>
+            <div style="color:#d1d5db;font-size:13px;line-height:1.5;">${esc(analysis.core_conflict)}</div>
           </div>
         </div>
       </div>
@@ -1139,16 +1157,18 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
           ${variants.map((v, idx) => `
             <div class="mm-variant">
               <div class="mm-variant-head">
-                <span class="mm-variant-tag">${esc(v.option_title || `OPSI ${idx + 1}`)}</span>
+                <span class="mm-variant-tag">${esc(v.option_title)}</span>
                 <button type="button" class="mm-copy-btn" data-copy-prompt="${idx}">📋 Salin Master Prompt</button>
               </div>
               <div class="mm-variant-body">
                 <div class="mm-vfield" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                   <div>
                     <div class="mm-vfield-label">Judul Thumbnail (3 KATA ALL CAPS):</div>
-                    <div class="mm-vfield-value font-mono">${esc(v.thumbnail_title_3_words || '')}</div>
+                    <div class="mm-vfield-value font-mono">${esc(v.thumbnail_title_3_words)}</div>
+                    ${v.sub_headline ? `<div style="font-size:12px;color:#999;margin-top:3px;">Sub-headline: ${esc(v.sub_headline)}</div>` : ''}
+                    ${v.ctr_hook ? `<div style="font-size:11px;color:#00ff41;margin-top:3px;">🎯 CTR Hook: ${esc(v.ctr_hook)}</div>` : ''}
                   </div>
-                  <button type="button" class="btn mini" data-copy-title="${esc(v.thumbnail_title_3_words || '')}">Salin Judul</button>
+                  <button type="button" class="btn mini" data-copy-title="${esc(v.thumbnail_title_3_words)}">Salin Judul</button>
                 </div>
 
                 <div class="mm-vfield" style="margin-top:12px;">
@@ -1165,7 +1185,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
                 <div class="mm-vfield" style="margin-top:12px;">
                   <div class="mm-vfield-label">Catatan Figur Publik Nyata:</div>
                   <div class="mm-vfield-sub" style="color:#f59e0b;font-size:12px;background:#1a1505;padding:8px 12px;border-radius:4px;border:1px solid #78350f;">
-                    ${esc(v.public_figure_notes || 'Gunakan foto arsip/resmi, olah duotone B&W dengan rim-light neon green.')}
+                    ${esc(v.public_figure_notes)}
                   </div>
                 </div>
 
