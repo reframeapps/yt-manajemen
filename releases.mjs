@@ -1,6 +1,13 @@
-export const APP_VERSION='4.58.0';
+export const APP_VERSION='4.59.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.59.0',date:'2026-10-28',title:'Magnets Media Investigative Thumbnail & SEO Generator (Hijau Neon #00FF41, 16:9 & 9:16 Shorts)',changes:[
+    {type:'feature',title:'Generator Thumbnail Investigatif Ala Magnets Media',desc:'Generator thumbnail otomatis dengan estetika visual Magnets Media: latar belakang hitam bertekstur, pencahayaan tepi (rim lighting) hijau neon (#00FF41), dan komposisi 3 lapis kedalaman (foreground subjek duotone B&W, midground visual bukti skandal, background atmosferik gelap).'},
+    {type:'feature',title:'Aturan Ketat Judul 3 Kata (ALL CAPS) & Warning Badge',desc:'Menghasilkan 3 variasi konsep thumbnail dengan teks judul wajib tepat 3 kata (ALL CAPS) yang menyebut subjek + pemicu emosi kuat, 2 poin warning badge temuan kunci (maks 4–5 kata), dan guardrail larangan AI merekayasa wajah figur publik nyata (wajib foto arsip/resmi duotone).'},
+    {type:'feature',title:'Dukungan Multi-Format 16:9 (YouTube) & 9:16 (Shorts/Reels)',desc:'Menyesuaikan tata letak dan prompt otomatis untuk format 16:9 (zona teks kiri 40-50%, safe zone timestamp kanan bawah) dan format 9:16 Shorts (zona teks tengah atas 25-45%, safe zone UI TikTok/Shorts bawah dan kanan).'},
+    {type:'feature',title:'Master Prompt Image Generator Siap Pakai',desc:'Menyusun prompt terstruktur lengkap (Core Subject, Composition & Staging, Background, Lighting, Art Style, Safe Zone & Aspect Ratio) yang siap disalin ke Midjourney, Flux, DALL-E, atau Imagen.'},
+    {type:'feature',title:'Metadata SEO YouTube Terintegrasi Penuh (Opsi A)',desc:'Menghasilkan judul video utama dengan curiosity gap & high CTR, alternatif judul, deskripsi naskah/sinopsis SEO dengan hook 2 baris awal, dan rekomendasi tag relevan. Dapat diakses langsung dari 3 titik: Menu Radar, Generator Transkrip Radar, dan Editor Naskah Konten Hub.'}
+  ]},
   {version:'4.58.0',date:'2026-10-28',title:'Prompt Bawaan Shorts Formula H-C-B-C-D-C (30 Detik Retensi Tinggi), Kustomisasi Prompt Dinamis & Pilihan Hook',changes:[
     {type:'feature',title:'Prompt Bawaan Shorts Formula H-C-B-C-D-C 30 Detik',desc:'Menerapkan prompt standar Senior Short-Form Scriptwriter & Retention Strategist berbasis formula H-C-B-C-D-C (Hook, Context, Bridge, Climax, Disclaimer, CTA) dengan target 65–85 kata (maks 90 kata) dan kalimat aktif 4–8 kata.'},
     {type:'feature',title:'Kustomisasi Prompt Naskah Shorts Dinamis',desc:'Menambahkan panel kustomisasi prompt interaktif pada modal generator naskah di Radar Pantauan. Pengguna dapat menyesuaikan instruksi prompt, menyimpan preferensi ke browser, atau mereset ke prompt bawaan kapan saja.'},

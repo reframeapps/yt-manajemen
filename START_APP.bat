@@ -1,9 +1,9 @@
 @echo off
-title YouTube Content Hub v4.58.0
+title YouTube Content Hub v4.59.0
 cd /d "%~dp0"
 
 echo ===================================================
-echo   Menyalakan YouTube Content Hub v4.58.0...
+echo   Menyalakan YouTube Content Hub v4.59.0...
 echo ===================================================
 echo Database: Supabase PostgreSQL (Connected)
 echo URL Lokal: http://localhost:3000

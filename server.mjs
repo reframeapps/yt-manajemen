@@ -44,6 +44,7 @@ import {
   saveTranscriptIdeaToKanban,
   saveTranscriptScriptToKanban
 } from './radar-transcript.mjs';
+import { generateThumbnailAndSeo } from './thumbnail-seo.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
@@ -1251,6 +1252,18 @@ const server = http.createServer(async (req, res) => {
         return json(res,201,{ok:true,content:result.content},{'cache-control':'no-store'});
       }catch(e){
         return json(res,e.status||500,{ok:false,error:e.message},{'cache-control':'no-store'});
+      }
+    }
+    if(pathname==='/api/thumbnail-seo/generate'&&req.method==='POST'){
+      const body=await readJson(req);
+      if(!body||!body.script||typeof body.script!=='string'||!body.script.trim()){
+        return json(res,400,{ok:false,error:'Naskah video wajib disertakan.'});
+      }
+      try{
+        const result=await generateThumbnailAndSeo({script:body.script,format:body.format||'thumbnail'});
+        return json(res,200,result,{'cache-control':'no-store'});
+      }catch(e){
+        return json(res,e.status||502,{ok:false,error:e.message},{'cache-control':'no-store'});
       }
     }
     if(pathname==='/api/radar/sync'&&req.method==='POST')return json(res,200,await radarSync.sync({force:true}));
