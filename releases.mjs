@@ -1,6 +1,12 @@
-export const APP_VERSION='4.59.0';
+export const APP_VERSION='4.60.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.60.0',date:'2026-10-29',title:'Penyelarasan Tampilan UI/UX Generator Thumbnail & SEO dengan Design System YouTube Hub',changes:[
+    {type:'feature',title:'Penyelarasan Desain UI/UX Modal & Form dengan YouTube Hub',desc:'Mengubah tampilan modal generator dari dominasi hitam-pekat dan hijau neon mencolok menjadi tema bersih, elegan, dan konsisten mengikuti design system YouTube Content Hub (latar panel putih/slate, tipografi native yang rapi, dan border halus).'},
+    {type:'feature',title:'Tombol Aksi & Navigasi Native Terpadu',desc:'Menstandarkan tombol pembuka generator di Menu Radar, kartu naskah transkrip, dan header editor naskah agar selaras dengan tombol bawaan antarmuka Hub tanpa warna hijau neon yang kontras.'},
+    {type:'feature',title:'Komponen Kartu Varian & Kotak Prompt Profesional',desc:'Kartu variasi judul 3 kata dan warning badge kini disajikan dalam kartu berlatar terang dengan status badge modern, sementara kotak master prompt disajikan dalam kotak kode monospace slate gelap (#0f172a) yang nyaman dibaca dan mudah disalin.'},
+    {type:'feature',title:'Preservasi Formula Prompt Magnets Media',desc:'Logika prompt Midjourney/image generator dan metadata SEO tetap mempertahankan spesifikasi lengkap investigatif ala Magnets Media (komposisi 3 layer, safe zone 16:9/9:16, dan aksen neon pada gambar thumbnail output).'}
+  ]},
   {version:'4.59.0',date:'2026-10-28',title:'Magnets Media Investigative Thumbnail & SEO Generator (Hijau Neon #00FF41, 16:9 & 9:16 Shorts)',changes:[
     {type:'feature',title:'Generator Thumbnail Investigatif Ala Magnets Media',desc:'Generator thumbnail otomatis dengan estetika visual Magnets Media: latar belakang hitam bertekstur, pencahayaan tepi (rim lighting) hijau neon (#00FF41), dan komposisi 3 lapis kedalaman (foreground subjek duotone B&W, midground visual bukti skandal, background atmosferik gelap).'},
     {type:'feature',title:'Aturan Ketat Judul 3 Kata (ALL CAPS) & Warning Badge',desc:'Menghasilkan 3 variasi konsep thumbnail dengan teks judul wajib tepat 3 kata (ALL CAPS) yang menyebut subjek + pemicu emosi kuat, 2 poin warning badge temuan kunci (maks 4–5 kata), dan guardrail larangan AI merekayasa wajah figur publik nyata (wajib foto arsip/resmi duotone).'},

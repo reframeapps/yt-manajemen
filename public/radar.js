@@ -178,7 +178,7 @@ window.renderRadar=body=>{
   if(existing){
     if(radarUi.tab==='social')window.HubRadarSocial.render(existing.querySelector('#radarSocialFront'));
     return;
-  }body.innerHTML=`<section id="radarPanel"><div class="radar-hero"><div><span class="eyebrow">EDITORIAL RADAR REFRAME</span><h2>Radar Konten & Intelijen Sosmed</h2><p>Isu penting, sinyal viral percakapan sosmed, konteks sumber, dan prioritas riset.</p></div><div class="feature-actions"><button class="btn primary" id="radarSync">Sinkronkan</button><button class="btn" id="radarSettings">Topik & Sumber</button><details class="radar-actions-menu"><summary class="btn">Menu Radar</summary><div class="radar-actions-popover"><button class="btn" id="radarDaily">Ringkasan harian</button><button class="btn" id="radarWeekly">Ringkasan mingguan</button><button class="btn" id="radarArchive">Arsip & jadwal</button><button class="btn" id="radarPromptLibrary">Pustaka prompt</button><button class="btn" id="radarUsage">Riwayat AI</button><button class="btn" id="radarPerformance">Performa konten</button><button class="btn" id="radarThumbnailSeo" style="color:#00ff41;font-weight:700;">🎨 Generator Thumbnail & SEO</button></div></details></div></div><div class="radar-tabs" role="tablist">${[['social','⚡ Intelijen Sosmed (Top 5)'],['issues','🔥 Hot Isu Investigasi'],['trends','📈 Tren & Eksekutif'],['channels','📺 Pantauan Channel'],['references','📚 Referensi Tersimpan']].map(([id,title])=>`<button role="tab" data-r-tab="${id}" aria-selected="${id===radarUi.tab}">${title}</button>`).join('')}</div><div id="radarError" class="notice hide" role="alert"></div><section id="radarSocialFront" class="radar-social-front" aria-label="Radar Intelijen Sosmed & Ide Potensial"><p class="hint">Memuat radar intelijen sosmed…</p></section><div id="radarFocusSummary" class="radar-focus-summary hide" role="status"></div><section id="radarExecutiveFront" class="radar-executive-front hide" aria-label="Ringkasan eksekutif"><div class="radar-executive-tabs" role="tablist" aria-label="Periode ringkasan eksekutif"><button class="btn primary" role="tab" data-executive-period="daily" aria-selected="true">Harian</button><button class="btn" role="tab" data-executive-period="weekly" aria-selected="false">Mingguan</button></div><div id="radarExecutiveFrontBody" aria-live="polite"><p class="hint">Memuat ringkasan eksekutif…</p></div></section><section id="radarTrends" class="radar-trends hide" aria-label="Tren kata kunci"><p class="hint">Memuat tren kata kunci…</p></section><div id="radarTools" class="radar-tools hide"><input id="radarSearch" aria-label="Cari Radar" placeholder="Cari isu atau channel…"><select id="radarTopic" aria-label="Filter topik"><option value="">Semua topik</option></select><select id="radarStatus" aria-label="Filter status"><option value="">Semua status</option>${Object.entries(rStatus).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select><select id="radarPlatform" aria-label="Filter platform"><option value="">Semua sumber</option><option value="YouTube">Video YouTube</option><option value="Berita / Web">Artikel / berita</option></select><select id="radarPeriod" aria-label="Periode liputan"><option value="24">24 jam</option><option value="72" selected>3 hari</option><option value="168">7 hari</option></select><button class="btn" id="radarAdd">+ Link referensi</button></div><div id="radarCoverage" class="hide"></div><div id="radarMethodology"></div><div id="radarList" class="hide"><div class="hub-panel empty">Memuat Radar…</div></div><div id="radarFooter" class="hint"></div></section>`;body.querySelector('.radar-actions-menu').onclick=e=>{if(e.target.closest('button'))e.currentTarget.open=false;};$('#radarExecutiveFront').onclick=e=>{const button=e.target.closest('[data-executive-period],[data-executive-retry]');if(!button)return;if(button.dataset.executivePeriod)radarUi.executivePeriod=button.dataset.executivePeriod;radarInlineSchedule();};$('#radarSearch').value=radarUi.q;$('#radarSearch').oninput=e=>{radarUi.q=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarTopic').onchange=e=>{radarUi.topic=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarStatus').value=radarUi.status;$('#radarStatus').onchange=e=>{radarUi.status=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPlatform').value=radarUi.platform;$('#radarPlatform').onchange=e=>{radarUi.platform=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPeriod').value=radarUi.period;$('#radarPeriod').onchange=e=>{radarUi.period=Number(e.target.value);radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarAdd').onclick=()=>radarSource();$('#radarPromptLibrary').onclick=()=>radarRun(()=>radarPromptLibrary());$('#radarUsage').onclick=()=>radarRun(()=>radarUsage());$('#radarPerformance').onclick=()=>radarRun(()=>radarPerformance());if($('#radarThumbnailSeo'))$('#radarThumbnailSeo').onclick=()=>window.openThumbnailSeoModal();$('#radarArchive').onclick=()=>radarRun(()=>radarArchives());$('#radarDaily').onclick=()=>radarRun(()=>radarDigest('daily'));$('#radarWeekly').onclick=()=>radarRun(()=>radarDigest('weekly'));$('#radarSettings').onclick=()=>radarSettings();$('#radarSync').onclick=()=>radarRun(async()=>{if(radarUi.loading)return;radarUi.loading=true;$('#radarSync').disabled=true;$('#radarSync').textContent='Menyinkronkan…';try{const result=await rPost('sync',{});await radarLoad();toast(`${result.news} link berita · ${result.videos} video diperiksa${result.errors.length?' · Ada sumber belum tersinkron':''}`)}finally{radarUi.loading=false;if($('#radarSync')){$('#radarSync').disabled=false;$('#radarSync').textContent='Sinkronkan'}}});body.querySelector('.radar-tabs').onclick=e=>{const b=e.target.closest('[data-r-tab]');if(!b)return;radarUi.tab=b.dataset.rTab;radarUi.limit=10;body.querySelectorAll('[data-r-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));radarList()};$('#radarList').onclick=e=>radarRun(async()=>{const b=e.target.closest('[data-r-transcript],[data-r-issue],[data-r-channel-add],[data-r-channel-ai],[data-r-video],[data-r-more],[data-r-channel-view]');if(!b)return;if(b.dataset.rTranscript){const [channelId,id]=b.dataset.rTranscript.split(':');return radarOpenTranscriptModal(channelId,id);}if(!b)return;if(b.hasAttribute('data-r-channel-view')){radarUi.channelAll=!radarUi.channelAll;return radarList()}if(b.hasAttribute('data-r-more')){radarUi.limit+=10;return radarList()}if(b.dataset.rIssue)return radarIssue(b.dataset.rIssue);if(b.hasAttribute('data-r-channel-add'))return radarChannel();if(b.dataset.rChannelAi)return radarAI('analysis',{channelId:b.dataset.rChannelAi,script:''});if(b.dataset.rVideo){const [channelId,id]=b.dataset.rVideo.split(':');const c=radarUi.data.channels.find(c=>c.id===channelId),v=c.videos.find(v=>v.id===id);return radarSource(null,{url:v.url,title:v.title,publisher:c.name,publishedAt:v.publishedAt,excerpt:v.description||''});}});$('#radarList').onchange=e=>{const select=e.target.closest('[data-r-video-feedback]');if(!select)return;radarRun(async()=>{const [id,videoId]=select.dataset.rVideoFeedback.split(':'),channel=radarUi.data.channels.find(c=>c.id===id);select.disabled=true;try{await rPost('channels/'+id+'/feedback',{videoId,choice:select.value,revision:channel.revision},'PATCH');await radarLoad();toast('Pilihan video tersimpan.');}catch(error){await radarLoad().catch(()=>{});throw error;}finally{if(select.isConnected)select.disabled=false;}});};if(!radarUi.refreshTimer)radarUi.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!rDialog.open&&!radarUi.loading&&$('#radarPanel')&&$('#radarPanel').offsetParent!==null)radarLoad().catch(()=>{});},5*60*1000);radarRun(()=>radarLoad());};
+  }body.innerHTML=`<section id="radarPanel"><div class="radar-hero"><div><span class="eyebrow">EDITORIAL RADAR REFRAME</span><h2>Radar Konten & Intelijen Sosmed</h2><p>Isu penting, sinyal viral percakapan sosmed, konteks sumber, dan prioritas riset.</p></div><div class="feature-actions"><button class="btn primary" id="radarSync">Sinkronkan</button><button class="btn" id="radarSettings">Topik & Sumber</button><details class="radar-actions-menu"><summary class="btn">Menu Radar</summary><div class="radar-actions-popover"><button class="btn" id="radarDaily">Ringkasan harian</button><button class="btn" id="radarWeekly">Ringkasan mingguan</button><button class="btn" id="radarArchive">Arsip & jadwal</button><button class="btn" id="radarPromptLibrary">Pustaka prompt</button><button class="btn" id="radarUsage">Riwayat AI</button><button class="btn" id="radarPerformance">Performa konten</button><button class="btn" id="radarThumbnailSeo">🎨 Generator Thumbnail & SEO</button></div></details></div></div><div class="radar-tabs" role="tablist">${[['social','⚡ Intelijen Sosmed (Top 5)'],['issues','🔥 Hot Isu Investigasi'],['trends','📈 Tren & Eksekutif'],['channels','📺 Pantauan Channel'],['references','📚 Referensi Tersimpan']].map(([id,title])=>`<button role="tab" data-r-tab="${id}" aria-selected="${id===radarUi.tab}">${title}</button>`).join('')}</div><div id="radarError" class="notice hide" role="alert"></div><section id="radarSocialFront" class="radar-social-front" aria-label="Radar Intelijen Sosmed & Ide Potensial"><p class="hint">Memuat radar intelijen sosmed…</p></section><div id="radarFocusSummary" class="radar-focus-summary hide" role="status"></div><section id="radarExecutiveFront" class="radar-executive-front hide" aria-label="Ringkasan eksekutif"><div class="radar-executive-tabs" role="tablist" aria-label="Periode ringkasan eksekutif"><button class="btn primary" role="tab" data-executive-period="daily" aria-selected="true">Harian</button><button class="btn" role="tab" data-executive-period="weekly" aria-selected="false">Mingguan</button></div><div id="radarExecutiveFrontBody" aria-live="polite"><p class="hint">Memuat ringkasan eksekutif…</p></div></section><section id="radarTrends" class="radar-trends hide" aria-label="Tren kata kunci"><p class="hint">Memuat tren kata kunci…</p></section><div id="radarTools" class="radar-tools hide"><input id="radarSearch" aria-label="Cari Radar" placeholder="Cari isu atau channel…"><select id="radarTopic" aria-label="Filter topik"><option value="">Semua topik</option></select><select id="radarStatus" aria-label="Filter status"><option value="">Semua status</option>${Object.entries(rStatus).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select><select id="radarPlatform" aria-label="Filter platform"><option value="">Semua sumber</option><option value="YouTube">Video YouTube</option><option value="Berita / Web">Artikel / berita</option></select><select id="radarPeriod" aria-label="Periode liputan"><option value="24">24 jam</option><option value="72" selected>3 hari</option><option value="168">7 hari</option></select><button class="btn" id="radarAdd">+ Link referensi</button></div><div id="radarCoverage" class="hide"></div><div id="radarMethodology"></div><div id="radarList" class="hide"><div class="hub-panel empty">Memuat Radar…</div></div><div id="radarFooter" class="hint"></div></section>`;body.querySelector('.radar-actions-menu').onclick=e=>{if(e.target.closest('button'))e.currentTarget.open=false;};$('#radarExecutiveFront').onclick=e=>{const button=e.target.closest('[data-executive-period],[data-executive-retry]');if(!button)return;if(button.dataset.executivePeriod)radarUi.executivePeriod=button.dataset.executivePeriod;radarInlineSchedule();};$('#radarSearch').value=radarUi.q;$('#radarSearch').oninput=e=>{radarUi.q=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarTopic').onchange=e=>{radarUi.topic=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarStatus').value=radarUi.status;$('#radarStatus').onchange=e=>{radarUi.status=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPlatform').value=radarUi.platform;$('#radarPlatform').onchange=e=>{radarUi.platform=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPeriod').value=radarUi.period;$('#radarPeriod').onchange=e=>{radarUi.period=Number(e.target.value);radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarAdd').onclick=()=>radarSource();$('#radarPromptLibrary').onclick=()=>radarRun(()=>radarPromptLibrary());$('#radarUsage').onclick=()=>radarRun(()=>radarUsage());$('#radarPerformance').onclick=()=>radarRun(()=>radarPerformance());if($('#radarThumbnailSeo'))$('#radarThumbnailSeo').onclick=()=>window.openThumbnailSeoModal();$('#radarArchive').onclick=()=>radarRun(()=>radarArchives());$('#radarDaily').onclick=()=>radarRun(()=>radarDigest('daily'));$('#radarWeekly').onclick=()=>radarRun(()=>radarDigest('weekly'));$('#radarSettings').onclick=()=>radarSettings();$('#radarSync').onclick=()=>radarRun(async()=>{if(radarUi.loading)return;radarUi.loading=true;$('#radarSync').disabled=true;$('#radarSync').textContent='Menyinkronkan…';try{const result=await rPost('sync',{});await radarLoad();toast(`${result.news} link berita · ${result.videos} video diperiksa${result.errors.length?' · Ada sumber belum tersinkron':''}`)}finally{radarUi.loading=false;if($('#radarSync')){$('#radarSync').disabled=false;$('#radarSync').textContent='Sinkronkan'}}});body.querySelector('.radar-tabs').onclick=e=>{const b=e.target.closest('[data-r-tab]');if(!b)return;radarUi.tab=b.dataset.rTab;radarUi.limit=10;body.querySelectorAll('[data-r-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));radarList()};$('#radarList').onclick=e=>radarRun(async()=>{const b=e.target.closest('[data-r-transcript],[data-r-issue],[data-r-channel-add],[data-r-channel-ai],[data-r-video],[data-r-more],[data-r-channel-view]');if(!b)return;if(b.dataset.rTranscript){const [channelId,id]=b.dataset.rTranscript.split(':');return radarOpenTranscriptModal(channelId,id);}if(!b)return;if(b.hasAttribute('data-r-channel-view')){radarUi.channelAll=!radarUi.channelAll;return radarList()}if(b.hasAttribute('data-r-more')){radarUi.limit+=10;return radarList()}if(b.dataset.rIssue)return radarIssue(b.dataset.rIssue);if(b.hasAttribute('data-r-channel-add'))return radarChannel();if(b.dataset.rChannelAi)return radarAI('analysis',{channelId:b.dataset.rChannelAi,script:''});if(b.dataset.rVideo){const [channelId,id]=b.dataset.rVideo.split(':');const c=radarUi.data.channels.find(c=>c.id===channelId),v=c.videos.find(v=>v.id===id);return radarSource(null,{url:v.url,title:v.title,publisher:c.name,publishedAt:v.publishedAt,excerpt:v.description||''});}});$('#radarList').onchange=e=>{const select=e.target.closest('[data-r-video-feedback]');if(!select)return;radarRun(async()=>{const [id,videoId]=select.dataset.rVideoFeedback.split(':'),channel=radarUi.data.channels.find(c=>c.id===id);select.disabled=true;try{await rPost('channels/'+id+'/feedback',{videoId,choice:select.value,revision:channel.revision},'PATCH');await radarLoad();toast('Pilihan video tersimpan.');}catch(error){await radarLoad().catch(()=>{});throw error;}finally{if(select.isConnected)select.disabled=false;}});};if(!radarUi.refreshTimer)radarUi.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!rDialog.open&&!radarUi.loading&&$('#radarPanel')&&$('#radarPanel').offsetParent!==null)radarLoad().catch(()=>{});},5*60*1000);radarRun(()=>radarLoad());};
 function radarAIPath(){return '/api/radar'+(radarUi.aiProvider?'?aiProvider='+encodeURIComponent(radarUi.aiProvider):'');}
 function radarVideoMetadata(video){return `<div class="radar-video">${/^https:\/\/i\.ytimg\.com\//.test(video.thumbnail)?'<img src="'+esc(video.thumbnail)+'" alt="Thumbnail video" loading="lazy">':''}<span class="hint">${rNum(video.viewCount)} views · ${esc(video.duration||'Durasi belum tersedia')}</span></div>`;}
 function radarGroupingReport(report){
@@ -901,7 +901,7 @@ async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
             <button class="btn primary" id="btnSaveScriptAndOpen">✓ Simpan & Buka di Editor Naskah</button>
             <button class="btn" id="btnCopyScriptText">📋 Salin Naskah VO</button>
             ${isShorts ? `<button class="btn" id="btnCopyFullShorts">📋 Salin Lengkap (Angle + 4 Hook + VO)</button>` : ''}
-            <button class="btn" id="btnGenThumbnailSeoFromScript" style="background:#00ff4118;border-color:#00ff4180;color:#00ff41;font-weight:700;">🎨 Buat Thumbnail & SEO</button>
+            <button class="btn" id="btnGenThumbnailSeoFromScript">🎨 Buat Thumbnail & SEO</button>
           </div>
         </div>
       `;
@@ -1033,10 +1033,10 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
   modal.innerHTML = `
     <div class="mm-header">
       <div class="mm-logo">
-        REFRAME <span>INVESTIGASI</span>
-        <span class="mm-badge">MAGNETS MEDIA · THUMBNAIL & SEO GENERATOR</span>
+        🎬 REFRAME <span>INVESTIGASI</span>
+        <span class="mm-badge">THUMBNAIL & SEO GENERATOR</span>
       </div>
-      <button type="button" class="icon-button" id="mmCloseBtn" aria-label="Tutup" style="color:#fff;background:#1a1a1a;border:1px solid #333;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:14px;line-height:1;">✕</button>
+      <button type="button" class="mm-close-btn" id="mmCloseBtn" aria-label="Tutup">✕</button>
     </div>
 
     <div class="mm-body">
@@ -1062,15 +1062,15 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
         <span>⚡</span> GENERATE THUMBNAIL & SEO PROMPT
       </button>
 
-      <div id="mmResultsContainer" style="margin-top: 24px;"></div>
+      <div id="mmResultsContainer" style="margin-top: 20px;"></div>
     </div>
 
     <div class="mm-footer">
       <div style="display:flex;align-items:center;gap:8px;">
         <span class="mm-dot"></span>
-        <span class="mm-footer-text">Engine: Groq (GPT-OSS-120B) / Gemini 3.5 Flash · Aksen: Hijau Neon (#00FF41)</span>
+        <span class="mm-footer-text">Engine: Groq (GPT-OSS-120B) / Gemini 3.5 Flash · YouTube Content Hub</span>
       </div>
-      <span class="mm-footer-text" style="color:#666;">REFRAME CONTENT HUB</span>
+      <span class="mm-footer-text">REFRAME HUB</span>
     </div>
   `;
 
@@ -1128,20 +1128,20 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
       <div class="mm-section">
         <div class="mm-section-title">
           <span>🧠 ANALISIS NARASI INVESTIGATIF</span>
-          <span style="font-size:10px;color:#888;">FORMULA RETENSI TINGGI</span>
+          <span style="font-size:10.5px;color:#64748b;font-weight:600;">FORMULA RETENSI TINGGI</span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;">
           <div>
             <div class="mm-vfield-label">Subjek Utama / Sasaran:</div>
-            <div style="color:#fff;font-weight:600;font-size:13.5px;">${esc(analysis.main_subject)}</div>
+            <div style="color:#0f172a;font-weight:650;font-size:13.5px;">${esc(analysis.main_subject)}</div>
           </div>
           <div>
             <div class="mm-vfield-label">Emosi Utama yang Ditargetkan:</div>
-            <div style="color:#00ff41;font-weight:600;font-size:13.5px;">${esc(analysis.primary_emotion)}</div>
+            <div style="color:#2563eb;font-weight:650;font-size:13.5px;">${esc(analysis.primary_emotion)}</div>
           </div>
           <div style="grid-column: 1 / -1;">
             <div class="mm-vfield-label">Inti Skandal / Konflik:</div>
-            <div style="color:#d1d5db;font-size:13px;line-height:1.5;">${esc(analysis.core_conflict)}</div>
+            <div style="color:#334155;font-size:13px;line-height:1.5;">${esc(analysis.core_conflict)}</div>
           </div>
         </div>
       </div>
@@ -1149,7 +1149,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
       <div class="mm-section">
         <div class="mm-section-title">
           <span>🎨 3 PILIHAN THUMBNAIL INVESTIGATIF (GAYA MAGNETS MEDIA)</span>
-          <span class="radar-chip" style="background:#00ff4115;color:#00ff41;border-color:#00ff4140;">${selectedFormat === 'short' ? '9:16 Shorts' : '16:9 YouTube'}</span>
+          <span class="radar-chip" style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;">${selectedFormat === 'short' ? '9:16 Shorts' : '16:9 YouTube'}</span>
         </div>
         <p class="hint" style="margin-bottom:14px;">Setiap opsi memiliki teks judul tepat 3 kata (ALL CAPS), 2 poin warning badge, dan master prompt untuk image generator.</p>
 
@@ -1165,8 +1165,8 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
                   <div>
                     <div class="mm-vfield-label">Judul Thumbnail (3 KATA ALL CAPS):</div>
                     <div class="mm-vfield-value font-mono">${esc(v.thumbnail_title_3_words)}</div>
-                    ${v.sub_headline ? `<div style="font-size:12px;color:#999;margin-top:3px;">Sub-headline: ${esc(v.sub_headline)}</div>` : ''}
-                    ${v.ctr_hook ? `<div style="font-size:11px;color:#00ff41;margin-top:3px;">🎯 CTR Hook: ${esc(v.ctr_hook)}</div>` : ''}
+                    ${v.sub_headline ? `<div style="font-size:12px;color:#64748b;margin-top:3px;">Sub-headline: ${esc(v.sub_headline)}</div>` : ''}
+                    ${v.ctr_hook ? `<div style="font-size:11.5px;color:#2563eb;margin-top:3px;font-weight:600;">🎯 CTR Hook: ${esc(v.ctr_hook)}</div>` : ''}
                   </div>
                   <button type="button" class="btn mini" data-copy-title="${esc(v.thumbnail_title_3_words)}">Salin Judul</button>
                 </div>
@@ -1175,7 +1175,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
                   <div class="mm-vfield-label">Warning Badge / Red Tape (2 Poin):</div>
                   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
                     ${(v.badge_points || []).map(pt => `
-                      <span style="background:#1a0505;border:1px solid #ff444480;color:#ff5555;font-weight:700;font-size:11px;padding:4px 8px;border-radius:4px;letter-spacing:0.5px;">
+                      <span style="background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;font-weight:700;font-size:11px;padding:4px 8px;border-radius:6px;letter-spacing:0.3px;">
                         ⚠️ ${esc(pt)}
                       </span>
                     `).join('')}
@@ -1184,7 +1184,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
 
                 <div class="mm-vfield" style="margin-top:12px;">
                   <div class="mm-vfield-label">Catatan Figur Publik Nyata:</div>
-                  <div class="mm-vfield-sub" style="color:#f59e0b;font-size:12px;background:#1a1505;padding:8px 12px;border-radius:4px;border:1px solid #78350f;">
+                  <div class="mm-vfield-sub" style="color:#92400e;font-size:12px;background:#fffbeb;padding:8px 12px;border-radius:6px;border:1px solid #fde68a;">
                     ${esc(v.public_figure_notes)}
                   </div>
                 </div>
@@ -1192,7 +1192,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
                 ${v.composition ? `
                   <div class="mm-vfield" style="margin-top:12px;">
                     <div class="mm-vfield-label">Komposisi Visual:</div>
-                    <div style="font-size:12px;color:#aaa;line-height:1.5;">
+                    <div style="font-size:12.5px;color:#475569;line-height:1.5;">
                       ${v.composition.foreground ? `<div><strong>Foreground:</strong> ${esc(v.composition.foreground)}</div>` : ''}
                       ${v.composition.midground ? `<div><strong>Midground:</strong> ${esc(v.composition.midground)}</div>` : ''}
                       ${v.composition.background ? `<div><strong>Background:</strong> ${esc(v.composition.background)}</div>` : ''}
@@ -1223,7 +1223,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
             <span>Judul Video Utama (Curiosity Gap & High CTR):</span>
             <button type="button" class="btn mini" data-copy-seo-title="${esc(seo.primary_video_title || '')}">Salin</button>
           </div>
-          <div class="mm-seo-block-text" style="font-size:15px;font-weight:700;color:#00ff41;">
+          <div class="mm-seo-block-text" style="font-size:15px;font-weight:700;color:#0f172a;">
             ${esc(seo.primary_video_title || '-')}
           </div>
         </div>
@@ -1231,7 +1231,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
         ${Array.isArray(seo.alternative_titles) && seo.alternative_titles.length ? `
           <div class="mm-seo-block">
             <div class="mm-seo-block-label">Alternatif Judul Video:</div>
-            <ul style="margin:4px 0 0 18px;padding:0;color:#e5e7eb;font-size:13px;line-height:1.6;">
+            <ul style="margin:4px 0 0 18px;padding:0;color:#334155;font-size:13px;line-height:1.6;">
               ${seo.alternative_titles.map(alt => `
                 <li style="margin-bottom:4px;">
                   ${esc(alt)}
@@ -1247,7 +1247,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
             <span>Deskripsi / Caption Video SEO (First 2 Lines Hook + Sinopsis):</span>
             <button type="button" class="btn mini" id="mmCopyDescBtn">Salin Deskripsi</button>
           </div>
-          <div class="mm-seo-block-text" style="font-size:12.5px;color:#d1d5db;background:#050505;border:1px solid #222;border-radius:6px;padding:12px;max-height:220px;overflow-y:auto;" id="mmDescText">
+          <div class="mm-seo-block-text" style="font-size:12.5px;color:#334155;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;max-height:220px;overflow-y:auto;" id="mmDescText">
             ${esc(seo.video_description || '-')}
           </div>
         </div>
@@ -1259,7 +1259,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
               <button type="button" class="btn mini" id="mmCopyTagsBtn">Salin Tag (Koma)</button>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
-              ${seo.tags.map(t => `<span class="radar-chip" style="font-size:11px;">#${esc(t)}</span>`).join('')}
+              ${seo.tags.map(t => `<span class="radar-chip" style="font-size:11px;background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;">#${esc(t)}</span>`).join('')}
             </div>
           </div>
         ` : ''}
@@ -1325,11 +1325,11 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
     const resultsContainer = modal.querySelector('#mmResultsContainer');
 
     genBtn.disabled = true;
-    genBtn.innerHTML = `<span>⏳</span> MENGANALISIS NASKAH & MEMBUAT PROMPT MAGNETS MEDIA…`;
+    genBtn.innerHTML = `<span>⏳</span> Menganalisis Naskah & Merumuskan Prompt…`;
     resultsContainer.innerHTML = `
-      <div style="background:#0a0a0a;border:1px solid #1a1a1a;border-radius:8px;padding:32px;text-align:center;">
-        <div class="mm-dot" style="margin:0 auto 16px;width:12px;height:12px;"></div>
-        <div style="color:#00ff41;font-weight:700;font-size:14px;letter-spacing:1px;margin-bottom:6px;">MEMPROSES LOGIKA MAGNETS MEDIA</div>
+      <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:36px 20px;text-align:center;">
+        <div class="mm-dot" style="margin:0 auto 12px;width:10px;height:10px;"></div>
+        <div style="color:#0f172a;font-weight:700;font-size:14px;letter-spacing:0.3px;margin-bottom:6px;">MEMPROSES LOGIKA THUMBNAIL & SEO</div>
         <p class="hint" style="margin:0;">Merumuskan 3 opsi judul 3 kata, warning badge, dan master image prompt (${selectedFormat === 'short' ? '9:16 Vertikal' : '16:9 Horizontal'})…</p>
       </div>
     `;
@@ -1347,7 +1347,7 @@ window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thu
       renderResults(data);
     } catch (err) {
       resultsContainer.innerHTML = `
-        <div class="notice" style="background:#1a0505;border:1px solid #ff4444;color:#ff8888;padding:16px;border-radius:8px;">
+        <div class="notice" style="margin-top:14px;">
           <strong>Gagal membuat Thumbnail & SEO:</strong> ${esc(err.message)}
           <div style="margin-top:10px;">
             <button type="button" class="btn mini primary" id="mmRetryBtn">Coba Lagi</button>
