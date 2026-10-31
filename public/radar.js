@@ -1019,7 +1019,8 @@ TOTAL KATA: ${calcWordCount(scriptBodyEl.value)} kata`;
   container.querySelector('#btnSelectFormatShorts').onclick = () => startScriptGen('shorts');
 }
 
-window.openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thumbnail') {
+(typeof window !== 'undefined' ? window : globalThis).openThumbnailSeoModal = function(initialScript = '', initialFormat = 'thumbnail') {
+  if (typeof document === 'undefined') return;
   let modal = document.getElementById('mmThumbnailSeoModal');
   if (!modal) {
     modal = document.createElement('dialog');
