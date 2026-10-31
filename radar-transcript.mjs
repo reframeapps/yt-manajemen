@@ -33,6 +33,125 @@ export function extractVideoId(input) {
   throw Object.assign(new Error('Format ID atau URL video YouTube tidak valid.'), { status: 400 });
 }
 
+export function detectMediaPlatform(input) {
+  if (typeof input !== 'string' || !input.trim()) {
+    throw Object.assign(new Error('ID atau URL video sosial media wajib diisi.'), { status: 400 });
+  }
+  const clean = input.trim();
+  if (/^[\w-]{11}$/.test(clean)) return { platform: 'youtube', id: clean, url: `https://www.youtube.com/watch?v=${clean}` };
+  const ytMatch = clean.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([\w-]{11})/i);
+  if (ytMatch && ytMatch[1]) return { platform: 'youtube', id: ytMatch[1], url: clean };
+
+  if (/tiktok\.com/i.test(clean)) return { platform: 'tiktok', url: clean };
+  if (/instagram\.com|instagr\.am/i.test(clean)) return { platform: 'instagram', url: clean };
+  if (/facebook\.com|fb\.com|fb\.watch/i.test(clean)) return { platform: 'facebook', url: clean };
+  if (/twitter\.com|x\.com/i.test(clean)) return { platform: 'twitter', url: clean };
+  if (/^https?:\/\//i.test(clean)) return { platform: 'web', url: clean };
+
+  throw Object.assign(new Error('Format link video tidak dikenali. Masukkan link YouTube, TikTok, Instagram, Facebook, atau X (Twitter).'), { status: 400 });
+}
+
+export function parseWebVtt(vtt) {
+  const segments = [];
+  const lines = (vtt || '').split(/\r?\n/);
+  let currentTime = 0;
+  let currentText = '';
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const timeMatch = line.match(/^(\d{2}:)?(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{2}:)?(\d{2}):(\d{2})\.(\d{3})/);
+    if (timeMatch) {
+      if (currentText.trim()) {
+        segments.push({
+          text: currentText.trim(),
+          offset: currentTime,
+          duration: 3000,
+          timestamp: formatTimestamp(currentTime)
+        });
+        currentText = '';
+      }
+      const h = Number(timeMatch[1]?.replace(':', '') || 0);
+      const m = Number(timeMatch[2]);
+      const s = Number(timeMatch[3]);
+      const ms = Number(timeMatch[4]);
+      currentTime = (h * 3600 + m * 60 + s) * 1000 + ms;
+    } else if (line && !line.startsWith('WEBVTT') && !line.startsWith('NOTE') && !/^\d+$/.test(line)) {
+      currentText += ' ' + line;
+    }
+  }
+  if (currentText.trim()) {
+    segments.push({
+      text: currentText.trim(),
+      offset: currentTime,
+      duration: 3000,
+      timestamp: formatTimestamp(currentTime)
+    });
+  }
+  return segments;
+}
+
+export function parseCustomTranscriptText(rawInput, { title = '', channelName = '', platform = 'Sosmed', durationFormatted = '' } = {}) {
+  if (typeof rawInput !== 'string' || !rawInput.trim()) {
+    throw Object.assign(new Error('Teks transkrip wajib diisi.'), { status: 400 });
+  }
+
+  const lines = rawInput.split('\n').map(l => l.trim()).filter(Boolean);
+  const segments = [];
+  let currentTimeMs = 0;
+
+  for (const line of lines) {
+    const timeMatch = line.match(/^(?:\[|\()?(\d{1,2}:(?:\d{2}:)?\d{2})(?:\]|\))?[\s:-]*(.*)$/);
+    if (timeMatch) {
+      const timeStr = timeMatch[1];
+      const text = timeMatch[2].trim();
+      const parts = timeStr.split(':').map(Number);
+      let sec = 0;
+      if (parts.length === 3) sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      else sec = parts[0] * 60 + parts[1];
+      currentTimeMs = sec * 1000;
+      if (text) {
+        segments.push({
+          text,
+          offset: currentTimeMs,
+          duration: 3500,
+          timestamp: formatTimestamp(currentTimeMs)
+        });
+      }
+    } else {
+      segments.push({
+        text: line,
+        offset: currentTimeMs,
+        duration: 3500,
+        timestamp: formatTimestamp(currentTimeMs)
+      });
+      currentTimeMs += 4000;
+    }
+  }
+
+  const fullText = segments.map(s => s.text).join('\n\n');
+  const timedText = segments.map(s => `[${s.timestamp}] ${s.text}`).join('\n\n');
+  const words = fullText.split(/\s+/).filter(Boolean);
+  const durationSec = Math.max(15, Math.round(currentTimeMs / 1000));
+
+  return {
+    videoId: 'custom-' + crypto.randomUUID().slice(0, 8),
+    url: '',
+    title: title || 'Transkrip Video Sosmed',
+    channelName: channelName || 'Kreator Sosmed',
+    thumbnailUrl: '',
+    language: 'id',
+    wordCount: words.length,
+    durationSec,
+    durationFormatted: durationFormatted || formatTimestamp(durationSec * 1000),
+    segmentCount: segments.length,
+    segments,
+    paragraphs: segments.map(s => ({ timestamp: s.timestamp, text: s.text })),
+    fullText,
+    timedText,
+    platform: platform || 'Sosmed'
+  };
+}
+
 export async function fetchVideoMetadata(videoId, fetcher = fetch) {
   try {
     const url = `https://www.youtube.com/watch?v=${videoId}`;
@@ -143,8 +262,169 @@ export async function extractYouTubeTranscript(videoIdOrUrl, { lang = 'id', fetc
     segments,
     paragraphs,
     fullText,
-    timedText
+    timedText,
+    platform: 'youtube'
   };
+}
+
+export async function extractSocialTranscript(urlOrId, { lang = 'id', fetcher = fetch } = {}) {
+  const detected = detectMediaPlatform(urlOrId);
+  if (detected.platform === 'youtube') {
+    const res = await extractYouTubeTranscript(detected.id || detected.url, { lang, fetcher });
+    res.platform = 'youtube';
+    return res;
+  }
+
+  const { platform, url } = detected;
+
+  // Platform: TikTok
+  if (platform === 'tiktok') {
+    let oembed = null;
+    try {
+      const oembedRes = await fetcher(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, {
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+      });
+      if (oembedRes.ok) oembed = await oembedRes.json();
+    } catch {}
+
+    const title = oembed?.title || 'Video TikTok';
+    const channelName = oembed?.author_name || 'Kreator TikTok';
+    const thumbnailUrl = oembed?.thumbnail_url || '';
+
+    // Attempt to parse subtitleInfos if available via direct HTML / JSON
+    try {
+      const pageRes = await fetcher(url, {
+        signal: AbortSignal.timeout(8000),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8'
+        }
+      });
+      if (pageRes.ok) {
+        const html = await pageRes.text();
+        const sigiMatch = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/) ||
+                         html.match(/<script id="SIGI_STATE"[^>]*>([\s\S]*?)<\/script>/);
+        if (sigiMatch && sigiMatch[1]) {
+          try {
+            const data = JSON.parse(sigiMatch[1]);
+            const itemStruct = data?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct ||
+                               data?.ItemModule?.[Object.keys(data?.ItemModule || {})[0]];
+            const subtitleInfos = itemStruct?.video?.subtitleInfos;
+            if (Array.isArray(subtitleInfos) && subtitleInfos.length > 0) {
+              const subUrl = subtitleInfos.find(s => s.LanguageCodeName === 'ind-ID' || s.LanguageCodeName === 'id')?.Url || subtitleInfos[0]?.Url;
+              if (subUrl) {
+                const subRes = await fetcher(subUrl, { signal: AbortSignal.timeout(6000) });
+                if (subRes.ok) {
+                  const subContent = await subRes.text();
+                  if (subContent.includes('WEBVTT')) {
+                    const vttSegs = parseWebVtt(subContent);
+                    if (vttSegs.length > 0) {
+                      const parsed = parseCustomTranscriptText(vttSegs.map(s => `[${s.timestamp}] ${s.text}`).join('\n'), {
+                        title,
+                        channelName,
+                        platform: 'tiktok',
+                        durationFormatted: vttSegs[vttSegs.length - 1]?.timestamp || '00:45'
+                      });
+                      parsed.url = url;
+                      parsed.thumbnailUrl = thumbnailUrl;
+                      return parsed;
+                    }
+                  }
+                }
+              }
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // If description/caption has rich content (> 8 words), construct clean transcript
+    if (title && title.split(/\s+/).length >= 8) {
+      const parsed = parseCustomTranscriptText(title, {
+        title: title.slice(0, 60),
+        channelName,
+        platform: 'tiktok',
+        durationFormatted: '00:30'
+      });
+      parsed.url = url;
+      parsed.thumbnailUrl = thumbnailUrl;
+      return parsed;
+    }
+
+    throw Object.assign(new Error(`Transkrip/subtitle otomatis TikTok tidak dapat diambil langsung dari link ini (TikTok membatasi subtitle publik). Silakan gunakan tab "Tempel Transkrip Manual" untuk menempel naskah/subtitle video TikTok tersebut.`), {
+      status: 422,
+      code: 'tiktok_transcript_manual_needed',
+      metadata: { title, channelName, thumbnailUrl, url }
+    });
+  }
+
+  // Platform: Twitter / X
+  if (platform === 'twitter') {
+    let oembed = null;
+    try {
+      const oembedRes = await fetcher(`https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`, {
+        signal: AbortSignal.timeout(8000)
+      });
+      if (oembedRes.ok) oembed = await oembedRes.json();
+    } catch {}
+
+    const rawHtml = oembed?.html || '';
+    const cleanText = rawHtml.replace(/<[^>]+>/g, ' ').replace(/&mdash;[\s\S]*$/, '').replace(/\s+/g, ' ').trim();
+    const title = cleanText.slice(0, 70) || 'Postingan X / Twitter';
+    const channelName = oembed?.author_name || 'Kreator X';
+
+    if (cleanText && cleanText.split(/\s+/).length >= 6) {
+      const parsed = parseCustomTranscriptText(cleanText, {
+        title,
+        channelName,
+        platform: 'twitter',
+        durationFormatted: '00:30'
+      });
+      parsed.url = url;
+      return parsed;
+    }
+  }
+
+  // Generic fallback: Instagram, Facebook, Web via OpenGraph meta
+  try {
+    const res = await fetcher(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    if (res.ok) {
+      const html = await res.text();
+      const ogTitleMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["'](.*?)["']/i) ||
+                           html.match(/<title>(.*?)<\/title>/i);
+      const ogDescMatch = html.match(/<meta\s+property=["']og:description["']\s+content=["'](.*?)["']/i) ||
+                          html.match(/<meta\s+name=["']description["']\s+content=["'](.*?)["']/i);
+      const ogImageMatch = html.match(/<meta\s+property=["']og:image["']\s+content=["'](.*?)["']/i);
+
+      const title = (ogTitleMatch?.[1] || `Video ${platform.toUpperCase()}`).replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+      const desc = (ogDescMatch?.[1] || '').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+      const thumbnailUrl = ogImageMatch?.[1] || '';
+
+      if (desc && desc.split(/\s+/).length >= 6) {
+        const parsed = parseCustomTranscriptText(desc, {
+          title: title.slice(0, 70),
+          channelName: `Kreator ${platform.toUpperCase()}`,
+          platform,
+          durationFormatted: '00:45'
+        });
+        parsed.url = url;
+        parsed.thumbnailUrl = thumbnailUrl;
+        return parsed;
+      }
+    }
+  } catch {}
+
+  throw Object.assign(new Error(`Transkrip otomatis untuk ${platform.toUpperCase()} tidak dapat diambil langsung (diblokir proteksi bot atau tidak memiliki subtitle publik). Silakan buka tab "Tempel Transkrip Manual" untuk menempel naskah/subtitle teks video ini.`), {
+    status: 422,
+    code: 'social_transcript_manual_needed',
+    platform
+  });
 }
 
 export function generateHeuristicIdea(transcriptData, { format = 'long' } = {}) {

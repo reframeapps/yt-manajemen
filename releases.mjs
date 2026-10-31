@@ -1,6 +1,12 @@
-export const APP_VERSION='4.60.0';
+export const APP_VERSION='4.61.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.61.0',date:'2026-10-31',title:'Pengaturan Urutan Atas-Bawah Kartu Kanban & Ekstraksi Transkrip Link Video Sosmed',changes:[
+    {type:'feature',title:'Pengaturan Urutan Kartu Kanban Fleksibel (Atas-Bawah & Posisi)',desc:'Mendukung pengubahan urutan vertikal kartu di papan Kanban melalui drag-and-drop dengan garis indikator drop target (sebelum/sesudah kartu), tombol 1-klik geser naik (▲) dan turun (▼) pada setiap kartu, serta selector urutan (Paling Atas, Naik 1 Tingkat, Turun 1 Tingkat, Paling Bawah) pada dialog Pindahkan Kartu.'},
+    {type:'feature',title:'Ekstraksi Transkrip dari Link Video Sosial Media',desc:'Menambahkan kemampuan mengambil transkrip atau narasi dari berbagai platform sosmed (YouTube, Shorts, TikTok, Instagram Reels, X/Twitter, dan Facebook) langsung dari input link, lengkap dengan deteksi platform otomatis, parsing subtitle WebVTT, serta ringkasan durasi dan total kata.'},
+    {type:'feature',title:'Tab Tempel Transkrip / Subtitle Manual Universal',desc:'Menyediakan tab "Tempel Transkrip Manual" dengan parser penanda waktu [MM:SS] otomatis sehingga naskah atau subtitle dari platform yang terproteksi tetap dapat diproses 100% tanpa kendala limit atau login.'},
+    {type:'feature',title:'Sintesis Ide, Naskah Shorts & Naskah Panjang Terintegrasi',desc:'Dari hasil ekstraksi transkrip link video sosmed, kreator dapat langsung merumuskan Ide Konten (1-klik simpan ke Kanban), membuat Naskah Shorts 30 detik (formula H-C-B-C-D-C), naskah video panjang (12–16 menit), judul 3 kata & konsep Thumbnail Magnets Media, atau memasukkannya langsung ke kartu naskah editor yang sedang aktif.'}
+  ]},
   {version:'4.60.0',date:'2026-10-29',title:'Penyelarasan Tampilan UI/UX Generator Thumbnail & SEO dengan Design System YouTube Hub',changes:[
     {type:'feature',title:'Penyelarasan Desain UI/UX Modal & Form dengan YouTube Hub',desc:'Mengubah tampilan modal generator dari dominasi hitam-pekat dan hijau neon mencolok menjadi tema bersih, elegan, dan konsisten mengikuti design system YouTube Content Hub (latar panel putih/slate, tipografi native yang rapi, dan border halus).'},
     {type:'feature',title:'Tombol Aksi & Navigasi Native Terpadu',desc:'Menstandarkan tombol pembuka generator di Menu Radar, kartu naskah transkrip, dan header editor naskah agar selaras dengan tombol bawaan antarmuka Hub tanpa warna hijau neon yang kontras.'},

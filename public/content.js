@@ -223,7 +223,7 @@ function kanbanCard(c){
   const initials=c.owner.trim().split(/\s+/).slice(0,2).map(v=>[...v][0]||'').join('').toUpperCase();
   const alertSt=contentAlertStatus(c);
   const alertBadge=alertSt==='overdue'?'<span class="card-badge overdue" title="Melewati tenggat!">⚠️ Lewat</span>':alertSt==='today'?'<span class="card-badge" style="background:#fef9c3;color:#854d0e;border:1px solid #fef08a" title="Tenggat / jadwal hari ini!">🔔 Hari Ini</span>':'';
-  return `<article class="kanban-card" draggable="true" data-drag-card="${c.id}" style="--pillar:${p?.color||'#d2d9e3'}"><div class="kanban-cb-wrap"><input type="checkbox" class="kanban-card-cb" data-select="${c.id}" ${hub.selected.has(c.id)?'checked':''} title="Pilih kartu"></div><button class="kanban-open" data-open="${c.id}" aria-label="Buka ${esc(c.title)}"><div class="kanban-labels">${formatBadge(c.format)}${p?`<span class="kanban-label">${esc(p.name)}</span>`:''}${c.priority==='high'?'<span class="kanban-label priority">Prioritas tinggi</span>':''}</div><div class="kanban-title">${esc(c.title)}</div>${progressSummary(c)}<div class="content-status-row">${publicationBadge(c)}</div><div class="card-badges">${alertBadge}${due?`<span class="card-badge due ${late?'overdue':''}" title="Deadline ${esc(dateWib(c.deadline))}">${hubIcon('clock')}${date}</span>`:''}${c.scriptLength?`<span class="card-badge" title="Naskah tersimpan">${hubIcon('text')}</span>`:''}${c.owner?`<span class="member-avatar" title="${esc(c.owner)}" aria-label="Penanggung jawab ${esc(c.owner)}">${esc(initials)}</span>`:''}</div></button><div class="card-options-group"><button class="icon-button card-options" data-move-card="${c.id}" aria-label="Pindahkan ${esc(c.title)}" title="Pindahkan kartu">${hubIcon('move')}</button><button class="icon-button card-delete" data-delete-card="${c.id}" aria-label="Hapus ${esc(c.title)}" title="Hapus kartu">${hubIcon('trash')}</button></div></article>`;
+  return `<article class="kanban-card" draggable="true" data-drag-card="${c.id}" style="--pillar:${p?.color||'#d2d9e3'}"><div class="kanban-cb-wrap"><input type="checkbox" class="kanban-card-cb" data-select="${c.id}" ${hub.selected.has(c.id)?'checked':''} title="Pilih kartu"></div><button class="kanban-open" data-open="${c.id}" aria-label="Buka ${esc(c.title)}"><div class="kanban-labels">${formatBadge(c.format)}${p?`<span class="kanban-label">${esc(p.name)}</span>`:''}${c.priority==='high'?'<span class="kanban-label priority">Prioritas tinggi</span>':''}</div><div class="kanban-title">${esc(c.title)}</div>${progressSummary(c)}<div class="content-status-row">${publicationBadge(c)}</div><div class="card-badges">${alertBadge}${due?`<span class="card-badge due ${late?'overdue':''}" title="Deadline ${esc(dateWib(c.deadline))}">${hubIcon('clock')}${date}</span>`:''}${c.scriptLength?`<span class="card-badge" title="Naskah tersimpan">${hubIcon('text')}</span>`:''}${c.owner?`<span class="member-avatar" title="${esc(c.owner)}" aria-label="Penanggung jawab ${esc(c.owner)}">${esc(initials)}</span>`:''}</div></button><div class="card-options-group"><button class="icon-button card-shift-btn" data-shift-card="${c.id}" data-shift-dir="up" aria-label="Naikkan kartu" title="Naikkan urutan (▲)">▲</button><button class="icon-button card-shift-btn" data-shift-card="${c.id}" data-shift-dir="down" aria-label="Turunkan kartu" title="Turunkan urutan (▼)">▼</button><button class="icon-button card-options" data-move-card="${c.id}" aria-label="Pindahkan ${esc(c.title)}" title="Pindahkan kartu">${hubIcon('move')}</button><button class="icon-button card-delete" data-delete-card="${c.id}" aria-label="Hapus ${esc(c.title)}" title="Hapus kartu">${hubIcon('trash')}</button></div></article>`;
 }
 function renderKanban(body){
   const items=filtered(),signature=JSON.stringify([items,items.map(c=>[c.id,linkedJob(c)?.status||(c.youtubeVideoId?'linked_youtube':'not_uploaded')]),hub.data.pillars,hub.data.columns,hub.composer,hub.columnMenu,hub.boardFilters]);
@@ -244,6 +244,56 @@ function showComposer(stage){
   if(hub.composer?.title.trim()&&hub.composer.stage!==stage){toast('Selesaikan atau batalkan kartu yang sedang ditulis.');return}
   hub.composer={stage,title:hub.composer?.title||'',saving:false,error:''};hub.columnMenu=null;renderHub();
   const input=$('#hubBody [name="cardTitle"]');input?.closest('.kanban-column')?.scrollIntoView({block:'nearest',inline:'nearest'});input?.focus();
+}
+async function reorderCard(id,targetId,position,stage){
+  const c=hub.data.contents.find(item=>item.id===id);if(!c)return;
+  const oldContents=[...hub.data.contents],oldStage=c.stage;
+  const index=hub.data.contents.findIndex(item=>item.id===id);
+  if(index!==-1){
+    const [item]=hub.data.contents.splice(index,1);
+    if(stage)item.stage=stage;
+    item.updatedAt=new Date().toISOString();
+    if(targetId){
+      const targetIndex=hub.data.contents.findIndex(item=>item.id===targetId);
+      if(targetIndex!==-1){
+        const insertIndex=position==='after'?targetIndex+1:targetIndex;
+        hub.data.contents.splice(insertIndex,0,item);
+      }else hub.data.contents.unshift(item);
+    }else if(position==='top'){
+      const firstCol=hub.data.contents.findIndex(item=>item.stage===item.stage);
+      if(firstCol!==-1)hub.data.contents.splice(firstCol,0,item);else hub.data.contents.unshift(item);
+    }else if(position==='bottom'){
+      let lastCol=-1;
+      for(let i=hub.data.contents.length-1;i>=0;i--){
+        if(hub.data.contents[i].stage===item.stage){lastCol=i;break;}
+      }
+      if(lastCol!==-1)hub.data.contents.splice(lastCol+1,0,item);else hub.data.contents.push(item);
+    }
+  }
+  saveHubCache();renderHub();
+  try{
+    const res=await api('/api/contents/order',{method:'POST',body:JSON.stringify({id,targetId,position,stage,boardRevision:state.boardRevision})});
+    if(res?.boardRevision)state.boardRevision=res.boardRevision;
+    toast('Urutan kartu diperbarui.');
+  }catch(err){
+    hub.data.contents=oldContents;c.stage=oldStage;
+    saveHubCache();renderHub();
+    toast('Gagal mengubah urutan: '+err.message);
+    void loadHub();
+  }
+}
+async function shiftCardOrder(id,direction){
+  const c=hub.data.contents.find(item=>item.id===id);if(!c)return;
+  const colCards=hub.data.contents.filter(item=>item.stage===c.stage);
+  const curIdx=colCards.findIndex(item=>item.id===id);
+  if(curIdx===-1)return;
+  if(direction==='up'){
+    if(curIdx===0)return toast('Kartu sudah di posisi paling atas.');
+    await reorderCard(id,colCards[curIdx-1].id,'before',c.stage);
+  }else if(direction==='down'){
+    if(curIdx===colCards.length-1)return toast('Kartu sudah di posisi paling bawah.');
+    await reorderCard(id,colCards[curIdx+1].id,'after',c.stage);
+  }
 }
 async function moveContent(id,stage){
   const c=hub.data.contents.find(c=>c.id===id);if(!c)throw Error('Konten tidak ditemukan. Muat ulang papan.');
@@ -283,7 +333,9 @@ async function deleteCard(id){
 }
 function showMoveCard(id){
   const c=hub.data.contents.find(c=>c.id===id);if(!c)return;
-  hub.moveCard=id;$('#moveCardTitle').textContent=c.title;$('#moveCardStage').innerHTML=options(Object.entries(STAGE_NAMES),c.stage);$('#moveCardError').classList.add('hide');$('#moveCardDialog').showModal();
+  hub.moveCard=id;$('#moveCardTitle').textContent=c.title;$('#moveCardStage').innerHTML=options(Object.entries(STAGE_NAMES),c.stage);
+  if($('#moveCardPosition'))$('#moveCardPosition').value='keep';
+  $('#moveCardError').classList.add('hide');$('#moveCardDialog').showModal();
 }
 $('#closeMoveCard').onclick=()=>$('#moveCardDialog').close();
 $('#deleteFromMoveDialog').onclick=async()=>{
@@ -291,7 +343,25 @@ $('#deleteFromMoveDialog').onclick=async()=>{
   $('#moveCardDialog').close();
   await deleteCard(id);
 };
-$('#moveCardForm').onsubmit=async e=>{e.preventDefault();const button=$('#confirmMoveCard');button.disabled=true;try{await moveContent(hub.moveCard,$('#moveCardStage').value);$('#moveCardDialog').close()}catch(err){$('#moveCardError').textContent=err.message;$('#moveCardError').classList.remove('hide');void loadHub()}finally{button.disabled=false}};
+$('#moveCardForm').onsubmit=async e=>{
+  e.preventDefault();const button=$('#confirmMoveCard');button.disabled=true;
+  try{
+    const targetStage=$('#moveCardStage').value;
+    const pos=$('#moveCardPosition')?.value||'keep';
+    const c=hub.data.contents.find(item=>item.id===hub.moveCard);
+    if(pos==='keep'){
+      if(c?.stage!==targetStage)await moveContent(hub.moveCard,targetStage);
+    }else if(pos==='top'||pos==='bottom'){
+      await reorderCard(hub.moveCard,null,pos,targetStage);
+    }else if(pos==='up'||pos==='down'){
+      if(c?.stage!==targetStage)await moveContent(hub.moveCard,targetStage);
+      await shiftCardOrder(hub.moveCard,pos);
+    }
+    $('#moveCardDialog').close();
+  }catch(err){
+    $('#moveCardError').textContent=err.message;$('#moveCardError').classList.remove('hide');void loadHub();
+  }finally{button.disabled=false}
+};
 function calendarEvents(){const items=filtered().map(c=>({...c,eventAt:eventDate(c)})).filter(c=>c.eventAt);if(hub.calendarField==='publish'&&!$('#archiveFilter').checked&&!$('#pillarFilter').value&&!$('#stageFilter').value){const q=$('#contentSearch').value.toLowerCase();for(const j of state.server?.jobs||[]){if(!j.contentId&&j.status!=='cancelled'&&j.scheduledAt&&(!q||j.title.toLowerCase().includes(q))){const format=j.videoFormat||'',f=$('#formatFilter').value;if(!f||format===f)items.push({id:j.id,title:j.title,format,eventAt:j.scheduledAt,jobOnly:true,stage:'ready'})}}}return items.sort((a,b)=>Date.parse(a.eventAt)-Date.parse(b.eventAt))}
 function calendarEvent(c){const collisions=calendarEvents().filter(x=>x.eventAt===c.eventAt).length,j=c.jobOnly?state.server?.jobs.find(j=>j.id===c.id):linkedJob(c);return `<button class="calendar-event ${publicationState(c)==='published'?'is-published':''}"${!c.jobOnly&&!activeJob(c)&&!c.youtubeVideoId?' draggable="true"':''} data-event="${c.id}" data-job-only="${c.jobOnly?'yes':''}" style="--pillar:${pillar(c)?.color||'#8695b0'}"><span class="calendar-category">${formatBadge(c.format)}</span><strong>${esc(c.title)}</strong><small>${timeWib(c.eventAt)}${c.jobOnly||c.youtubeVideoId?' · YouTube':j?'':' · Rencana'}${collisions>1?' · ⚠ Jadwal bersamaan':''}</small><span class="calendar-status-row">${c.jobOnly||publicationState(c)==='published'?'':productionBadge(c)}${c.jobOnly?(j?statusBadge('publication',j.status):''):publicationBadge(c)}</span></button>`}
 function renderCalendar(body){const events=calendarEvents(),month=hub.date.toLocaleDateString('id-ID',{month:'long',year:'numeric',timeZone:'UTC'});const signature=JSON.stringify([events.map(e=>[e.id,e.title,e.eventAt,e.format,e.stage]),month,hub.mode,hub.calendarField,hub.data.pillars]);if(hub.calendarSignature===signature&&body.querySelector('#calendarContent'))return;hub.calendarSignature=signature;body.innerHTML=`<div class="calendar-toolbar"><div class="calendar-controls"><button class="btn mini" data-cal-move="-1" aria-label="Periode sebelumnya">←</button><button class="btn mini" data-cal-today>Hari ini</button><button class="btn mini" data-cal-move="1" aria-label="Periode berikutnya">→</button><strong>${month}</strong></div><div class="calendar-controls"><select id="calendarField" class="btn mini" aria-label="Jenis tanggal"><option value="publish"${hub.calendarField==='publish'?' selected':''}>Jadwal tayang</option><option value="deadline"${hub.calendarField==='deadline'?' selected':''}>Deadline produksi</option></select>${[['month','Bulan'],['week','Minggu'],['agenda','Agenda']].map(([v,l])=>`<button class="btn mini ${hub.mode===v?'primary':''}" data-cal-mode="${v}">${l}</button>`).join('')}</div></div><div class="pillars-summary">${hub.data.pillars.map(p=>pillarTag({pillarId:p.id})).join('')}</div><div id="calendarContent"></div><p class="hub-footer">WIB · Kartu rencana bisa digeser ke tanggal lain. Status tayang mengikuti pemeriksaan YouTube. Video yang sudah ditautkan diperbarui otomatis sekitar 5 menit; perubahan jadwal dilakukan melalui YouTube Studio.</p>`;const box=$('#calendarContent');let start,end;if(hub.mode==='month'){const first=new Date(Date.UTC(hub.date.getUTCFullYear(),hub.date.getUTCMonth(),1));start=shiftDay(first,-((first.getUTCDay()+6)%7));end=shiftDay(start,42)}else if(hub.mode==='week'){start=shiftDay(hub.date,-((hub.date.getUTCDay()+6)%7));end=shiftDay(start,7)}else{start=new Date(Date.UTC(hub.date.getUTCFullYear(),hub.date.getUTCMonth(),1));end=new Date(Date.UTC(hub.date.getUTCFullYear(),hub.date.getUTCMonth()+1,1))}if(hub.mode==='agenda'){const grouped={};events.filter(c=>calendarDate(dayKey(c.eventAt))>=start&&calendarDate(dayKey(c.eventAt))<end).forEach(c=>(grouped[dayKey(c.eventAt)]??=[]).push(c));box.innerHTML=Object.entries(grouped).map(([day,cs])=>`<div class="agenda-date">${calendarDate(day).toLocaleDateString('id-ID',{timeZone:'UTC',weekday:'long',day:'numeric',month:'long'})} <button class="btn mini" data-new-date="${day}">+ Konten</button></div><div class="agenda-list">${cs.map(c=>`<div>${calendarEvent(c)}</div>`).join('')}</div>`).join('')||'<div class="empty">Belum ada jadwal pada bulan ini. Konten tanpa tanggal tetap tersedia di Kanban dan Semua Konten.</div>';return}let days='';for(let day=new Date(start);day<end;day=shiftDay(day,1)){const key=keyUTC(day),cs=events.filter(c=>dayKey(c.eventAt)===key);days+=`<div class="calendar-day ${day.getUTCMonth()!==hub.date.getUTCMonth()?'other':''} ${key===dayKey()?'today':''}" data-day="${key}"><div class="day-heading"><span class="day-number">${day.getUTCDate()}</span><button data-new-date="${key}" aria-label="Tambah konten ${key}">+</button></div>${cs.map(calendarEvent).join('')}</div>`}box.innerHTML=`<div class="calendar-wrap"><div class="calendar-grid">${['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map(l=>`<div class="weekday">${l}</div>`).join('')}${days}</div></div>`}
@@ -348,8 +418,9 @@ $('#hubBody').oninput=e=>{if(e.target.name==='cardTitle'&&hub.composer){hub.comp
 $('#hubBody').onclick=async e=>{
   if(e.target.closest('[data-select]')||e.target.id==='selectAllContent'){e.stopPropagation();return}
   if(e.target.id==='dashViewAlerts'){const b=$('#alertFilter');if(b)b.checked=true;navigate('library');return}
-  const action=e.target.closest('[data-add-card],[data-cancel-composer],[data-column-menu],[data-stage-library],[data-board-filter],[data-move-card],[data-delete-card]');
+  const action=e.target.closest('[data-add-card],[data-cancel-composer],[data-column-menu],[data-stage-library],[data-board-filter],[data-move-card],[data-delete-card],[data-shift-card]');
   if(action){
+    if(action.dataset.shiftCard){e.stopPropagation();await shiftCardOrder(action.dataset.shiftCard,action.dataset.shiftDir);return}
     if(action.dataset.deleteCard){e.stopPropagation();await deleteCard(action.dataset.deleteCard);return}
     if(action.dataset.addCard)showComposer(action.dataset.addCard);
     if(action.hasAttribute('data-cancel-composer')&&!hub.composer?.saving){hub.composer=null;renderHub()}
@@ -385,16 +456,76 @@ $('#hubBody').onkeydown=e=>{
   if(e.target.matches('[data-card]')&&['Enter',' '].includes(e.key)){e.preventDefault();openContent(e.target.dataset.card).catch(err=>toast(err.message))}};
 $('#hubBody').ondragstart=e=>{
   const el=e.target.closest('[data-drag-card],[data-card],[data-event]');
-  if(el&&!el.dataset.jobOnly){hub.dragging=true;e.dataTransfer.setData('text/plain',el.dataset.dragCard||el.dataset.card||el.dataset.event);e.dataTransfer.effectAllowed='move';el.classList.add('dragging')}
+  if(el&&!el.dataset.jobOnly){
+    hub.dragging=true;
+    hub.draggedId=el.dataset.dragCard||el.dataset.card||el.dataset.event;
+    e.dataTransfer.setData('text/plain',hub.draggedId);
+    e.dataTransfer.effectAllowed='move';
+    el.classList.add('dragging');
+  }
 };
-$('#hubBody').ondragend=()=>{hub.dragging=false;document.querySelectorAll('.drop-over,.dragging').forEach(el=>el.classList.remove('drop-over','dragging'));renderHub()};
-$('#hubBody').ondragover=e=>{const target=e.target.closest('[data-column],[data-day]');if(target){e.preventDefault();e.dataTransfer.dropEffect='move';target.classList.add('drop-over');const board=$('#hubBody .kanban');if(board){const rect=board.getBoundingClientRect();if(e.clientX>rect.right-50)board.scrollLeft+=18;else if(e.clientX<rect.left+50)board.scrollLeft-=18}}};
-$('#hubBody').ondragleave=e=>{const target=e.target.closest('[data-column],[data-day]');if(target&&!target.contains(e.relatedTarget))target.classList.remove('drop-over')};
+$('#hubBody').ondragend=()=>{
+  hub.dragging=false;
+  hub.draggedId=null;
+  document.querySelectorAll('.drop-over,.dragging,.drop-target-before,.drop-target-after').forEach(el=>el.classList.remove('drop-over','dragging','drop-target-before','drop-target-after'));
+  renderHub();
+};
+$('#hubBody').ondragover=e=>{
+  const target=e.target.closest('[data-column],[data-day]');
+  if(!target)return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  target.classList.add('drop-over');
+
+  if(target.dataset.column){
+    const cardEl=e.target.closest('[data-drag-card]');
+    const allCards=target.querySelectorAll('[data-drag-card]');
+    allCards.forEach(c=>{if(c!==cardEl)c.classList.remove('drop-target-before','drop-target-after')});
+    if(cardEl&&cardEl.dataset.dragCard!==hub.draggedId){
+      const rect=cardEl.getBoundingClientRect();
+      const isBefore=(e.clientY-rect.top)<(rect.height/2);
+      cardEl.classList.toggle('drop-target-before',isBefore);
+      cardEl.classList.toggle('drop-target-after',!isBefore);
+    }
+  }
+
+  const board=$('#hubBody .kanban');
+  if(board){
+    const rect=board.getBoundingClientRect();
+    if(e.clientX>rect.right-50)board.scrollLeft+=18;
+    else if(e.clientX<rect.left+50)board.scrollLeft-=18;
+  }
+};
+$('#hubBody').ondragleave=e=>{
+  const target=e.target.closest('[data-column],[data-day]');
+  if(target&&!target.contains(e.relatedTarget)){
+    target.classList.remove('drop-over');
+    target.querySelectorAll('.drop-target-before,.drop-target-after').forEach(el=>el.classList.remove('drop-target-before','drop-target-after'));
+  }
+};
 $('#hubBody').ondrop=async e=>{
-  const target=e.target.closest('[data-column],[data-day]');if(!target)return;e.preventDefault();target.classList.remove('drop-over');hub.dragging=false;
-  const c=hub.data.contents.find(c=>c.id===e.dataTransfer.getData('text/plain'));if(!c)return;
+  const target=e.target.closest('[data-column],[data-day]');if(!target)return;
+  e.preventDefault();
+  target.classList.remove('drop-over');
+  document.querySelectorAll('.drop-target-before,.drop-target-after').forEach(el=>el.classList.remove('drop-target-before','drop-target-after'));
+  hub.dragging=false;
+  const draggedId=e.dataTransfer.getData('text/plain')||hub.draggedId;
+  hub.draggedId=null;
+  const c=hub.data.contents.find(c=>c.id===draggedId);if(!c)return;
   try{
-    if(target.dataset.column){await moveContent(c.id,target.dataset.column);return}
+    if(target.dataset.column){
+      const cardEl=e.target.closest('[data-drag-card]');
+      if(cardEl&&cardEl.dataset.dragCard!==draggedId){
+        const rect=cardEl.getBoundingClientRect();
+        const position=(e.clientY-rect.top)<(rect.height/2)?'before':'after';
+        await reorderCard(draggedId,cardEl.dataset.dragCard,position,target.dataset.column);
+        return;
+      }
+      if(c.stage!==target.dataset.column){
+        await reorderCard(draggedId,null,'bottom',target.dataset.column);
+      }
+      return;
+    }
     const patch={revision:c.revision};
     if(hub.calendarField==='publish'&&(activeJob(c)||c.youtubeVideoId))return toast('Jadwal upload YouTube dikelola di YouTube Studio.');
     const dateField=hub.calendarField==='deadline'?'deadline':'plannedPublishAt';
@@ -471,6 +602,29 @@ window.addEventListener('beforeunload',e=>{if(hub.editing?.dirty||state.uploadin
 $('#reloadContent').onclick=async()=>{if(!confirm('Muat versi server dan abaikan perubahan lokal untuk konten ini?'))return;try{const id=hub.editing.content.id;clearTimeout(hub.timer);hub.editing=null;clearLocalDraft(id);showDraftBanner();$('#contentEditor').close();await openContent(id)}catch(err){toast(err.message)}};
 function scriptStats(){if(!hub.editing)return;const text=formValue('script').value,words=text.trim().split(/\s+/).filter(Boolean).length,seconds=Math.round(words/140*60),duration=seconds>=60?`${Math.floor(seconds/60)} menit${seconds%60?' '+seconds%60+' detik':''}`:`${seconds} detik`;$('#scriptStats').textContent=`${words.toLocaleString('id-ID')} kata · ${text.length.toLocaleString('id-ID')} karakter · Estimasi narasi ${duration} (140 kata/menit)`;$('#copyScript').disabled=!text.trim();$('#openTeleprompter').disabled=!text.trim();if($('#openThumbnailSeo'))$('#openThumbnailSeo').disabled=!text.trim();}
 $('#openThumbnailSeo').onclick=()=>{if(!hub.editing)return;const script=formValue('script').value||'';const format=formValue('format').value==='shorts'?'short':'thumbnail';if(window.openThumbnailSeoModal){window.openThumbnailSeoModal(script,format);}else{toast('Generator Thumbnail & SEO sedang dimuat…');}};
+if($('#importTranscriptFromUrl')){
+  $('#importTranscriptFromUrl').onclick=()=>{
+    if(typeof window.radarOpenLinkTranscriptModal==='function'){
+      window.radarOpenLinkTranscriptModal('',{
+        onApplyScript:(generatedScript)=>{
+          const scriptArea=formValue('script');
+          if(scriptArea){
+            if(scriptArea.value.trim()){
+              if(!confirm('Ganti naskah yang ada saat ini dengan naskah hasil ekstraksi?'))return;
+            }
+            scriptArea.value=generatedScript;
+            HubRichText.get(scriptArea)?.syncFromTextarea?.();
+            markDirty();
+            scriptStats();
+            toast('Naskah berhasil dimasukkan dari transkrip video!');
+          }
+        }
+      });
+    }else{
+      toast('Modul transkrip video sedang dimuat…');
+    }
+  };
+}
 $('#openTeleprompter').onclick=()=>{if(!hub.editing)return;const edit=hub.editing;HubTeleprompter.open({id:hub.editing.content.id,title:formValue('title').value||'Naskah konten',category:FORMAT_NAMES[formValue('format').value]||'Konten',text:formValue('script').value},toast,()=>{if(hub.editing===edit){switchTab('plan');$('#editor-tab-plan').focus();}})};
 $('#copyScript').onclick=async()=>{const text=formValue('script').value;if(!text.trim())return;try{await navigator.clipboard.writeText(text);toast('Script disalin.')}catch{HubRichText.select(formValue('script'));toast('Pilih Salin pada script yang disorot.')}};
 function productionProgress(checklist={}){const total=Object.keys(CHECK_NAMES).length,done=Object.keys(CHECK_NAMES).filter(key=>checklist[key]===true).length;return {done,total,percent:Math.round(done/total*100)}}

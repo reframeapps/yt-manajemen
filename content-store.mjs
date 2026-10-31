@@ -323,6 +323,69 @@ export class ContentStore {
       return {columns:db.columns,boardRevision:db.boardRevision};
     });
   }
+  reorderContents(body) {
+    return this.mutate(db=>{
+      if(body?.boardRevision!==undefined) checkBoardRevision(db,body.boardRevision);
+      if(Array.isArray(body?.ids)){
+        const idSet=new Set(body.ids);
+        const ordered=[];
+        for(const id of body.ids){
+          const item=db.contents.find(c=>c.id===id);
+          if(item)ordered.push(item);
+        }
+        for(const item of db.contents){
+          if(!idSet.has(item.id))ordered.push(item);
+        }
+        db.contents=ordered;
+        db.boardRevision=(db.boardRevision||1)+1;
+        return {ok:true,boardRevision:db.boardRevision};
+      }
+      const {id,targetId,position,stage}=body||{};
+      if(!id)throw fail('ID konten wajib diisi',400);
+      const index=db.contents.findIndex(c=>c.id===id);
+      if(index===-1)throw fail('Konten tidak ditemukan',404);
+      const [item]=db.contents.splice(index,1);
+      if(stage&&db.columns.some(c=>c.id===stage)){
+        item.stage=stage;
+      }
+      item.updatedAt=new Date().toISOString();
+      item.revision=(item.revision||0)+1;
+
+      if(targetId){
+        const targetIndex=db.contents.findIndex(c=>c.id===targetId);
+        if(targetIndex!==-1){
+          const insertIndex=position==='after'?targetIndex+1:targetIndex;
+          db.contents.splice(insertIndex,0,item);
+        }else{
+          db.contents.unshift(item);
+        }
+      }else if(position==='top'){
+        const firstColIndex=db.contents.findIndex(c=>c.stage===item.stage);
+        if(firstColIndex!==-1){
+          db.contents.splice(firstColIndex,0,item);
+        }else{
+          db.contents.unshift(item);
+        }
+      }else if(position==='bottom'){
+        let lastColIndex=-1;
+        for(let i=db.contents.length-1;i>=0;i--){
+          if(db.contents[i].stage===item.stage){
+            lastColIndex=i;
+            break;
+          }
+        }
+        if(lastColIndex!==-1){
+          db.contents.splice(lastColIndex+1,0,item);
+        }else{
+          db.contents.push(item);
+        }
+      }else{
+        db.contents.splice(index,0,item);
+      }
+      db.boardRevision=(db.boardRevision||1)+1;
+      return {ok:true,boardRevision:db.boardRevision};
+    });
+  }
   removeColumn(id,body) {
     return this.mutate(db=>{
       checkBoardRevision(db,body?.boardRevision);

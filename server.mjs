@@ -39,6 +39,9 @@ import { auditVideo } from './content-auditor.mjs';
 import {
   DEFAULT_SHORTS_PROMPT,
   extractYouTubeTranscript,
+  extractSocialTranscript,
+  parseCustomTranscriptText,
+  detectMediaPlatform,
   synthesizeIdeaFromTranscript,
   synthesizeScriptFromTranscript,
   saveTranscriptIdeaToKanban,
@@ -1183,20 +1186,36 @@ const server = http.createServer(async (req, res) => {
     if(pathname==='/api/radar/transcript'&&req.method==='GET'){
       const videoId=u.searchParams.get('videoId')||u.searchParams.get('v')||u.searchParams.get('url');
       const lang=u.searchParams.get('lang')||'id';
-      if(!videoId)return json(res,400,{ok:false,error:'ID atau link video YouTube wajib disertakan.'},{'cache-control':'no-store'});
+      if(!videoId)return json(res,400,{ok:false,error:'ID atau link video YouTube/sosial media wajib disertakan.'},{'cache-control':'no-store'});
       try{
-        const transcript=await extractYouTubeTranscript(videoId,{lang});
+        const transcript=await extractSocialTranscript(videoId,{lang});
         return json(res,200,{ok:true,transcript},{'cache-control':'no-store'});
       }catch(e){
-        return json(res,e.status||422,{ok:false,code:e.code||'transcript_error',error:e.message},{'cache-control':'no-store'});
+        return json(res,e.status||422,{ok:false,code:e.code||'transcript_error',error:e.message,platform:e.platform,metadata:e.metadata},{'cache-control':'no-store'});
+      }
+    }
+    if(pathname==='/api/radar/transcript/custom'&&req.method==='POST'){
+      const body=await readJson(req);
+      if(!body||!body.text||typeof body.text!=='string'||!body.text.trim())return json(res,400,{ok:false,error:'Teks transkrip wajib diisi.'});
+      try{
+        const transcript=parseCustomTranscriptText(body.text,{
+          title:body.title||'Transkrip Video Sosmed',
+          channelName:body.channelName||'Kreator Sosmed',
+          platform:body.platform||'Sosmed',
+          durationFormatted:body.durationFormatted||''
+        });
+        if(body.url)transcript.url=body.url;
+        return json(res,200,{ok:true,transcript},{'cache-control':'no-store'});
+      }catch(e){
+        return json(res,e.status||400,{ok:false,error:e.message},{'cache-control':'no-store'});
       }
     }
     if(pathname==='/api/radar/transcript/idea'&&req.method==='POST'){
       const body=await readJson(req);
-      if(!body||(!body.transcriptText&&!body.videoId))return json(res,400,{ok:false,error:'Teks transkrip atau videoId wajib disertakan.'});
+      if(!body||(!body.transcriptText&&!body.videoId))return json(res,400,{ok:false,error:'Teks transkrip atau link/ID video wajib disertakan.'});
       try{
         if(!body.transcriptText&&body.videoId){
-          const t=await extractYouTubeTranscript(body.videoId);
+          const t=await extractSocialTranscript(body.videoId);
           body.transcriptText=t.fullText;
           body.title=body.title||t.title;
           body.channelName=body.channelName||t.channelName;
@@ -1214,10 +1233,10 @@ const server = http.createServer(async (req, res) => {
     }
     if(pathname==='/api/radar/transcript/script'&&req.method==='POST'){
       const body=await readJson(req);
-      if(!body||(!body.transcriptText&&!body.videoId))return json(res,400,{ok:false,error:'Teks transkrip atau videoId wajib disertakan.'});
+      if(!body||(!body.transcriptText&&!body.videoId))return json(res,400,{ok:false,error:'Teks transkrip atau link/ID video wajib disertakan.'});
       try{
         if(!body.transcriptText&&body.videoId){
-          const t=await extractYouTubeTranscript(body.videoId);
+          const t=await extractSocialTranscript(body.videoId);
           body.transcriptText=t.fullText;
           body.title=body.title||t.title;
           body.channelName=body.channelName||t.channelName;
@@ -1319,6 +1338,8 @@ const server = http.createServer(async (req, res) => {
       return json(res,201,await contentStore.saveColumn(await readJson(req)));
     if (pathname === '/api/columns/order' && req.method === 'POST')
       return json(res,200,await contentStore.reorderColumns(await readJson(req)));
+    if (pathname === '/api/contents/order' && req.method === 'POST')
+      return json(res,200,await contentStore.reorderContents(await readJson(req)));
     const columnMatch=pathname.match(/^\/api\/columns\/([a-z0-9-]{1,60})$/);
     if(columnMatch&&req.method==='PATCH')return json(res,200,await contentStore.saveColumn(await readJson(req),columnMatch[1]));
     if(columnMatch&&req.method==='DELETE')return json(res,200,await contentStore.removeColumn(columnMatch[1],await readJson(req)));

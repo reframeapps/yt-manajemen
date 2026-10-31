@@ -14,7 +14,11 @@ import {
   synthesizeIdeaFromTranscript,
   synthesizeScriptFromTranscript,
   saveTranscriptIdeaToKanban,
-  saveTranscriptScriptToKanban
+  saveTranscriptScriptToKanban,
+  detectMediaPlatform,
+  parseWebVtt,
+  parseCustomTranscriptText,
+  extractSocialTranscript
 } from '../radar-transcript.mjs';
 
 test('formatTimestamp accurately handles milliseconds, minutes, and hours', () => {
@@ -171,4 +175,56 @@ test('DEFAULT_SHORTS_PROMPT contains H-C-B-C-D-C formula and word limits', () =>
   assert.ok(DEFAULT_SHORTS_PROMPT.includes('Maksimal 90 kata'));
   assert.ok(DEFAULT_SHORTS_PROMPT.includes('CORE ANGLE'));
   assert.ok(DEFAULT_SHORTS_PROMPT.includes('HOOK UTAMA & 3 ALTERNATIF'));
+});
+
+test('detectMediaPlatform accurately identifies media types from various inputs', () => {
+  assert.equal(detectMediaPlatform('aks6P_onYqo').platform, 'youtube');
+  assert.equal(detectMediaPlatform('https://www.youtube.com/watch?v=aks6P_onYqo').platform, 'youtube');
+  assert.equal(detectMediaPlatform('https://www.tiktok.com/@creator/video/1234567890').platform, 'tiktok');
+  assert.equal(detectMediaPlatform('https://www.instagram.com/reel/C123456/').platform, 'instagram');
+  assert.equal(detectMediaPlatform('https://x.com/username/status/1234567890').platform, 'twitter');
+  assert.equal(detectMediaPlatform('https://twitter.com/username/status/1234567890').platform, 'twitter');
+  assert.equal(detectMediaPlatform('https://fb.watch/xyz123/').platform, 'facebook');
+  assert.equal(detectMediaPlatform('https://example.com/video-article').platform, 'web');
+  assert.throws(() => detectMediaPlatform('not-a-valid-url'), /tidak dikenali/i);
+});
+
+test('parseWebVtt converts WebVTT subtitle text into timestamped segments', () => {
+  const vtt = `WEBVTT
+
+00:00:01.000 --> 00:00:04.000
+Halo semua selamat datang
+
+00:00:04.500 --> 00:00:08.000
+Hari ini kita membahas fenomena aneh`;
+
+  const segs = parseWebVtt(vtt);
+  assert.equal(segs.length, 2);
+  assert.equal(segs[0].timestamp, '00:01');
+  assert.equal(segs[0].text, 'Halo semua selamat datang');
+  assert.equal(segs[1].timestamp, '00:04');
+  assert.equal(segs[1].text, 'Hari ini kita membahas fenomena aneh');
+});
+
+test('parseCustomTranscriptText handles both timed and untimed text lines', () => {
+  const timedInput = `[00:00] Ini pembuka investigasi yang tajam.
+[00:15] Data menunjukkan peningkatan drastis anggaran.
+01:30 Pertanyaan terbesarnya adalah siapa pihak yang untung?`;
+
+  const res = parseCustomTranscriptText(timedInput, {
+    title: 'Analisis Anggaran 2026',
+    channelName: 'Channel Riset',
+    platform: 'tiktok'
+  });
+
+  assert.equal(res.title, 'Analisis Anggaran 2026');
+  assert.equal(res.channelName, 'Channel Riset');
+  assert.equal(res.platform, 'tiktok');
+  assert.equal(res.segments.length, 3);
+  assert.equal(res.segments[0].timestamp, '00:00');
+  assert.equal(res.segments[1].timestamp, '00:15');
+  assert.equal(res.segments[2].timestamp, '01:30');
+  assert.ok(res.wordCount > 10);
+  assert.ok(res.timedText.includes('[00:00]'));
+  assert.ok(res.fullText.includes('Ini pembuka investigasi yang tajam.'));
 });

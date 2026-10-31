@@ -178,7 +178,7 @@ window.renderRadar=body=>{
   if(existing){
     if(radarUi.tab==='social')window.HubRadarSocial.render(existing.querySelector('#radarSocialFront'));
     return;
-  }body.innerHTML=`<section id="radarPanel"><div class="radar-hero"><div><span class="eyebrow">EDITORIAL RADAR REFRAME</span><h2>Radar Konten & Intelijen Sosmed</h2><p>Isu penting, sinyal viral percakapan sosmed, konteks sumber, dan prioritas riset.</p></div><div class="feature-actions"><button class="btn primary" id="radarSync">Sinkronkan</button><button class="btn" id="radarSettings">Topik & Sumber</button><details class="radar-actions-menu"><summary class="btn">Menu Radar</summary><div class="radar-actions-popover"><button class="btn" id="radarDaily">Ringkasan harian</button><button class="btn" id="radarWeekly">Ringkasan mingguan</button><button class="btn" id="radarArchive">Arsip & jadwal</button><button class="btn" id="radarPromptLibrary">Pustaka prompt</button><button class="btn" id="radarUsage">Riwayat AI</button><button class="btn" id="radarPerformance">Performa konten</button><button class="btn" id="radarThumbnailSeo">🎨 Generator Thumbnail & SEO</button></div></details></div></div><div class="radar-tabs" role="tablist">${[['social','⚡ Intelijen Sosmed (Top 5)'],['issues','🔥 Hot Isu Investigasi'],['trends','📈 Tren & Eksekutif'],['channels','📺 Pantauan Channel'],['references','📚 Referensi Tersimpan']].map(([id,title])=>`<button role="tab" data-r-tab="${id}" aria-selected="${id===radarUi.tab}">${title}</button>`).join('')}</div><div id="radarError" class="notice hide" role="alert"></div><section id="radarSocialFront" class="radar-social-front" aria-label="Radar Intelijen Sosmed & Ide Potensial"><p class="hint">Memuat radar intelijen sosmed…</p></section><div id="radarFocusSummary" class="radar-focus-summary hide" role="status"></div><section id="radarExecutiveFront" class="radar-executive-front hide" aria-label="Ringkasan eksekutif"><div class="radar-executive-tabs" role="tablist" aria-label="Periode ringkasan eksekutif"><button class="btn primary" role="tab" data-executive-period="daily" aria-selected="true">Harian</button><button class="btn" role="tab" data-executive-period="weekly" aria-selected="false">Mingguan</button></div><div id="radarExecutiveFrontBody" aria-live="polite"><p class="hint">Memuat ringkasan eksekutif…</p></div></section><section id="radarTrends" class="radar-trends hide" aria-label="Tren kata kunci"><p class="hint">Memuat tren kata kunci…</p></section><div id="radarTools" class="radar-tools hide"><input id="radarSearch" aria-label="Cari Radar" placeholder="Cari isu atau channel…"><select id="radarTopic" aria-label="Filter topik"><option value="">Semua topik</option></select><select id="radarStatus" aria-label="Filter status"><option value="">Semua status</option>${Object.entries(rStatus).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select><select id="radarPlatform" aria-label="Filter platform"><option value="">Semua sumber</option><option value="YouTube">Video YouTube</option><option value="Berita / Web">Artikel / berita</option></select><select id="radarPeriod" aria-label="Periode liputan"><option value="24">24 jam</option><option value="72" selected>3 hari</option><option value="168">7 hari</option></select><button class="btn" id="radarAdd">+ Link referensi</button></div><div id="radarCoverage" class="hide"></div><div id="radarMethodology"></div><div id="radarList" class="hide"><div class="hub-panel empty">Memuat Radar…</div></div><div id="radarFooter" class="hint"></div></section>`;body.querySelector('.radar-actions-menu').onclick=e=>{if(e.target.closest('button'))e.currentTarget.open=false;};$('#radarExecutiveFront').onclick=e=>{const button=e.target.closest('[data-executive-period],[data-executive-retry]');if(!button)return;if(button.dataset.executivePeriod)radarUi.executivePeriod=button.dataset.executivePeriod;radarInlineSchedule();};$('#radarSearch').value=radarUi.q;$('#radarSearch').oninput=e=>{radarUi.q=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarTopic').onchange=e=>{radarUi.topic=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarStatus').value=radarUi.status;$('#radarStatus').onchange=e=>{radarUi.status=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPlatform').value=radarUi.platform;$('#radarPlatform').onchange=e=>{radarUi.platform=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPeriod').value=radarUi.period;$('#radarPeriod').onchange=e=>{radarUi.period=Number(e.target.value);radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarAdd').onclick=()=>radarSource();$('#radarPromptLibrary').onclick=()=>radarRun(()=>radarPromptLibrary());$('#radarUsage').onclick=()=>radarRun(()=>radarUsage());$('#radarPerformance').onclick=()=>radarRun(()=>radarPerformance());if($('#radarThumbnailSeo'))$('#radarThumbnailSeo').onclick=()=>window.openThumbnailSeoModal();$('#radarArchive').onclick=()=>radarRun(()=>radarArchives());$('#radarDaily').onclick=()=>radarRun(()=>radarDigest('daily'));$('#radarWeekly').onclick=()=>radarRun(()=>radarDigest('weekly'));$('#radarSettings').onclick=()=>radarSettings();$('#radarSync').onclick=()=>radarRun(async()=>{if(radarUi.loading)return;radarUi.loading=true;$('#radarSync').disabled=true;$('#radarSync').textContent='Menyinkronkan…';try{const result=await rPost('sync',{});await radarLoad();toast(`${result.news} link berita · ${result.videos} video diperiksa${result.errors.length?' · Ada sumber belum tersinkron':''}`)}finally{radarUi.loading=false;if($('#radarSync')){$('#radarSync').disabled=false;$('#radarSync').textContent='Sinkronkan'}}});body.querySelector('.radar-tabs').onclick=e=>{const b=e.target.closest('[data-r-tab]');if(!b)return;radarUi.tab=b.dataset.rTab;radarUi.limit=10;body.querySelectorAll('[data-r-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));radarList()};$('#radarList').onclick=e=>radarRun(async()=>{const b=e.target.closest('[data-r-transcript],[data-r-issue],[data-r-channel-add],[data-r-channel-ai],[data-r-video],[data-r-more],[data-r-channel-view]');if(!b)return;if(b.dataset.rTranscript){const [channelId,id]=b.dataset.rTranscript.split(':');return radarOpenTranscriptModal(channelId,id);}if(!b)return;if(b.hasAttribute('data-r-channel-view')){radarUi.channelAll=!radarUi.channelAll;return radarList()}if(b.hasAttribute('data-r-more')){radarUi.limit+=10;return radarList()}if(b.dataset.rIssue)return radarIssue(b.dataset.rIssue);if(b.hasAttribute('data-r-channel-add'))return radarChannel();if(b.dataset.rChannelAi)return radarAI('analysis',{channelId:b.dataset.rChannelAi,script:''});if(b.dataset.rVideo){const [channelId,id]=b.dataset.rVideo.split(':');const c=radarUi.data.channels.find(c=>c.id===channelId),v=c.videos.find(v=>v.id===id);return radarSource(null,{url:v.url,title:v.title,publisher:c.name,publishedAt:v.publishedAt,excerpt:v.description||''});}});$('#radarList').onchange=e=>{const select=e.target.closest('[data-r-video-feedback]');if(!select)return;radarRun(async()=>{const [id,videoId]=select.dataset.rVideoFeedback.split(':'),channel=radarUi.data.channels.find(c=>c.id===id);select.disabled=true;try{await rPost('channels/'+id+'/feedback',{videoId,choice:select.value,revision:channel.revision},'PATCH');await radarLoad();toast('Pilihan video tersimpan.');}catch(error){await radarLoad().catch(()=>{});throw error;}finally{if(select.isConnected)select.disabled=false;}});};if(!radarUi.refreshTimer)radarUi.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!rDialog.open&&!radarUi.loading&&$('#radarPanel')&&$('#radarPanel').offsetParent!==null)radarLoad().catch(()=>{});},5*60*1000);radarRun(()=>radarLoad());};
+  }body.innerHTML=`<section id="radarPanel"><div class="radar-hero"><div><span class="eyebrow">EDITORIAL RADAR REFRAME</span><h2>Radar Konten & Intelijen Sosmed</h2><p>Isu penting, sinyal viral percakapan sosmed, konteks sumber, dan prioritas riset.</p></div><div class="feature-actions"><button class="btn primary" id="radarSync">Sinkronkan</button><button class="btn" id="radarHeroTranscript" title="Ekstrak transkrip dari link video YouTube, TikTok, Reels, dll">📝 Ekstrak Transkrip Link</button><button class="btn" id="radarSettings">Topik & Sumber</button><details class="radar-actions-menu"><summary class="btn">Menu Radar</summary><div class="radar-actions-popover"><button class="btn" id="radarLinkTranscript">📝 Ekstrak Transkrip Link</button><button class="btn" id="radarDaily">Ringkasan harian</button><button class="btn" id="radarWeekly">Ringkasan mingguan</button><button class="btn" id="radarArchive">Arsip & jadwal</button><button class="btn" id="radarPromptLibrary">Pustaka prompt</button><button class="btn" id="radarUsage">Riwayat AI</button><button class="btn" id="radarPerformance">Performa konten</button><button class="btn" id="radarThumbnailSeo">🎨 Generator Thumbnail & SEO</button></div></details></div></div><div class="radar-tabs" role="tablist">${[['social','⚡ Intelijen Sosmed (Top 5)'],['issues','🔥 Hot Isu Investigasi'],['trends','📈 Tren & Eksekutif'],['channels','📺 Pantauan Channel'],['references','📚 Referensi Tersimpan']].map(([id,title])=>`<button role="tab" data-r-tab="${id}" aria-selected="${id===radarUi.tab}">${title}</button>`).join('')}</div><div id="radarError" class="notice hide" role="alert"></div><section id="radarSocialFront" class="radar-social-front" aria-label="Radar Intelijen Sosmed & Ide Potensial"><p class="hint">Memuat radar intelijen sosmed…</p></section><div id="radarFocusSummary" class="radar-focus-summary hide" role="status"></div><section id="radarExecutiveFront" class="radar-executive-front hide" aria-label="Ringkasan eksekutif"><div class="radar-executive-tabs" role="tablist" aria-label="Periode ringkasan eksekutif"><button class="btn primary" role="tab" data-executive-period="daily" aria-selected="true">Harian</button><button class="btn" role="tab" data-executive-period="weekly" aria-selected="false">Mingguan</button></div><div id="radarExecutiveFrontBody" aria-live="polite"><p class="hint">Memuat ringkasan eksekutif…</p></div></section><section id="radarTrends" class="radar-trends hide" aria-label="Tren kata kunci"><p class="hint">Memuat tren kata kunci…</p></section><div id="radarTools" class="radar-tools hide"><input id="radarSearch" aria-label="Cari Radar" placeholder="Cari isu atau channel…"><select id="radarTopic" aria-label="Filter topik"><option value="">Semua topik</option></select><select id="radarStatus" aria-label="Filter status"><option value="">Semua status</option>${Object.entries(rStatus).map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select><select id="radarPlatform" aria-label="Filter platform"><option value="">Semua sumber</option><option value="YouTube">Video YouTube</option><option value="Berita / Web">Artikel / berita</option></select><select id="radarPeriod" aria-label="Periode liputan"><option value="24">24 jam</option><option value="72" selected>3 hari</option><option value="168">7 hari</option></select><button class="btn" id="radarAdd">+ Link referensi</button></div><div id="radarCoverage" class="hide"></div><div id="radarMethodology"></div><div id="radarList" class="hide"><div class="hub-panel empty">Memuat Radar…</div></div><div id="radarFooter" class="hint"></div></section>`;body.querySelector('.radar-actions-menu').onclick=e=>{if(e.target.closest('button'))e.currentTarget.open=false;};$('#radarExecutiveFront').onclick=e=>{const button=e.target.closest('[data-executive-period],[data-executive-retry]');if(!button)return;if(button.dataset.executivePeriod)radarUi.executivePeriod=button.dataset.executivePeriod;radarInlineSchedule();};$('#radarSearch').value=radarUi.q;$('#radarSearch').oninput=e=>{radarUi.q=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarTopic').onchange=e=>{radarUi.topic=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarStatus').value=radarUi.status;$('#radarStatus').onchange=e=>{radarUi.status=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPlatform').value=radarUi.platform;$('#radarPlatform').onchange=e=>{radarUi.platform=e.target.value;radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarPeriod').value=radarUi.period;$('#radarPeriod').onchange=e=>{radarUi.period=Number(e.target.value);radarUi.limit=10;radarList();radarInlineSchedule()};$('#radarAdd').onclick=()=>radarSource();$('#radarPromptLibrary').onclick=()=>radarRun(()=>radarPromptLibrary());$('#radarUsage').onclick=()=>radarRun(()=>radarUsage());$('#radarPerformance').onclick=()=>radarRun(()=>radarPerformance());if($('#radarThumbnailSeo'))$('#radarThumbnailSeo').onclick=()=>window.openThumbnailSeoModal();if($('#radarHeroTranscript'))$('#radarHeroTranscript').onclick=()=>radarOpenLinkTranscriptModal();if($('#radarLinkTranscript'))$('#radarLinkTranscript').onclick=()=>radarOpenLinkTranscriptModal();$('#radarArchive').onclick=()=>radarRun(()=>radarArchives());$('#radarDaily').onclick=()=>radarRun(()=>radarDigest('daily'));$('#radarWeekly').onclick=()=>radarRun(()=>radarDigest('weekly'));$('#radarSettings').onclick=()=>radarSettings();$('#radarSync').onclick=()=>radarRun(async()=>{if(radarUi.loading)return;radarUi.loading=true;$('#radarSync').disabled=true;$('#radarSync').textContent='Menyinkronkan…';try{const result=await rPost('sync',{});await radarLoad();toast(`${result.news} link berita · ${result.videos} video diperiksa${result.errors.length?' · Ada sumber belum tersinkron':''}`)}finally{radarUi.loading=false;if($('#radarSync')){$('#radarSync').disabled=false;$('#radarSync').textContent='Sinkronkan'}}});body.querySelector('.radar-tabs').onclick=e=>{const b=e.target.closest('[data-r-tab]');if(!b)return;radarUi.tab=b.dataset.rTab;radarUi.limit=10;body.querySelectorAll('[data-r-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===b)));radarList()};$('#radarList').onclick=e=>radarRun(async()=>{const b=e.target.closest('[data-r-transcript],[data-r-issue],[data-r-channel-add],[data-r-channel-ai],[data-r-video],[data-r-more],[data-r-channel-view]');if(!b)return;if(b.dataset.rTranscript){const [channelId,id]=b.dataset.rTranscript.split(':');return radarOpenTranscriptModal(channelId,id);}if(!b)return;if(b.hasAttribute('data-r-channel-view')){radarUi.channelAll=!radarUi.channelAll;return radarList()}if(b.hasAttribute('data-r-more')){radarUi.limit+=10;return radarList()}if(b.dataset.rIssue)return radarIssue(b.dataset.rIssue);if(b.hasAttribute('data-r-channel-add'))return radarChannel();if(b.dataset.rChannelAi)return radarAI('analysis',{channelId:b.dataset.rChannelAi,script:''});if(b.dataset.rVideo){const [channelId,id]=b.dataset.rVideo.split(':');const c=radarUi.data.channels.find(c=>c.id===channelId),v=c.videos.find(v=>v.id===id);return radarSource(null,{url:v.url,title:v.title,publisher:c.name,publishedAt:v.publishedAt,excerpt:v.description||''});}});$('#radarList').onchange=e=>{const select=e.target.closest('[data-r-video-feedback]');if(!select)return;radarRun(async()=>{const [id,videoId]=select.dataset.rVideoFeedback.split(':'),channel=radarUi.data.channels.find(c=>c.id===id);select.disabled=true;try{await rPost('channels/'+id+'/feedback',{videoId,choice:select.value,revision:channel.revision},'PATCH');await radarLoad();toast('Pilihan video tersimpan.');}catch(error){await radarLoad().catch(()=>{});throw error;}finally{if(select.isConnected)select.disabled=false;}});};if(!radarUi.refreshTimer)radarUi.refreshTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!rDialog.open&&!radarUi.loading&&$('#radarPanel')&&$('#radarPanel').offsetParent!==null)radarLoad().catch(()=>{});},5*60*1000);radarRun(()=>radarLoad());};
 function radarAIPath(){return '/api/radar'+(radarUi.aiProvider?'?aiProvider='+encodeURIComponent(radarUi.aiProvider):'');}
 function radarVideoMetadata(video){return `<div class="radar-video">${/^https:\/\/i\.ytimg\.com\//.test(video.thumbnail)?'<img src="'+esc(video.thumbnail)+'" alt="Thumbnail video" loading="lazy">':''}<span class="hint">${rNum(video.viewCount)} views · ${esc(video.duration||'Durasi belum tersedia')}</span></div>`;}
 function radarGroupingReport(report){
@@ -427,6 +427,191 @@ async function radarPerformance(){
 
 async function radarFetchModal(title,url){radarModal(title,'<p data-r-wait class="hint">Memuat…</p>');rDialog.onclick=null;const loading=rDialog.querySelector('[data-r-wait]'),data=await api(url);return loading.isConnected&&rDialog.open?data:null;}
 
+async function radarOpenLinkTranscriptModal(initialUrl = '', options = {}) {
+  radarModal('📝 Ekstrak Transkrip Video Sosmed', `
+    <div class="radar-transcript-modal-body" id="radarTranscriptModalBox">
+      <div class="radar-tabs" style="margin-bottom:14px" role="tablist">
+        <button class="btn mini primary" id="tabExtractLink" role="tab" aria-selected="true">🔗 Link Video Sosmed</button>
+        <button class="btn mini" id="tabPasteManual" role="tab" aria-selected="false">📝 Tempel Transkrip Manual</button>
+      </div>
+
+      <div id="panelExtractLink" class="radar-form">
+        <label for="radarLinkUrlInput"><strong>Link Video Sosial Media</strong></label>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <input type="url" id="radarLinkUrlInput" class="input" placeholder="Tempel link YouTube, Shorts, TikTok, Instagram, X/Twitter, FB..." value="${esc(initialUrl)}" style="flex:1" autofocus>
+          <button type="button" class="btn primary" id="btnExtractLinkTranscript">⚡ Ekstrak Transkrip</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;" class="hint">
+          <span class="radar-chip">YouTube & Shorts</span>
+          <span class="radar-chip">TikTok</span>
+          <span class="radar-chip">Instagram Reels</span>
+          <span class="radar-chip">X (Twitter)</span>
+          <span class="radar-chip">Facebook</span>
+        </div>
+        <p class="hint" style="margin-top:8px">Sistem akan membaca subtitle resmi atau mengekstrak narasi video untuk dirumuskan langsung menjadi ide dan naskah konten.</p>
+      </div>
+
+      <div id="panelPasteManual" class="radar-form hide">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <label>Judul Video (Opsional)
+            <input type="text" id="radarManualTitle" placeholder="Contoh: Mengapa Mobil Listrik Sepi Peminat?">
+          </label>
+          <label>Kreator / Channel (Opsional)
+            <input type="text" id="radarManualChannel" placeholder="Contoh: Riset Otomotif">
+          </label>
+        </div>
+        <label style="margin-top:8px">Platform
+          <select id="radarManualPlatform">
+            <option value="youtube">YouTube / Shorts</option>
+            <option value="tiktok" selected>TikTok</option>
+            <option value="instagram">Instagram</option>
+            <option value="twitter">X / Twitter</option>
+            <option value="facebook">Facebook</option>
+            <option value="sosmed">Sosmed Lainnya</option>
+          </select>
+        </label>
+        <label style="margin-top:8px">Naskah / Teks Subtitle Transkrip
+          <textarea id="radarManualText" rows="9" placeholder="Tempel naskah atau subtitle di sini. Bisa teks biasa atau disertai penanda waktu seperti:\n[00:00] Hook pembuka yang menghentikan scroll...\n[00:15] Data dan fakta lapangan..."></textarea>
+        </label>
+        <button type="button" class="btn primary" id="btnProcessManualTranscript" style="margin-top:10px">⚡ Proses Transkrip</button>
+      </div>
+
+      <div id="radarExtractLoading" class="radar-transcript-loading hide" style="margin-top:20px">
+        <span class="studio-spinner"></span>
+        <p><strong id="extractLoadingTitle">Mengekstrak transkrip video…</strong></p>
+        <p class="hint" id="extractLoadingSub">Menghubungi platform dan memproses subtitle atau teks narasi…</p>
+      </div>
+
+      <div id="radarExtractError" class="notice hide" style="margin-top:14px" role="alert"></div>
+    </div>
+  `);
+
+  const box = document.getElementById('radarTranscriptModalBox');
+  if (!box) return;
+
+  const tabLink = box.querySelector('#tabExtractLink');
+  const tabManual = box.querySelector('#tabPasteManual');
+  const panelLink = box.querySelector('#panelExtractLink');
+  const panelManual = box.querySelector('#panelPasteManual');
+  const loading = box.querySelector('#radarExtractLoading');
+  const errorBox = box.querySelector('#radarExtractError');
+
+  const switchTab = (tab) => {
+    errorBox.classList.add('hide');
+    if (tab === 'link') {
+      tabLink.classList.add('primary');
+      tabLink.setAttribute('aria-selected', 'true');
+      tabManual.classList.remove('primary');
+      tabManual.setAttribute('aria-selected', 'false');
+      panelLink.classList.remove('hide');
+      panelManual.classList.add('hide');
+      box.querySelector('#radarLinkUrlInput')?.focus();
+    } else {
+      tabManual.classList.add('primary');
+      tabManual.setAttribute('aria-selected', 'true');
+      tabLink.classList.remove('primary');
+      tabLink.setAttribute('aria-selected', 'false');
+      panelManual.classList.remove('hide');
+      panelLink.classList.add('hide');
+      box.querySelector('#radarManualText')?.focus();
+    }
+  };
+
+  tabLink.onclick = () => switchTab('link');
+  tabManual.onclick = () => switchTab('manual');
+
+  const runExtractUrl = async (url) => {
+    if (!url || !url.trim()) {
+      errorBox.textContent = 'Silakan masukkan link video YouTube, TikTok, Instagram, Twitter/X, atau Facebook.';
+      errorBox.classList.remove('hide');
+      return;
+    }
+    errorBox.classList.add('hide');
+    loading.classList.remove('hide');
+    panelLink.classList.add('hide');
+
+    try {
+      const res = await fetch('/api/radar/transcript?url=' + encodeURIComponent(url.trim()));
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        if (data.metadata?.title || data.metadata?.channelName) {
+          if (box.querySelector('#radarManualTitle')) box.querySelector('#radarManualTitle').value = data.metadata.title || '';
+          if (box.querySelector('#radarManualChannel')) box.querySelector('#radarManualChannel').value = data.metadata.channelName || '';
+        }
+        throw new Error(data.error || 'Gagal mengekstrak transkrip.');
+      }
+      const t = data.transcript;
+      window._currentRadarTranscript = t;
+      window._currentRadarVideo = { id: t.videoId, title: t.title, channelName: t.channelName, url: t.url, platform: t.platform };
+      radarRenderTranscriptView(t, window._currentRadarVideo, options);
+    } catch (err) {
+      loading.classList.add('hide');
+      panelLink.classList.remove('hide');
+      errorBox.innerHTML = `
+        <strong>Gagal Ekstrak Transkrip:</strong> ${esc(err.message)}
+        <div style="margin-top:8px">
+          <button type="button" class="btn mini primary" id="btnSwitchToManualFromErr">📝 Buka Tempel Transkrip Manual</button>
+        </div>
+      `;
+      errorBox.classList.remove('hide');
+      const switchBtn = errorBox.querySelector('#btnSwitchToManualFromErr');
+      if (switchBtn) switchBtn.onclick = () => switchTab('manual');
+    }
+  };
+
+  const runProcessManual = async () => {
+    const text = box.querySelector('#radarManualText')?.value || '';
+    if (!text.trim()) {
+      errorBox.textContent = 'Teks transkrip atau subtitle wajib diisi.';
+      errorBox.classList.remove('hide');
+      return;
+    }
+    const title = box.querySelector('#radarManualTitle')?.value || '';
+    const channelName = box.querySelector('#radarManualChannel')?.value || '';
+    const platform = box.querySelector('#radarManualPlatform')?.value || 'sosmed';
+
+    errorBox.classList.add('hide');
+    loading.classList.remove('hide');
+    panelManual.classList.add('hide');
+
+    try {
+      const res = await fetch('/api/radar/transcript/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, title, channelName, platform })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Gagal memproses transkrip manual.');
+      const t = data.transcript;
+      window._currentRadarTranscript = t;
+      window._currentRadarVideo = { id: t.videoId, title: t.title, channelName: t.channelName, url: t.url, platform: t.platform };
+      radarRenderTranscriptView(t, window._currentRadarVideo, options);
+    } catch (err) {
+      loading.classList.add('hide');
+      panelManual.classList.remove('hide');
+      errorBox.textContent = err.message;
+      errorBox.classList.remove('hide');
+    }
+  };
+
+  box.querySelector('#btnExtractLinkTranscript').onclick = () => {
+    runExtractUrl(box.querySelector('#radarLinkUrlInput')?.value);
+  };
+  box.querySelector('#radarLinkUrlInput').onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      runExtractUrl(e.target.value);
+    }
+  };
+
+  box.querySelector('#btnProcessManualTranscript').onclick = runProcessManual;
+
+  if (initialUrl && initialUrl.trim()) {
+    runExtractUrl(initialUrl.trim());
+  }
+}
+(typeof window !== 'undefined' ? window : globalThis).radarOpenLinkTranscriptModal = radarOpenLinkTranscriptModal;
+
 async function radarOpenTranscriptModal(channelId, videoId) {
   const c = (radarUi.data.channels || []).find(ch => ch.id === channelId);
   const v = (c?.videos || []).find(vid => vid.id === videoId) || { id: videoId, title: 'Video YouTube' };
@@ -475,14 +660,20 @@ async function radarOpenTranscriptModal(channelId, videoId) {
   }
 }
 
-function radarRenderTranscriptView(t, videoInfo) {
+function radarRenderTranscriptView(t, videoInfo, options = {}) {
   const box = document.getElementById('radarTranscriptModalBox');
   if (!box) return;
+
+  const platformName = (t.platform || videoInfo.platform || 'YouTube').toUpperCase();
 
   box.innerHTML = `
     <div class="radar-transcript-meta-bar">
       <div class="meta-item">
-        <span class="meta-label">Channel</span>
+        <span class="meta-label">Platform</span>
+        <span class="radar-chip" style="font-weight:700">${esc(platformName)}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Kreator / Channel</span>
         <strong>${esc(videoInfo.channelName || t.channelName)}</strong>
       </div>
       <div class="meta-item">
@@ -493,19 +684,16 @@ function radarRenderTranscriptView(t, videoInfo) {
         <span class="meta-label">Total Kata</span>
         <strong>${rNum(t.wordCount)} kata</strong>
       </div>
-      <div class="meta-item">
-        <span class="meta-label">Bahasa</span>
-        <span class="radar-chip">${esc(t.language.toUpperCase())}</span>
-      </div>
-      <div class="meta-item">
-        <a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer" class="btn mini">Tonton di YouTube ↗</a>
-      </div>
+      ${t.url ? `<div class="meta-item"><a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer" class="btn mini">Buka Sumber ↗</a></div>` : ''}
     </div>
 
     <div class="radar-transcript-actions-bar">
-      <button class="btn primary" id="btnGenIdeaFromTranscript" title="Gunakan AI untuk merumuskan ide investigasi dan angle baru">💡 Jadikan Ide Konten</button>
-      <button class="btn primary" id="btnGenScriptFromTranscript" title="Gunakan AI untuk menyusun naskah investigasi siap produksi">🎬 Buat Naskah Konten</button>
+      <button class="btn primary" id="btnGenIdeaFromTranscript" title="Gunakan AI untuk merumuskan ide investigasi dan angle baru">💡 Rumuskan Ide Konten</button>
+      <button class="btn" id="btnGenShortsScriptDirect" style="background:#4338ca;color:#fff;border-color:#3730a3;" title="Susun naskah Shorts 30 detik (Formula H-C-B-C-D-C)">📱 Naskah Shorts 30s</button>
+      <button class="btn" id="btnGenLongScriptDirect" title="Susun naskah investigasi panjang 12–16 menit">📹 Naskah Video Panjang</button>
+      <button class="btn" id="btnGenThumbnailFromTranscript" title="Rancang judul 3 kata & konsep thumbnail visual Magnets Media">🎨 Thumbnail & SEO</button>
       <button class="btn" id="btnCopyTranscriptText" title="Salin seluruh transkrip ke clipboard">📋 Salin Transkrip</button>
+      ${options.onApplyScript ? `<button class="btn primary" id="btnApplyTranscriptDirect" title="Salin teks ini langsung ke editor naskah aktif">📥 Masukkan ke Editor Naskah</button>` : ''}
       <button class="btn" id="btnAddToRadarIssue" title="Tambahkan video ini sebagai sumber ke ruang riset Radar">➕ Tambah ke Riset Radar</button>
     </div>
 
@@ -545,7 +733,7 @@ function radarRenderTranscriptView(t, videoInfo) {
   if (addRadarBtn) {
     addRadarBtn.onclick = () => {
       rDialog.close();
-      radarSource(null, { url: videoInfo.url, title: videoInfo.title, publisher: videoInfo.channelName, excerpt: t.fullText.slice(0, 300) });
+      radarSource(null, { url: videoInfo.url || t.url, title: videoInfo.title || t.title, publisher: videoInfo.channelName || t.channelName || 'YouTube', excerpt: t.fullText ? t.fullText.slice(0, 300) : '' });
     };
   }
 
@@ -558,7 +746,7 @@ function radarRenderTranscriptView(t, videoInfo) {
     const q = (box.querySelector('#radarTranscriptSearch')?.value || '').toLowerCase().trim();
     if (currentMode === 'timed') {
       contentBox.innerHTML = t.paragraphs.map(p => {
-        const match = !q || p.text.toLowerCase().includes(q);
+        const match = !q || p.text.toLowerCase().includes(q) || p.timestamp.includes(q);
         if (!match) return '';
         const highlighted = q ? esc(p.text).replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>') : esc(p.text);
         return `<div class="radar-transcript-paragraph"><span class="transcript-ts">${esc(p.timestamp)}</span><span class="transcript-text">${highlighted}</span></div>`;
@@ -593,12 +781,34 @@ function radarRenderTranscriptView(t, videoInfo) {
 
   const ideaBtn = box.querySelector('#btnGenIdeaFromTranscript');
   if (ideaBtn) {
-    ideaBtn.onclick = () => radarTriggerGenerateIdea(t, videoInfo);
+    ideaBtn.onclick = () => radarTriggerGenerateIdea(t, videoInfo, options);
   }
 
-  const scriptBtn = box.querySelector('#btnGenScriptFromTranscript');
-  if (scriptBtn) {
-    scriptBtn.onclick = () => radarTriggerGenerateScript(t, videoInfo);
+  const shortsBtn = box.querySelector('#btnGenShortsScriptDirect');
+  if (shortsBtn) {
+    shortsBtn.onclick = () => radarTriggerGenerateScript(t, videoInfo, 'shorts', null, options);
+  }
+
+  const longBtn = box.querySelector('#btnGenLongScriptDirect');
+  if (longBtn) {
+    longBtn.onclick = () => radarTriggerGenerateScript(t, videoInfo, 'long', null, options);
+  }
+
+  const seoBtn = box.querySelector('#btnGenThumbnailFromTranscript');
+  if (seoBtn) {
+    seoBtn.onclick = () => {
+      const fn = (typeof window !== 'undefined' ? window : globalThis).openThumbnailSeoModal;
+      if (typeof fn === 'function') fn(t.fullText, 'thumbnail');
+      else toast('Generator Thumbnail & SEO sedang dimuat…');
+    };
+  }
+
+  const applyDirectBtn = box.querySelector('#btnApplyTranscriptDirect');
+  if (applyDirectBtn && options.onApplyScript) {
+    applyDirectBtn.onclick = () => {
+      options.onApplyScript(t.fullText);
+      rDialog.close();
+    };
   }
 }
 
@@ -759,51 +969,15 @@ C. NASKAH VOICE OVER FINAL (30 DETIK)
 Tuliskan naskah VO utuh lengkap dengan penanda strukturnya:
 TOTAL KATA: [Tuliskan jumlah kata di sini, wajib ≤ 90 kata]`;
 
-async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
+async function radarTriggerGenerateScript(t, videoInfo, initialFormat = null, existingIdea = null, options = {}) {
   const container = document.getElementById('radarAiSynthesisContainer');
   if (!container) return;
 
   const savedCustomShortsPrompt = localStorage.getItem('reframe_custom_shorts_prompt') || DEFAULT_SHORTS_PROMPT;
 
-  container.innerHTML = `
-    <div class="hub-panel radar-ai-synth-box">
-      <div class="synth-head">
-        <span class="synth-badge">🎬 GENERATOR NASKAH INVESTIGASI REFRAME</span>
-        <button class="btn mini" id="btnCloseScriptDialog">✕</button>
-      </div>
-      <p>Pilih format naskah yang ingin dibuat dari transkrip video ini:</p>
-      <div style="display:flex;gap:12px;margin:12px 0;flex-wrap:wrap;">
-        <button class="btn primary" id="btnSelectFormatLong">📹 Video Panjang (Investigasi 12–16 Menit)</button>
-        <button class="btn" id="btnSelectFormatShorts" style="background:#4338ca;color:#fff;border-color:#3730a3;">📱 Video Shorts (Formula H-C-B-C-D-C 30 Detik)</button>
-      </div>
-
-      <details class="synth-custom-prompt-details" id="detailsCustomPrompt">
-        <summary>⚙️ Kustomisasi Prompt Naskah Shorts (Formula H-C-B-C-D-C 30s)</summary>
-        <p class="hint" style="margin:6px 0;">Anda dapat menyesuaikan prompt bawaan di bawah ini (durasi, aturan kata, formula retensi H-C-B-C-D-C). Sistem akan mengingat kustomisasi Anda untuk generasi berikutnya.</p>
-        <textarea id="customShortsPromptText" rows="10" class="synth-prompt-textarea">${esc(savedCustomShortsPrompt)}</textarea>
-        <div class="synth-prompt-actions">
-          <button class="btn mini primary" id="btnSaveCustomPrompt">💾 Simpan Kustomisasi</button>
-          <button class="btn mini" id="btnResetCustomPrompt">↺ Reset ke Bawaan</button>
-        </div>
-      </details>
-    </div>
-  `;
-  container.querySelector('#btnCloseScriptDialog').onclick = () => { container.innerHTML = ''; };
-
-  const promptTextarea = container.querySelector('#customShortsPromptText');
-  container.querySelector('#btnSaveCustomPrompt').onclick = () => {
-    localStorage.setItem('reframe_custom_shorts_prompt', promptTextarea.value.trim());
-    toast('Prompt Shorts berhasil disimpan di browser!');
-  };
-  container.querySelector('#btnResetCustomPrompt').onclick = () => {
-    promptTextarea.value = DEFAULT_SHORTS_PROMPT;
-    localStorage.removeItem('reframe_custom_shorts_prompt');
-    toast('Prompt Shorts direset ke bawaan H-C-B-C-D-C.');
-  };
-
   const startScriptGen = async (format) => {
     const customPrompt = (format === 'shorts')
-      ? (promptTextarea.value.trim() || DEFAULT_SHORTS_PROMPT)
+      ? (container.querySelector('#customShortsPromptText')?.value?.trim() || savedCustomShortsPrompt || DEFAULT_SHORTS_PROMPT)
       : '';
 
     container.innerHTML = `
@@ -899,6 +1073,7 @@ async function radarTriggerGenerateScript(t, videoInfo, existingIdea = null) {
 
           <div class="synth-actions">
             <button class="btn primary" id="btnSaveScriptAndOpen">✓ Simpan & Buka di Editor Naskah</button>
+            ${options.onApplyScript ? `<button class="btn primary" id="btnApplyGeneratedScriptDirect" style="background:#16a34a">📥 Masukkan Naskah ke Editor Ini</button>` : ''}
             <button class="btn" id="btnCopyScriptText">📋 Salin Naskah VO</button>
             ${isShorts ? `<button class="btn" id="btnCopyFullShorts">📋 Salin Lengkap (Angle + 4 Hook + VO)</button>` : ''}
             <button class="btn" id="btnGenThumbnailSeoFromScript">🎨 Buat Thumbnail & SEO</button>
@@ -1003,6 +1178,14 @@ TOTAL KATA: ${calcWordCount(scriptBodyEl.value)} kata`;
           toast(e.message);
         }
       };
+      const applyScriptDirectBtn = container.querySelector('#btnApplyGeneratedScriptDirect');
+      if (applyScriptDirectBtn && options.onApplyScript) {
+        applyScriptDirectBtn.onclick = () => {
+          options.onApplyScript(scriptBodyEl.value);
+          rDialog.close();
+          toast('Naskah berhasil dimasukkan ke editor!');
+        };
+      }
     } catch (err) {
       container.innerHTML = `
         <div class="hub-panel an-error">
@@ -1013,6 +1196,47 @@ TOTAL KATA: ${calcWordCount(scriptBodyEl.value)} kata`;
       `;
       container.querySelector('#btnRetryScriptGen').onclick = () => startScriptGen(format);
     }
+  };
+
+  if (initialFormat === 'shorts' || initialFormat === 'long') {
+    startScriptGen(initialFormat);
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="hub-panel radar-ai-synth-box">
+      <div class="synth-head">
+        <span class="synth-badge">🎬 GENERATOR NASKAH INVESTIGASI REFRAME</span>
+        <button class="btn mini" id="btnCloseScriptDialog">✕</button>
+      </div>
+      <p>Pilih format naskah yang ingin dibuat dari transkrip video ini:</p>
+      <div style="display:flex;gap:12px;margin:12px 0;flex-wrap:wrap;">
+        <button class="btn primary" id="btnSelectFormatLong">📹 Video Panjang (Investigasi 12–16 Menit)</button>
+        <button class="btn" id="btnSelectFormatShorts" style="background:#4338ca;color:#fff;border-color:#3730a3;">📱 Video Shorts (Formula H-C-B-C-D-C 30 Detik)</button>
+      </div>
+
+      <details class="synth-custom-prompt-details" id="detailsCustomPrompt">
+        <summary>⚙️ Kustomisasi Prompt Naskah Shorts (Formula H-C-B-C-D-C 30s)</summary>
+        <p class="hint" style="margin:6px 0;">Anda dapat menyesuaikan prompt bawaan di bawah ini (durasi, aturan kata, formula retensi H-C-B-C-D-C). Sistem akan mengingat kustomisasi Anda untuk generasi berikutnya.</p>
+        <textarea id="customShortsPromptText" rows="10" class="synth-prompt-textarea">${esc(savedCustomShortsPrompt)}</textarea>
+        <div class="synth-prompt-actions">
+          <button class="btn mini primary" id="btnSaveCustomPrompt">💾 Simpan Kustomisasi</button>
+          <button class="btn mini" id="btnResetCustomPrompt">↺ Reset ke Bawaan</button>
+        </div>
+      </details>
+    </div>
+  `;
+  container.querySelector('#btnCloseScriptDialog').onclick = () => { container.innerHTML = ''; };
+
+  const promptTextarea = container.querySelector('#customShortsPromptText');
+  container.querySelector('#btnSaveCustomPrompt').onclick = () => {
+    localStorage.setItem('reframe_custom_shorts_prompt', promptTextarea.value.trim());
+    toast('Prompt Shorts berhasil disimpan di browser!');
+  };
+  container.querySelector('#btnResetCustomPrompt').onclick = () => {
+    promptTextarea.value = DEFAULT_SHORTS_PROMPT;
+    localStorage.removeItem('reframe_custom_shorts_prompt');
+    toast('Prompt Shorts direset ke bawaan H-C-B-C-D-C.');
   };
 
   container.querySelector('#btnSelectFormatLong').onclick = () => startScriptGen('long');
