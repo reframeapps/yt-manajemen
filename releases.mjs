@@ -1,6 +1,12 @@
-export const APP_VERSION='4.62.0';
+export const APP_VERSION='4.63.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.63.0',date:'2026-11-01',title:'Indikator Visual Ikon Media Sosial Terupload pada Kartu Kanban, Library & Editor Konten',changes:[
+    {type:'feature',title:'Ikon Media Sosial Terupload pada Kartu Kanban & List Konten',desc:'Menampilkan deretan badge ikon media sosial interaktif (YouTube, TikTok, Instagram, Facebook, X/Twitter) pada kartu Kanban, dashboard, dan tabel Semua Konten untuk setiap platform yang videonya sudah di-upload atau dipublikasikan.'},
+    {type:'feature',title:'1-Klik Buka Postingan Video Langsung dari Kartu',desc:'Setiap badge ikon sosial media dilengkapi tautan langsung ke video/postingan yang telah terupload (target="_blank") dan penanganan stopPropagation sehingga kreator dapat langsung melihat tayangan video di platform tujuan tanpa memicu modal editor kartu.'},
+    {type:'feature',title:'Dukungan Platform X (Twitter) pada Publikasi Multi-Platform',desc:'Menambahkan deteksi otomatis tautan postingan X dan Twitter (x.com / twitter.com) lengkap dengan ikon brand X pada daftar publikasi dan kartu konten.'},
+    {type:'feature',title:'Pencarian & Filter Cepat Berdasarkan Platform Terupload',desc:'Kolom pencarian konten kini mengenali kata kunci nama platform (YouTube, TikTok, Instagram, Facebook, X) untuk menyaring kartu-kartu yang sudah di-upload ke platform tersebut secara instan.'}
+  ]},
   {version:'4.62.0',date:'2026-11-01',title:'Ekstraksi Transkrip Sosmed Cek Berlapis (AI Speech-to-Text Whisper, Resolusi Redirect & Fallback Bertingkat)',changes:[
     {type:'feature',title:'Ekstraksi Transkrip Berbasis AI Speech-to-Text Whisper (Groq whisper-large-v3)',desc:'Mengintegrasikan mesin transkripsi audio otomatis menggunakan Whisper Large V3 dengan latensi super cepat (< 3 detik). Sistem langsung mengunduh stream audio video dari platform sosial media (TikTok, Reels, Shorts) dan mentranskripsikannya ke dalam naskah verbatim bahasa Indonesia lengkap dengan penanda waktu detik presisi [MM:SS].'},
     {type:'feature',title:'Resolusi Redirect URL Otomatis (Short Links Resolver)',desc:'Mendukung penguraian tautan pendek dari berbagai platform (vt.tiktok.com, vm.tiktok.com, fb.watch, youtu.be, bit.ly, t.co) secara otomatis hingga menemukan canonical ID dan URL asli sebelum memproses media.'},

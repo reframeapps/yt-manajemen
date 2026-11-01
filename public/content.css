@@ -22,3 +22,24 @@
 .content-select-cb,.kanban-card-cb{width:16px;height:16px;cursor:pointer;accent-color:#e83d60}
 .kanban-cb-wrap{position:absolute;top:10px;right:10px;z-index:2}
 .kanban-card{position:relative}
+
+/* Social Upload Badges */
+.card-social-uploads{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.social-upload-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;line-height:1;padding:3px 6px;border-radius:4px;cursor:pointer;user-select:none;vertical-align:middle;transition:transform .12s ease,filter .12s ease,box-shadow .12s ease;white-space:nowrap;text-decoration:none}
+.social-upload-badge:hover{transform:translateY(-1px);filter:brightness(1.05);box-shadow:0 2px 4px rgba(0,0,0,.12)}
+.social-upload-badge:active{transform:translateY(0)}
+.social-upload-badge svg{width:12px;height:12px;flex:none;display:block}
+.social-upload-badge.platform-youtube{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5}
+.social-upload-badge.platform-youtube svg{fill:#dc2626}
+.social-upload-badge.platform-tiktok{background:#0f172a;color:#38bdf8;border:1px solid #1e293b}
+.social-upload-badge.platform-tiktok svg{fill:#f43f5e}
+.social-upload-badge.platform-instagram{background:#fdf2f8;color:#c026d3;border:1px solid #f5d0fe}
+.social-upload-badge.platform-instagram svg{fill:#db2777}
+.social-upload-badge.platform-facebook{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+.social-upload-badge.platform-facebook svg{fill:#1877f2}
+.social-upload-badge.platform-twitter,.social-upload-badge.platform-x{background:#f8fafc;color:#0f172a;border:1px solid #cbd5e1}
+.social-upload-badge.platform-twitter svg,.social-upload-badge.platform-x svg{fill:#0f172a}
+.publication-platform{display:inline-flex;align-items:center;gap:5px}
+.publication-platform svg{width:13px;height:13px;flex:none}
+.platform-youtube{color:#dc2626;background:#fee2e2}
+.platform-twitter,.platform-x{color:#0f172a;background:#f1f5f9}
