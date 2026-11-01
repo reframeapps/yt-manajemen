@@ -29,7 +29,7 @@ test('CRUD, autosave revisions, research, restoration, duplicate and archive',as
   assert.equal((await request('/api/contents/'+id,'PATCH',{revision:1,script:'Tab lama'})).status,409);
   r=await request('/api/contents/'+id,'PATCH',{revision:c.revision,restoreRevision:1});assert.equal(r.status,200);c=r.data.content;assert.equal(c.script,'Opening\nData sebelum produksi');assert.equal(c.sources[0].verified,true);
   const unchanged=await request('/api/contents/'+id,'PATCH',{revision:c.revision,title:c.title});assert.equal(unchanged.data.content.revision,c.revision);
-  const summary=await request('/api/contents');assert.equal(summary.data.contents[0].script,undefined);assert.ok(summary.data.contents[0].scriptLength>0);
+  const summary=await request('/api/contents');assert.equal(summary.data.contents[0].script,undefined);assert.ok(summary.data.contents[0].scriptLength>0);assert.ok(Array.isArray(summary.data.contents[0].publicationLinks));
   const copy=await request('/api/contents/'+id+'/duplicate','POST',{});assert.equal(copy.status,201);assert.notEqual(copy.data.content.id,id);assert.equal(copy.data.content.script,c.script);assert.equal(copy.data.content.plannedPublishAt,null);assert.deepEqual(copy.data.content.history,[]);
   r=await request('/api/contents/'+id,'PATCH',{revision:c.revision,archived:true});c=r.data.content;assert.equal(c.archived,true);
   assert.equal((await request('/api/contents/'+id,'DELETE',{revision:c.revision})).status,200);assert.equal((await request('/api/contents/'+id)).status,404);

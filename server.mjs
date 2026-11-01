@@ -1320,7 +1320,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && pathname === '/api/contents') {
       const data = await contentStore.read();
-      const fields = ['id','title','stage','pillarId','format','priority','owner','deadline','plannedPublishAt','checklist','archived','revision','createdAt','updatedAt','youtubeVideoId','youtubePublication'];
+      const fields = ['id','title','stage','pillarId','format','priority','owner','deadline','plannedPublishAt','checklist','archived','revision','createdAt','updatedAt','youtubeVideoId','youtubePublication','publicationLinks'];
       const maxRev = data.contents.reduce((max, c) => Math.max(max, c.revision || 0), 0);
       const lastUpdated = data.contents.reduce((latest, c) => (c.updatedAt > latest ? c.updatedAt : latest), '');
       const etag = `W/"contents-${data.boardRevision || 1}-${maxRev}-${data.contents.length}-${data.pillars.length}-${lastUpdated}"`;
@@ -1331,7 +1331,11 @@ const server = http.createServer(async (req, res) => {
       }
       return json(res, 200, {
         pillars: data.pillars, stages: data.columns.map(c=>c.id), columns: data.columns, boardRevision: data.boardRevision,
-        contents: data.contents.map(c => ({ ...Object.fromEntries(fields.map(k => [k,c[k]])), scriptLength: c.script.length }))
+        contents: data.contents.map(c => ({
+          ...Object.fromEntries(fields.map(k => [k,c[k]])),
+          publicationLinks: Array.isArray(c.publicationLinks) ? c.publicationLinks : [],
+          scriptLength: c.script ? c.script.length : 0
+        }))
       }, { 'etag': etag, 'cache-control': 'private, no-cache' });
     }
     if (pathname === '/api/columns' && req.method === 'POST')

@@ -1,6 +1,11 @@
-export const APP_VERSION='4.66.0';
+export const APP_VERSION='4.67.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.67.0',date:'2026-11-01',title:'Sinkronisasi Penuh Status Sosmed Terupload pada Tabel Library & Papan Kanban',changes:[
+    {type:'fix',title:'Sertakan publicationLinks dalam Endpoint Ringkasan /api/contents',desc:'Memperbaiki endpoint GET /api/contents agar selalu menyertakan array publicationLinks sehingga status upload media sosial (TikTok, Instagram, Facebook, X) langsung aktif dan berwarna di tabel Semua Konten (Library), Dashboard, dan Kanban tanpa ter-reset menjadi abu-abu.'},
+    {type:'fix',title:'Penyelarasan contentSummary & Signature Caching Library',desc:'Memperbarui fungsi contentSummary di client dan signature hashing renderLibrary agar mendeteksi perubahan publicationLinks secara real-time saat link sosmed ditambahkan atau diedit.'},
+    {type:'polish',title:'Pembersihan Duplikasi Badge pada Kartu Kanban',desc:'Merapikan tampilan kartu Kanban dengan menempatkan baris ikon sosmed secara presisi dan elegan di sebelah kiri status publikasi tanpa duplikasi di baris label atas.'}
+  ]},
   {version:'4.66.0',date:'2026-11-01',title:'Tampilan Lengkap Seluruh Ikon Sosmed (Aktif & Pending) pada Kartu & Dashboard',changes:[
     {type:'feature',title:'Tampilan Seluruh Ikon Sosmed pada Setiap Kartu Konten',desc:'Menampilkan seluruh 5 ikon platform media sosial utama (YouTube, TikTok, Instagram, Facebook, X) pada setiap kartu konten di Kanban, Dashboard, dan Library tabel.'},
     {type:'feature',title:'Indikator Visual Ganda: Ikon Aktif (Berwarna Brand) vs Pending (Ghost Muted)',desc:'Platform yang sudah di-upload tampil dengan warna brand resmi menyala dan 1-klik langsung membuka tautan video di tab baru. Platform yang belum di-upload tampil dengan outline ghost muted yang elegan dan 1-klik langsung membuka tab Publikasi untuk input link cepat.'},
