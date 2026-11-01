@@ -27,7 +27,8 @@ const HUB_ICONS = {
   tiktok:'<path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.29 0 .58.04.85.12V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.82 4.5 6.3 6.3 0 0 0 1.86-4.49V8.75a8.28 8.28 0 0 0 4.84 1.55V6.85a4.85 4.85 0 0 1-.93-.16z"/>',
   instagram:'<rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>',
   facebook:'<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
-  twitter:'<path d="M4 4l11.733 16h4.267l-11.733-16zM4 20l6.768-6.768m2.464-2.464L20 4"/>'
+  twitter:'<path d="M4 4l11.733 16h4.267l-11.733-16zM4 20l6.768-6.768m2.464-2.464L20 4"/>',
+  threads:'<path d="M12 2a10 10 0 1 0 10 10c0-1.5-.4-2.8-1.1-4-.3-.5-.9-.6-1.4-.3s-.6.9-.3 1.4c.5.9.8 1.9.8 2.9a8 8 0 1 1-8-8c2.4 0 4.6 1.1 6 2.8-.7.4-1.3 1-1.7 1.8-.7-.4-1.6-.6-2.5-.6-2.6 0-4.6 1.8-4.6 4.3 0 2.2 1.6 3.9 4 3.9 2 0 3.5-1.1 4.1-2.9.8.5 1.5 1.3 1.9 2.2-1.3 1.5-3.3 2.5-5.5 2.5a7.8 7.8 0 0 1-7.8-7.8A7.8 7.8 0 0 1 12 4.2c2.1 0 4.1.8 5.6 2.2.4.4 1 .4 1.4 0s.4-1 0-1.4A9.8 9.8 0 0 0 12 2zm.2 12.5c-1.3 0-2.2-.8-2.2-2.1 0-1.4 1-2.3 2.5-2.3.6 0 1.2.1 1.7.4-.5 2.5-1.1 4-2 4z"/>'
 };
 function hubIcon(name, className=''){return `<svg class="hub-icon ${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${HUB_ICONS[name]||HUB_ICONS.text}</svg>`}
 document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=hubIcon(el.dataset.icon));

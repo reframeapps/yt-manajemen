@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { detectPublicationLink, PUBLICATION_PLATFORMS } from '../public/publication-links.mjs';
 
-test('detectPublicationLink accurately detects Facebook, TikTok, Instagram, and Twitter/X', () => {
+test('detectPublicationLink accurately detects Facebook, TikTok, Instagram, Twitter/X, and Threads', () => {
   assert.equal(detectPublicationLink('https://www.tiktok.com/@user/video/123456789').platform, 'tiktok');
   assert.equal(detectPublicationLink('https://vt.tiktok.com/ZSgT5dJq7/').platform, 'tiktok');
   assert.equal(detectPublicationLink('https://www.instagram.com/reel/C123456/').platform, 'instagram');
@@ -11,16 +11,18 @@ test('detectPublicationLink accurately detects Facebook, TikTok, Instagram, and 
   assert.equal(detectPublicationLink('https://fb.watch/xyz123/').platform, 'facebook');
   assert.equal(detectPublicationLink('https://x.com/user/status/123456789').platform, 'twitter');
   assert.equal(detectPublicationLink('https://twitter.com/user/status/123456789').platform, 'twitter');
+  assert.equal(detectPublicationLink('https://www.threads.net/@creator/post/C-12345').platform, 'threads');
 });
 
-test('PUBLICATION_PLATFORMS includes all 4 external platforms', () => {
+test('PUBLICATION_PLATFORMS includes all 5 external platforms', () => {
   assert.equal(PUBLICATION_PLATFORMS.facebook, 'Facebook');
   assert.equal(PUBLICATION_PLATFORMS.tiktok, 'TikTok');
   assert.equal(PUBLICATION_PLATFORMS.instagram, 'Instagram');
   assert.equal(PUBLICATION_PLATFORMS.twitter, 'X (Twitter)');
+  assert.equal(PUBLICATION_PLATFORMS.threads, 'Threads');
 });
 
-test('Social publication helper correctly identifies uploaded platforms', () => {
+test('Social publication helper correctly identifies uploaded platforms including Threads and X', () => {
   function getUploadedSocials(c) {
     const socials = [], seenUrls = new Set();
     const isYtPublished = Boolean(c.youtubeVideoId || c.youtubePublication?.status === 'published');
@@ -34,12 +36,14 @@ test('Social publication helper correctly identifies uploaded platforms', () => 
       for (const link of c.publicationLinks) {
         if (!link || !link.url || seenUrls.has(link.url)) continue;
         seenUrls.add(link.url);
-        const p = (link.platform || '').toLowerCase();
+        let p = (link.platform || '').toLowerCase();
+        if (p === 'x') p = 'twitter';
         let label = 'Sosmed';
         if (p === 'tiktok') label = 'TikTok';
         else if (p === 'instagram') label = 'Instagram';
         else if (p === 'facebook') label = 'Facebook';
-        else if (p === 'twitter' || p === 'x') label = 'X';
+        else if (p === 'twitter') label = 'X';
+        else if (p === 'threads') label = 'Threads';
         socials.push({ platform: p, label, url: link.url });
       }
     }
@@ -50,40 +54,88 @@ test('Social publication helper correctly identifies uploaded platforms', () => 
   const emptyContent = { id: 'c1', title: 'Ide Baru', publicationLinks: [] };
   assert.deepEqual(getUploadedSocials(emptyContent), []);
 
-  // Case 2: Uploaded to YouTube and TikTok
+  // Case 2: Uploaded to YouTube, TikTok, and Threads
   const uploadedContent = {
     id: 'c2',
     title: 'Investigasi Viral',
     youtubeVideoId: 'aks6P_onYqo',
     publicationLinks: [
       { id: 'p1', platform: 'tiktok', url: 'https://www.tiktok.com/@creator/video/7702627185957342485' },
-      { id: 'p2', platform: 'instagram', url: 'https://www.instagram.com/reel/C890/' }
+      { id: 'p2', platform: 'instagram', url: 'https://www.instagram.com/reel/C890/' },
+      { id: 'p3', platform: 'threads', url: 'https://www.threads.net/@creator/post/DA12345' }
     ]
   };
 
   const res = getUploadedSocials(uploadedContent);
-  assert.equal(res.length, 3);
+  assert.equal(res.length, 4);
   assert.equal(res[0].platform, 'youtube');
   assert.equal(res[0].url, 'https://www.youtube.com/watch?v=aks6P_onYqo');
   assert.equal(res[1].platform, 'tiktok');
-  assert.equal(res[1].url, 'https://www.tiktok.com/@creator/video/7702627185957342485');
   assert.equal(res[2].platform, 'instagram');
-  assert.equal(res[2].url, 'https://www.instagram.com/reel/C890/');
+  assert.equal(res[3].platform, 'threads');
 });
 
-test('socialUploadBadges renders icon-only badges without text labels and in front of publication status', () => {
-  function socialUploadBadges(socials) {
-    if (!socials.length) return '';
-    const badges = socials.map(s => `<span class="social-upload-badge platform-${s.platform}" data-social-url="${s.url}" title="Sudah upload di ${s.label}" role="button" tabindex="0" aria-label="${s.label}"><svg viewBox="0 0 24 24"><path d="..."/></svg></span>`).join('');
-    return `<div class="card-social-uploads" title="Media sosial yang sudah di-upload">${badges}</div>`;
+test('socialUploadBadges renders all 5 platforms with active vs empty state without text labels', () => {
+  const CARD_SOCIAL_PLATFORMS = [
+    { platform: 'youtube', label: 'YouTube' },
+    { platform: 'tiktok', label: 'TikTok' },
+    { platform: 'instagram', label: 'Instagram' },
+    { platform: 'facebook', label: 'Facebook' },
+    { platform: 'twitter', label: 'X' },
+  ];
+
+  function socialUploadBadges(c) {
+    const uploaded = [];
+    if (c.youtubeVideoId || c.youtubePublication?.status === 'published') {
+      uploaded.push({ platform: 'youtube', label: 'YouTube', url: 'https://youtube.com/watch?v=123' });
+    }
+    if (Array.isArray(c.publicationLinks)) {
+      for (const link of c.publicationLinks) {
+        if (!link || !link.url) continue;
+        let p = (link.platform || '').toLowerCase();
+        if (p === 'x') p = 'twitter';
+        uploaded.push({ platform: p, label: p, url: link.url });
+      }
+    }
+    const uploadedMap = new Map();
+    for (const item of uploaded) {
+      if (!uploadedMap.has(item.platform)) uploadedMap.set(item.platform, item);
+    }
+    const badges = CARD_SOCIAL_PLATFORMS.map(p => {
+      const match = uploadedMap.get(p.platform);
+      if (match) {
+        return `<span class="social-upload-badge platform-${p.platform} is-active" data-social-url="${match.url}" title="Sudah upload di ${p.label}" role="button" tabindex="0" aria-label="${p.label}"><svg viewBox="0 0 24 24"><path d="..."/></svg></span>`;
+      }
+      return `<span class="social-upload-badge platform-${p.platform} is-empty" data-open-publish="${c.id}" title="Belum di-upload ke ${p.label} — Klik untuk input link" role="button" tabindex="0" aria-label="${p.label} (Belum diupload)"><svg viewBox="0 0 24 24"><path d="..."/></svg></span>`;
+    });
+    return `<div class="card-social-uploads" title="Status upload sosmed">${badges.join('')}</div>`;
   }
 
-  const html = socialUploadBadges([{ platform: 'youtube', label: 'YouTube', url: 'https://youtube.com/watch?v=123' }]);
-  assert.ok(html.includes('<svg viewBox="0 0 24 24">'), 'must include svg icon');
-  assert.ok(!html.includes('<span>YouTube</span>'), 'must not render text label inside badge');
-  assert.ok(html.includes('aria-label="YouTube"'), 'must have accessible aria-label');
+  // Item with only YouTube uploaded
+  const c = { id: 'item1', title: 'Test 1', youtubeVideoId: 'yt123' };
+  const html = socialUploadBadges(c);
 
-  // Verify status row order (social upload badges in front before publication status)
+  // Must render all 5 platforms
+  for (const p of ['youtube', 'tiktok', 'instagram', 'facebook', 'twitter']) {
+    assert.ok(html.includes(`platform-${p}`), `Must contain badge for ${p}`);
+  }
+
+  // YouTube should be active
+  assert.ok(html.includes('platform-youtube is-active'));
+  assert.ok(html.includes('data-social-url="https://youtube.com/watch?v=123"'));
+
+  // TikTok, Instagram, Facebook, Twitter should be empty
+  assert.ok(html.includes('platform-tiktok is-empty'));
+  assert.ok(html.includes('data-open-publish="item1"'));
+  assert.ok(html.includes('platform-instagram is-empty'));
+  assert.ok(html.includes('platform-facebook is-empty'));
+  assert.ok(html.includes('platform-twitter is-empty'));
+
+  // Must not have text tags inside badges (pure icon badge)
+  assert.ok(!html.includes('<span>YouTube</span>'));
+  assert.ok(!html.includes('<span>TikTok</span>'));
+
+  // Status row order: social upload badges in front before publication status
   const publicationBadge = '<span class="status-badge">Tayang</span>';
   const statusRow = `<div class="content-status-row">${html}${publicationBadge}</div>`;
   const socialIdx = statusRow.indexOf('card-social-uploads');

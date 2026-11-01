@@ -1,6 +1,12 @@
-export const APP_VERSION='4.65.0';
+export const APP_VERSION='4.66.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.66.0',date:'2026-11-01',title:'Tampilan Lengkap Seluruh Ikon Sosmed (Aktif & Pending) pada Kartu & Dashboard',changes:[
+    {type:'feature',title:'Tampilan Seluruh Ikon Sosmed pada Setiap Kartu Konten',desc:'Menampilkan seluruh 5 ikon platform media sosial utama (YouTube, TikTok, Instagram, Facebook, X) pada setiap kartu konten di Kanban, Dashboard, dan Library tabel.'},
+    {type:'feature',title:'Indikator Visual Ganda: Ikon Aktif (Berwarna Brand) vs Pending (Ghost Muted)',desc:'Platform yang sudah di-upload tampil dengan warna brand resmi menyala dan 1-klik langsung membuka tautan video di tab baru. Platform yang belum di-upload tampil dengan outline ghost muted yang elegan dan 1-klik langsung membuka tab Publikasi untuk input link cepat.'},
+    {type:'feature',title:'Semua Ikon Sosmed & Counter Lengkap di Halaman Depan',desc:'Kartu statistik "Sudah tayang" dan header panel "Konten Terupload di Sosmed" pada halaman depan Dashboard kini menampilkan seluruh 5 ikon platform sosial lengkap dengan angka counter real-time masing-masing.'},
+    {type:'feature',title:'Dukungan Platform Threads pada Ekosistem Publikasi',desc:'Memperluas sistem deteksi tautan publikasi dan ikon SVG untuk mendukung platform Threads (threads.net).'}
+  ]},
   {version:'4.65.0',date:'2026-11-01',title:'Integrasi Logo Sosmed Terupload pada Halaman Depan (Dashboard & Header Kartu)',changes:[
     {type:'feature',title:'Panel Konten Terupload di Media Sosial pada Halaman Depan',desc:'Menambahkan panel khusus "Konten Terupload di Sosmed" pada halaman depan Dashboard yang secara otomatis menampilkan daftar video/konten yang sudah terpublikasi lengkap dengan logo interaktif media sosial tujuan.'},
     {type:'feature',title:'Ringkasan Logo Sosmed Aktif pada Kartu Statistik Halaman Depan',desc:'Kartu statistik "Sudah tayang" di halaman depan kini menampilkan deretan logo sosmed resmi (YouTube, TikTok, Instagram, Facebook, X) dengan tooltip jumlah konten terupload dan navigasi 1-klik filter ke tabel library.'},
