@@ -1,6 +1,10 @@
-export const APP_VERSION='4.69.0';
+export const APP_VERSION='4.70.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.70.0',date:'2026-11-01',title:'Resolusi Cache Browser Publikasi & Validasi Instan Link Threads.com',changes:[
+    {type:'fix',title:'Eliminasi Cache Stale Browser pada Modul Publikasi Link',desc:'Menambahkan query versioning eksplisit pada import internal publication-links.mjs serta mengonfigurasi header cache server menjadi no-cache, must-revalidate dengan ETag sehingga browser selalu memuat logika deteksi link terbaru tanpa tertahan cache disk.'},
+    {type:'fix',title:'Verifikasi Penuh Link Threads.com',desc:'Memastikan URL threads.com (seperti tautan profil/postingan yang ditempel pengguna) langsung terdeteksi valid sebagai platform Threads, dinormalisasi ke www.threads.net, dan tombol Tambahkan aktif tanpa pesan error platform belum didukung.'}
+  ]},
   {version:'4.69.0',date:'2026-11-01',title:'Penyempurnaan Logo Resmi TikTok, Logo Vektor Threads Meta, dan Dukungan Penuh Link Threads',changes:[
     {type:'fix',title:'Logo Resmi TikTok dengan Efek 3D Chromatic Aberration',desc:'Memperbarui path SVG TikTok ke vektor resmi Simple Icons dan menyematkan styling background hitam elegan dengan drop-shadow chromatic aberration khas cyan & merah TikTok sehingga logo tampil autentik dan tajam.'},
     {type:'fix',title:'Logo Spiral Resmi Threads (@ Meta) & Penataan Vektor SVG',desc:'Mengganti path ikon Threads dengan vektor kurva resmi Meta Threads Simple Icons dan memastikan render ikon brand menggunakan fill="currentColor" solid tanpa garis wireframe stroke.'},

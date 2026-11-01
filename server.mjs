@@ -899,7 +899,7 @@ async function serveStatic(res, pathname) {
     if (req?.headers?.['if-none-match'] === asset.etag) {
       res.writeHead(304, {
         'etag': asset.etag,
-        'cache-control': 'public, max-age=3600, must-revalidate'
+        'cache-control': 'no-cache, must-revalidate'
       });
       res.end();
       return true;
@@ -911,7 +911,7 @@ async function serveStatic(res, pathname) {
         'content-encoding': 'gzip',
         'content-length': asset.gz.length,
         'etag': asset.etag,
-        'cache-control': 'public, max-age=3600, must-revalidate'
+        'cache-control': 'no-cache, must-revalidate'
       });
       res.end(asset.gz);
     } else {
@@ -919,7 +919,7 @@ async function serveStatic(res, pathname) {
         'content-type': asset.type,
         'content-length': asset.raw.length,
         'etag': asset.etag,
-        'cache-control': 'public, max-age=3600, must-revalidate'
+        'cache-control': 'no-cache, must-revalidate'
       });
       res.end(asset.raw);
     }

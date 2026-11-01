@@ -8,6 +8,8 @@ test('publication platforms detect real hosts, mobile variants and short links w
  assert.equal(detectPublicationLink('https://www.threads.net/@user/post/DA12345/?igshid=tracking').url,'https://www.threads.net/@user/post/DA12345/');
  assert.equal(detectPublicationLink('https://threads.com/@user/post/DA12345/?xmt=AQG123&ssp=1').url,'https://www.threads.net/@user/post/DA12345/');
  assert.equal(detectPublicationLink('https://m.threads.net/@user/post/DA12345/?s=09').url,'https://www.threads.net/@user/post/DA12345/');
+ assert.equal(detectPublicationLink('https://www.threads.com/@billymmartono/post/DfBFghWmaZl').url,'https://www.threads.net/@billymmartono/post/DfBFghWmaZl');
+ assert.equal(detectPublicationLink('https://www.threads.com/@billymmartono/post/DfBFghWmaZl').platform,'threads');
 });
 test('unsupported hosts, executable schemes, deceptive credentials and arbitrary ports are rejected',()=>{
  for(const value of ['',null,{},'javascript:alert(1)','data:text/html,x','file:///etc/passwd','https://facebook.com.evil.test/reel/1','https://notinstagram.com/p/a','https://tiktok.com@evil.test/video/1','https://evil.test@facebook.com/post','https://facebook.com:123/reel/1','https://youtu.be/abcdefghijk'])assert.throws(()=>detectPublicationLink(value));
