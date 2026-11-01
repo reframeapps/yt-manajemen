@@ -1,6 +1,11 @@
-export const APP_VERSION='4.67.0';
+export const APP_VERSION='4.68.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.68.0',date:'2026-11-01',title:'Penggantian Logo X Menjadi Logo Threads pada Baris Ikon Sosmed Kartu & Dashboard',changes:[
+    {type:'feature',title:'Logo Threads Menggantikan Logo X (Twitter) pada Baris Utama',desc:'Mengganti slot platform kelima pada kartu konten (Kanban, Semua Konten, Dashboard) dari logo X (Twitter) menjadi logo resmi Threads (@ Meta) dengan SVG spiral presisi tinggi.'},
+    {type:'feature',title:'Ringkasan Statistik & Filter Halaman Depan untuk Threads',desc:'Kartu statistik "Sudah tayang" dan panel "Konten Terupload di Sosmed" pada halaman depan Dashboard kini menampilkan logo Threads beserta jumlah video/postingan terupload dan navigasi filter 1-klik.'},
+    {type:'polish',title:'Dukungan Fleksibel Multi-Platform',desc:'Postingan X/Twitter yang telah terupload tetap terdeteksi dan disajikan sebagai badge aktif tambahan tanpa menghilangkan riwayat link publikasi.'}
+  ]},
   {version:'4.67.0',date:'2026-11-01',title:'Sinkronisasi Penuh Status Sosmed Terupload pada Tabel Library & Papan Kanban',changes:[
     {type:'fix',title:'Sertakan publicationLinks dalam Endpoint Ringkasan /api/contents',desc:'Memperbaiki endpoint GET /api/contents agar selalu menyertakan array publicationLinks sehingga status upload media sosial (TikTok, Instagram, Facebook, X) langsung aktif dan berwarna di tabel Semua Konten (Library), Dashboard, dan Kanban tanpa ter-reset menjadi abu-abu.'},
     {type:'fix',title:'Penyelarasan contentSummary & Signature Caching Library',desc:'Memperbarui fungsi contentSummary di client dan signature hashing renderLibrary agar mendeteksi perubahan publicationLinks secara real-time saat link sosmed ditambahkan atau diedit.'},

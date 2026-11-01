@@ -52,4 +52,5 @@
 .publication-platform{display:inline-flex;align-items:center;gap:5px}
 .publication-platform svg{width:13px;height:13px;flex:none}
 .platform-youtube{color:#dc2626;background:#fee2e2}
+.platform-threads{color:#000000;background:#f3f4f6}
 .platform-twitter,.platform-x{color:#0f172a;background:#f1f5f9}

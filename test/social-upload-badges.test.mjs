@@ -75,13 +75,13 @@ test('Social publication helper correctly identifies uploaded platforms includin
   assert.equal(res[3].platform, 'threads');
 });
 
-test('socialUploadBadges renders all 5 platforms with active vs empty state without text labels', () => {
+test('socialUploadBadges renders all 5 platforms with active vs empty state without text labels (Threads replaces X)', () => {
   const CARD_SOCIAL_PLATFORMS = [
     { platform: 'youtube', label: 'YouTube' },
     { platform: 'tiktok', label: 'TikTok' },
     { platform: 'instagram', label: 'Instagram' },
     { platform: 'facebook', label: 'Facebook' },
-    { platform: 'twitter', label: 'X' },
+    { platform: 'threads', label: 'Threads' },
   ];
 
   function socialUploadBadges(c) {
@@ -108,6 +108,11 @@ test('socialUploadBadges renders all 5 platforms with active vs empty state with
       }
       return `<span class="social-upload-badge platform-${p.platform} is-empty" data-open-publish="${c.id}" title="Belum di-upload ke ${p.label} — Klik untuk input link" role="button" tabindex="0" aria-label="${p.label} (Belum diupload)"><svg viewBox="0 0 24 24"><path d="..."/></svg></span>`;
     });
+    for (const [platform, item] of uploadedMap) {
+      if (!CARD_SOCIAL_PLATFORMS.some(p => p.platform === platform)) {
+        badges.push(`<span class="social-upload-badge platform-${platform} is-active" data-social-url="${item.url}" title="Sudah upload di ${item.label}" role="button" tabindex="0" aria-label="${item.label}"><svg viewBox="0 0 24 24"><path d="..."/></svg></span>`);
+      }
+    }
     return `<div class="card-social-uploads" title="Status upload sosmed">${badges.join('')}</div>`;
   }
 
@@ -115,8 +120,8 @@ test('socialUploadBadges renders all 5 platforms with active vs empty state with
   const c = { id: 'item1', title: 'Test 1', youtubeVideoId: 'yt123' };
   const html = socialUploadBadges(c);
 
-  // Must render all 5 platforms
-  for (const p of ['youtube', 'tiktok', 'instagram', 'facebook', 'twitter']) {
+  // Must render all 5 platforms: YouTube, TikTok, Instagram, Facebook, Threads
+  for (const p of ['youtube', 'tiktok', 'instagram', 'facebook', 'threads']) {
     assert.ok(html.includes(`platform-${p}`), `Must contain badge for ${p}`);
   }
 
@@ -124,16 +129,27 @@ test('socialUploadBadges renders all 5 platforms with active vs empty state with
   assert.ok(html.includes('platform-youtube is-active'));
   assert.ok(html.includes('data-social-url="https://youtube.com/watch?v=123"'));
 
-  // TikTok, Instagram, Facebook, Twitter should be empty
+  // TikTok, Instagram, Facebook, Threads should be empty
   assert.ok(html.includes('platform-tiktok is-empty'));
   assert.ok(html.includes('data-open-publish="item1"'));
   assert.ok(html.includes('platform-instagram is-empty'));
   assert.ok(html.includes('platform-facebook is-empty'));
-  assert.ok(html.includes('platform-twitter is-empty'));
+  assert.ok(html.includes('platform-threads is-empty'));
 
   // Must not have text tags inside badges (pure icon badge)
   assert.ok(!html.includes('<span>YouTube</span>'));
   assert.ok(!html.includes('<span>TikTok</span>'));
+
+  // If a content also has X uploaded, it still shows as an extra active badge
+  const withX = {
+    id: 'item2',
+    title: 'Test 2',
+    youtubeVideoId: 'yt123',
+    publicationLinks: [{ platform: 'threads', url: 'https://threads.net/t/123' }, { platform: 'twitter', url: 'https://x.com/post/456' }]
+  };
+  const htmlWithX = socialUploadBadges(withX);
+  assert.ok(htmlWithX.includes('platform-threads is-active'));
+  assert.ok(htmlWithX.includes('platform-twitter is-active'));
 
   // Status row order: social upload badges in front before publication status
   const publicationBadge = '<span class="status-badge">Tayang</span>';
