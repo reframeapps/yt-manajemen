@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import { detectPublicationLink, PUBLICATION_PLATFORMS } from '../public/publication-links.mjs';
 
 test('detectPublicationLink accurately detects Facebook, TikTok, Instagram, Twitter/X, and Threads', () => {
@@ -188,3 +189,24 @@ test('dashboard front page correctly compiles uploaded social summary and cards'
   assert.equal(platformCounts.youtube, 1);
   assert.equal(platformCounts.tiktok, 1);
 });
+
+test('TikTok and Threads SVG vectors in content.js and ui.js use official Simple Icons paths and filled styles', async () => {
+  const contentJs = await fs.readFile(new URL('../public/content.js', import.meta.url), 'utf-8');
+  const uiJs = await fs.readFile(new URL('../public/ui.js', import.meta.url), 'utf-8');
+  const css = await fs.readFile(new URL('../public/content.css', import.meta.url), 'utf-8');
+
+  // TikTok official path prefix
+  assert.ok(contentJs.includes('M12.525.02'), 'content.js must contain official TikTok Simple Icons path');
+  assert.ok(uiJs.includes('M12.525.02'), 'ui.js must contain official TikTok Simple Icons path');
+
+  // Threads official Meta path prefix
+  assert.ok(contentJs.includes('M12.186 24'), 'content.js must contain official Meta Threads Simple Icons path');
+  assert.ok(uiJs.includes('M12.186 24'), 'ui.js must contain official Meta Threads Simple Icons path');
+
+  // ui.js hubIcon filled icon rendering for brand marks
+  assert.ok(uiJs.includes("['tiktok','threads','youtube'].includes(name)"), 'hubIcon in ui.js must handle brand marks with fill currentColor');
+
+  // content.css chromatic aberration drop-shadow for authentic TikTok look
+  assert.ok(css.includes('#25f4ee') && css.includes('#fe2c55'), 'content.css must include cyan & red chromatic drop-shadow for TikTok');
+});
+

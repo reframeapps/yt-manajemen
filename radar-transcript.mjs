@@ -45,10 +45,11 @@ export function detectMediaPlatform(input) {
   if (/tiktok\.com/i.test(clean)) return { platform: 'tiktok', url: clean };
   if (/instagram\.com|instagr\.am/i.test(clean)) return { platform: 'instagram', url: clean };
   if (/facebook\.com|fb\.com|fb\.watch/i.test(clean)) return { platform: 'facebook', url: clean };
+  if (/threads\.(?:net|com)/i.test(clean)) return { platform: 'threads', url: clean };
   if (/twitter\.com|x\.com/i.test(clean)) return { platform: 'twitter', url: clean };
   if (/^https?:\/\//i.test(clean)) return { platform: 'web', url: clean };
 
-  throw Object.assign(new Error('Format link video tidak dikenali. Masukkan link YouTube, TikTok, Instagram, Facebook, atau X (Twitter).'), { status: 400 });
+  throw Object.assign(new Error('Format link video tidak dikenali. Masukkan link YouTube, TikTok, Instagram, Threads, Facebook, atau X (Twitter).'), { status: 400 });
 }
 
 export function parseWebVtt(vtt) {
@@ -270,7 +271,7 @@ export async function extractYouTubeTranscript(videoIdOrUrl, { lang = 'id', fetc
 export async function resolveRedirectUrl(url, fetcher = fetch) {
   if (typeof url !== 'string' || !url.trim()) return url;
   const clean = url.trim();
-  if (/vt\.tiktok\.com|vm\.tiktok\.com|fb\.watch|youtu\.be|bit\.ly|t\.co/i.test(clean)) {
+  if (/vt\.tiktok\.com|vm\.tiktok\.com|fb\.watch|youtu\.be|bit\.ly|t\.co|threads\.(?:net|com)/i.test(clean)) {
     try {
       const res = await fetcher(clean, {
         method: 'GET',

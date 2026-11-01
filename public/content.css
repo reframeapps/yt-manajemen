@@ -35,8 +35,8 @@
 .social-upload-badge.is-active{opacity:1}
 .social-upload-badge.platform-youtube.is-active{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5}
 .social-upload-badge.platform-youtube.is-active svg{fill:#dc2626}
-.social-upload-badge.platform-tiktok.is-active{background:#0f172a;color:#38bdf8;border:1px solid #1e293b}
-.social-upload-badge.platform-tiktok.is-active svg{fill:#38bdf8}
+.social-upload-badge.platform-tiktok.is-active{background:#000000;color:#ffffff;border:1px solid #262626}
+.social-upload-badge.platform-tiktok.is-active svg{fill:#ffffff;filter:drop-shadow(0.6px 0px 0px #25f4ee) drop-shadow(-0.6px 0px 0px #fe2c55)}
 .social-upload-badge.platform-instagram.is-active{background:#fdf2f8;color:#c026d3;border:1px solid #f5d0fe}
 .social-upload-badge.platform-instagram.is-active svg{fill:#c026d3}
 .social-upload-badge.platform-facebook.is-active{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}

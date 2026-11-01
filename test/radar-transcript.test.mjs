@@ -186,6 +186,8 @@ test('detectMediaPlatform accurately identifies media types from various inputs'
   assert.equal(detectMediaPlatform('https://www.instagram.com/reel/C123456/').platform, 'instagram');
   assert.equal(detectMediaPlatform('https://x.com/username/status/1234567890').platform, 'twitter');
   assert.equal(detectMediaPlatform('https://twitter.com/username/status/1234567890').platform, 'twitter');
+  assert.equal(detectMediaPlatform('https://www.threads.net/@creator/post/DA12345').platform, 'threads');
+  assert.equal(detectMediaPlatform('https://threads.com/@creator/post/DA12345').platform, 'threads');
   assert.equal(detectMediaPlatform('https://fb.watch/xyz123/').platform, 'facebook');
   assert.equal(detectMediaPlatform('https://example.com/video-article').platform, 'web');
   assert.throws(() => detectMediaPlatform('not-a-valid-url'), /tidak dikenali/i);

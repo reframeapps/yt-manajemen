@@ -1,6 +1,11 @@
-export const APP_VERSION='4.68.0';
+export const APP_VERSION='4.69.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.69.0',date:'2026-11-01',title:'Penyempurnaan Logo Resmi TikTok, Logo Vektor Threads Meta, dan Dukungan Penuh Link Threads',changes:[
+    {type:'fix',title:'Logo Resmi TikTok dengan Efek 3D Chromatic Aberration',desc:'Memperbarui path SVG TikTok ke vektor resmi Simple Icons dan menyematkan styling background hitam elegan dengan drop-shadow chromatic aberration khas cyan & merah TikTok sehingga logo tampil autentik dan tajam.'},
+    {type:'fix',title:'Logo Spiral Resmi Threads (@ Meta) & Penataan Vektor SVG',desc:'Mengganti path ikon Threads dengan vektor kurva resmi Meta Threads Simple Icons dan memastikan render ikon brand menggunakan fill="currentColor" solid tanpa garis wireframe stroke.'},
+    {type:'feature',title:'Dukungan Ekstraksi Link Threads Fleksibel & Pembersihan Parameter Tracking',desc:'Mendukung deteksi URL threads.net dan threads.com (termasuk subdomain m.threads.net), normalisasi otomatis ke www.threads.net, pembersihan parameter share tracking (xmt, ssp, s, sub_action), serta integrasi ke modul transkrip media sosial.'}
+  ]},
   {version:'4.68.0',date:'2026-11-01',title:'Penggantian Logo X Menjadi Logo Threads pada Baris Ikon Sosmed Kartu & Dashboard',changes:[
     {type:'feature',title:'Logo Threads Menggantikan Logo X (Twitter) pada Baris Utama',desc:'Mengganti slot platform kelima pada kartu konten (Kanban, Semua Konten, Dashboard) dari logo X (Twitter) menjadi logo resmi Threads (@ Meta) dengan SVG spiral presisi tinggi.'},
     {type:'feature',title:'Ringkasan Statistik & Filter Halaman Depan untuk Threads',desc:'Kartu statistik "Sudah tayang" dan panel "Konten Terupload di Sosmed" pada halaman depan Dashboard kini menampilkan logo Threads beserta jumlah video/postingan terupload dan navigasi filter 1-klik.'},
