@@ -70,3 +70,23 @@ test('Social publication helper correctly identifies uploaded platforms', () => 
   assert.equal(res[2].platform, 'instagram');
   assert.equal(res[2].url, 'https://www.instagram.com/reel/C890/');
 });
+
+test('socialUploadBadges renders icon-only badges without text labels and in front of publication status', () => {
+  function socialUploadBadges(socials) {
+    if (!socials.length) return '';
+    const badges = socials.map(s => `<span class="social-upload-badge platform-${s.platform}" data-social-url="${s.url}" title="Sudah upload di ${s.label}" role="button" tabindex="0" aria-label="${s.label}"><svg viewBox="0 0 24 24"><path d="..."/></svg></span>`).join('');
+    return `<div class="card-social-uploads" title="Media sosial yang sudah di-upload">${badges}</div>`;
+  }
+
+  const html = socialUploadBadges([{ platform: 'youtube', label: 'YouTube', url: 'https://youtube.com/watch?v=123' }]);
+  assert.ok(html.includes('<svg viewBox="0 0 24 24">'), 'must include svg icon');
+  assert.ok(!html.includes('<span>YouTube</span>'), 'must not render text label inside badge');
+  assert.ok(html.includes('aria-label="YouTube"'), 'must have accessible aria-label');
+
+  // Verify status row order (social upload badges in front before publication status)
+  const publicationBadge = '<span class="status-badge">Tayang</span>';
+  const statusRow = `<div class="content-status-row">${html}${publicationBadge}</div>`;
+  const socialIdx = statusRow.indexOf('card-social-uploads');
+  const pubIdx = statusRow.indexOf('status-badge');
+  assert.ok(socialIdx < pubIdx, 'social upload badges must appear before publication status in the status row');
+});

@@ -1,6 +1,11 @@
-export const APP_VERSION='4.63.0';
+export const APP_VERSION='4.64.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.64.0',date:'2026-11-01',title:'Tampilan Minimalis Logo Sosmed Terupload (Icon-Only di Posisi Terdepan Status Kartu)',changes:[
+    {type:'feature',title:'Logo Sosmed Icon-Only Tanpa Label Tulisan',desc:'Menyederhanakan badge media sosial yang sudah di-upload menjadi murni ikon logo platform (YouTube, TikTok, Instagram, Facebook, X) tanpa teks label pengganggu, menghasilkan tampilan kartu yang jauh lebih rapi, modern, dan padat visual.'},
+    {type:'feature',title:'Penempatan Logo di Urutan Paling Depan (Di Sebelah Kiri Status)',desc:'Memindahkan deretan logo sosmed ke posisi paling depan sebelum badge status publikasi/produksi pada kartu Kanban, Dashboard, dan tabel Semua Konten sehingga kreator langsung mengetahui platform tujuan sejak pandangan pertama.'},
+    {type:'feature',title:'Tombol Ikon Interaktif Presisi 23x23px dengan Tooltip Lengkap',desc:'Ikon dibuat berdimensi presisi 23x23px dengan sudut membulat modern (border-radius 6px) yang selaras dengan tinggi status badge, efek elevasi hover halus, serta tooltip lengkap saat kursor diarahkan.'}
+  ]},
   {version:'4.63.0',date:'2026-11-01',title:'Indikator Visual Ikon Media Sosial Terupload pada Kartu Kanban, Library & Editor Konten',changes:[
     {type:'feature',title:'Ikon Media Sosial Terupload pada Kartu Kanban & List Konten',desc:'Menampilkan deretan badge ikon media sosial interaktif (YouTube, TikTok, Instagram, Facebook, X/Twitter) pada kartu Kanban, dashboard, dan tabel Semua Konten untuk setiap platform yang videonya sudah di-upload atau dipublikasikan.'},
     {type:'feature',title:'1-Klik Buka Postingan Video Langsung dari Kartu',desc:'Setiap badge ikon sosial media dilengkapi tautan langsung ke video/postingan yang telah terupload (target="_blank") dan penanganan stopPropagation sehingga kreator dapat langsung melihat tayangan video di platform tujuan tanpa memicu modal editor kartu.'},
