@@ -529,6 +529,9 @@ async function radarOpenLinkTranscriptModal(initialUrl = '', options = {}) {
     errorBox.classList.add('hide');
     loading.classList.remove('hide');
     panelLink.classList.add('hide');
+    if (box.querySelector('#extractLoadingSub')) {
+      box.querySelector('#extractLoadingSub').textContent = 'Memeriksa link, mengunduh audio narasi & menjalankan transkripsi AI Whisper…';
+    }
 
     try {
       const res = await fetch('/api/radar/transcript?url=' + encodeURIComponent(url.trim()));
@@ -671,6 +674,8 @@ function radarRenderTranscriptView(t, videoInfo, options = {}) {
       <div class="meta-item">
         <span class="meta-label">Platform</span>
         <span class="radar-chip" style="font-weight:700">${esc(platformName)}</span>
+        ${t.engine ? `<span class="radar-chip" style="font-weight:700;margin-left:4px">🎙️ Whisper AI</span>` : ''}
+        ${t.isSynthesizedCaption ? `<span class="radar-chip" style="font-weight:700;margin-left:4px">📌 Caption/Tag</span>` : ''}
       </div>
       <div class="meta-item">
         <span class="meta-label">Kreator / Channel</span>

@@ -267,6 +267,137 @@ export async function extractYouTubeTranscript(videoIdOrUrl, { lang = 'id', fetc
   };
 }
 
+export async function resolveRedirectUrl(url, fetcher = fetch) {
+  if (typeof url !== 'string' || !url.trim()) return url;
+  const clean = url.trim();
+  if (/vt\.tiktok\.com|vm\.tiktok\.com|fb\.watch|youtu\.be|bit\.ly|t\.co/i.test(clean)) {
+    try {
+      const res = await fetcher(clean, {
+        method: 'GET',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(6000),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+      if (res && res.url && res.url !== clean) {
+        return res.url;
+      }
+    } catch {}
+  }
+  return clean;
+}
+
+export async function transcribeAudioWithWhisper(audioBufferOrUrl, { lang = 'id', timeoutMs = 25000, fetcher = fetch } = {}) {
+  let audioBuffer = null;
+  if (typeof audioBufferOrUrl === 'string') {
+    try {
+      const res = await fetcher(audioBufferOrUrl, {
+        signal: AbortSignal.timeout(12000),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+      if (!res.ok) return null;
+      audioBuffer = await res.arrayBuffer();
+    } catch {
+      return null;
+    }
+  } else if (audioBufferOrUrl instanceof ArrayBuffer || (typeof Buffer !== 'undefined' && Buffer.isBuffer(audioBufferOrUrl))) {
+    audioBuffer = audioBufferOrUrl;
+  }
+
+  if (!audioBuffer || audioBuffer.byteLength < 500) return null;
+
+  // Layer 3A: Groq Whisper (whisper-large-v3, ultrafast ~2-3s)
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey) {
+    try {
+      const formData = new FormData();
+      formData.append('file', new Blob([audioBuffer], { type: 'audio/mpeg' }), 'media_audio.mp3');
+      formData.append('model', 'whisper-large-v3');
+      formData.append('response_format', 'verbose_json');
+      if (lang) formData.append('language', lang);
+
+      const whisperRes = await fetcher('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${groqKey}` },
+        body: formData,
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+
+      if (whisperRes.ok) {
+        const data = await whisperRes.json();
+        const text = (data.text || '').trim();
+        const rawSegments = Array.isArray(data.segments) ? data.segments : [];
+        if (text || rawSegments.length > 0) {
+          const segments = rawSegments.map(s => {
+            const offsetMs = Math.round((s.start || 0) * 1000);
+            const durMs = Math.max(1000, Math.round(((s.end || 0) - (s.start || 0)) * 1000));
+            return {
+              text: (s.text || '').trim(),
+              offset: offsetMs,
+              duration: durMs,
+              timestamp: formatTimestamp(offsetMs)
+            };
+          }).filter(s => Boolean(s.text));
+
+          return {
+            text,
+            segments,
+            engine: 'groq-whisper-large-v3'
+          };
+        }
+      }
+    } catch {}
+  }
+
+  // Layer 3B: OpenAI Whisper (whisper-1 fallback)
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey && !openaiKey.startsWith('key_')) {
+    try {
+      const formData = new FormData();
+      formData.append('file', new Blob([audioBuffer], { type: 'audio/mpeg' }), 'media_audio.mp3');
+      formData.append('model', 'whisper-1');
+      formData.append('response_format', 'verbose_json');
+      if (lang) formData.append('language', lang);
+
+      const whisperRes = await fetcher('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${openaiKey}` },
+        body: formData,
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+
+      if (whisperRes.ok) {
+        const data = await whisperRes.json();
+        const text = (data.text || '').trim();
+        const rawSegments = Array.isArray(data.segments) ? data.segments : [];
+        if (text || rawSegments.length > 0) {
+          const segments = rawSegments.map(s => {
+            const offsetMs = Math.round((s.start || 0) * 1000);
+            const durMs = Math.max(1000, Math.round(((s.end || 0) - (s.start || 0)) * 1000));
+            return {
+              text: (s.text || '').trim(),
+              offset: offsetMs,
+              duration: durMs,
+              timestamp: formatTimestamp(offsetMs)
+            };
+          }).filter(s => Boolean(s.text));
+
+          return {
+            text,
+            segments,
+            engine: 'openai-whisper-1'
+          };
+        }
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
 export async function extractSocialTranscript(urlOrId, { lang = 'id', fetcher = fetch } = {}) {
   const detected = detectMediaPlatform(urlOrId);
   if (detected.platform === 'youtube') {
@@ -277,25 +408,137 @@ export async function extractSocialTranscript(urlOrId, { lang = 'id', fetcher = 
 
   const { platform, url } = detected;
 
-  // Platform: TikTok
+  // Platform: TikTok (Multi-Layer Engine)
   if (platform === 'tiktok') {
+    const resolvedUrl = await resolveRedirectUrl(url, fetcher);
+    let tikwmData = null;
+
+    // Layer 1: Query TikWM API for media metadata & direct audio/video streams
+    try {
+      const tikRes = await fetcher(`https://www.tikwm.com/api/?url=${encodeURIComponent(resolvedUrl)}`, {
+        signal: AbortSignal.timeout(8000),
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+      });
+      if (tikRes.ok) {
+        const json = await tikRes.json();
+        if (json.code === 0 && json.data) {
+          tikwmData = json.data;
+        }
+      }
+    } catch {}
+
+    const title = (tikwmData?.title || '').trim();
+    const authorNickname = tikwmData?.author?.nickname || '';
+    const authorUniqueId = tikwmData?.author?.unique_id || '';
+    const channelName = authorNickname && authorUniqueId
+      ? `${authorNickname} (@${authorUniqueId})`
+      : authorUniqueId ? `@${authorUniqueId}` : authorNickname || 'Kreator TikTok';
+    const thumbnailUrl = tikwmData?.cover || tikwmData?.origin_cover || '';
+    const durationSec = Number(tikwmData?.duration || 0) || 30;
+    const durationFormatted = formatTimestamp(durationSec * 1000);
+
+    // Layer 2: Audio Stream Speech-to-Text via Whisper AI
+    const audioUrl = tikwmData?.music || tikwmData?.play;
+    if (audioUrl) {
+      const transcribed = await transcribeAudioWithWhisper(audioUrl, { lang, fetcher });
+      if (transcribed && (transcribed.segments?.length > 0 || transcribed.text)) {
+        let segments = transcribed.segments || [];
+        if (segments.length === 0 && transcribed.text) {
+          segments = [{
+            text: transcribed.text,
+            offset: 0,
+            duration: durationSec * 1000,
+            timestamp: '00:00'
+          }];
+        }
+
+        // Build clean paragraphs
+        const paragraphs = [];
+        let currentGroup = [];
+        let currentStart = 0;
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i];
+          if (currentGroup.length === 0) currentStart = seg.offset;
+          currentGroup.push(seg.text);
+          if (currentGroup.length >= 4 || (seg.offset - currentStart) >= 20000 || i === segments.length - 1) {
+            paragraphs.push({
+              timestamp: formatTimestamp(currentStart),
+              text: currentGroup.join(' ')
+            });
+            currentGroup = [];
+          }
+        }
+
+        const fullText = paragraphs.map(p => p.text).join('\n\n');
+        const timedText = paragraphs.map(p => `[${p.timestamp}] ${p.text}`).join('\n\n');
+        const words = fullText.split(/\s+/).filter(Boolean);
+
+        return {
+          videoId: 'tiktok-' + (tikwmData?.id || crypto.randomUUID().slice(0, 8)),
+          url: resolvedUrl || url,
+          title: title || `Video TikTok ${channelName}`,
+          channelName,
+          thumbnailUrl,
+          language: lang,
+          wordCount: words.length,
+          durationSec,
+          durationFormatted,
+          segmentCount: segments.length,
+          segments,
+          paragraphs,
+          fullText,
+          timedText,
+          platform: 'tiktok',
+          engine: transcribed.engine || 'whisper'
+        };
+      }
+    }
+
+    // Layer 3: Check TikWM direct subtitles if any
+    if (Array.isArray(tikwmData?.subtitles) && tikwmData.subtitles.length > 0) {
+      const sub = tikwmData.subtitles.find(s => s.language?.includes('id') || s.language?.includes('in')) || tikwmData.subtitles[0];
+      if (sub?.url) {
+        try {
+          const subRes = await fetcher(sub.url, { signal: AbortSignal.timeout(6000) });
+          if (subRes.ok) {
+            const subContent = await subRes.text();
+            if (subContent.includes('WEBVTT')) {
+              const vttSegs = parseWebVtt(subContent);
+              if (vttSegs.length > 0) {
+                const parsed = parseCustomTranscriptText(vttSegs.map(s => `[${s.timestamp}] ${s.text}`).join('\n'), {
+                  title: title || `Video TikTok ${channelName}`,
+                  channelName,
+                  platform: 'tiktok',
+                  durationFormatted
+                });
+                parsed.url = resolvedUrl || url;
+                parsed.thumbnailUrl = thumbnailUrl;
+                return parsed;
+              }
+            }
+          }
+        } catch {}
+      }
+    }
+
+    // Layer 4: TikTok oEmbed & Rehydration HTML scrape fallback
     let oembed = null;
     try {
-      const oembedRes = await fetcher(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, {
-        signal: AbortSignal.timeout(8000),
+      const oembedRes = await fetcher(`https://www.tiktok.com/oembed?url=${encodeURIComponent(resolvedUrl)}`, {
+        signal: AbortSignal.timeout(6000),
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
       });
       if (oembedRes.ok) oembed = await oembedRes.json();
     } catch {}
 
-    const title = oembed?.title || 'Video TikTok';
-    const channelName = oembed?.author_name || 'Kreator TikTok';
-    const thumbnailUrl = oembed?.thumbnail_url || '';
+    const fallbackTitle = title || oembed?.title || 'Video TikTok';
+    const fallbackChannel = channelName !== 'Kreator TikTok' ? channelName : (oembed?.author_name || 'Kreator TikTok');
+    const fallbackThumb = thumbnailUrl || oembed?.thumbnail_url || '';
 
-    // Attempt to parse subtitleInfos if available via direct HTML / JSON
+    // Attempt HTML regex rehydration subtitles
     try {
-      const pageRes = await fetcher(url, {
-        signal: AbortSignal.timeout(8000),
+      const pageRes = await fetcher(resolvedUrl, {
+        signal: AbortSignal.timeout(6000),
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept-Language': 'id-ID,id;q=0.9,en;q=0.8'
@@ -321,13 +564,13 @@ export async function extractSocialTranscript(urlOrId, { lang = 'id', fetcher = 
                     const vttSegs = parseWebVtt(subContent);
                     if (vttSegs.length > 0) {
                       const parsed = parseCustomTranscriptText(vttSegs.map(s => `[${s.timestamp}] ${s.text}`).join('\n'), {
-                        title,
-                        channelName,
+                        title: fallbackTitle,
+                        channelName: fallbackChannel,
                         platform: 'tiktok',
-                        durationFormatted: vttSegs[vttSegs.length - 1]?.timestamp || '00:45'
+                        durationFormatted
                       });
-                      parsed.url = url;
-                      parsed.thumbnailUrl = thumbnailUrl;
+                      parsed.url = resolvedUrl || url;
+                      parsed.thumbnailUrl = fallbackThumb;
                       return parsed;
                     }
                   }
@@ -339,23 +582,25 @@ export async function extractSocialTranscript(urlOrId, { lang = 'id', fetcher = 
       }
     } catch {}
 
-    // If description/caption has rich content (> 8 words), construct clean transcript
-    if (title && title.split(/\s+/).length >= 8) {
-      const parsed = parseCustomTranscriptText(title, {
-        title: title.slice(0, 60),
-        channelName,
+    // Layer 5: Fallback to Rich Caption/Hashtags (Bila video tidak memiliki suara ucapan/hanya musik latar)
+    if (fallbackTitle && fallbackTitle.split(/\s+/).filter(Boolean).length >= 2) {
+      const parsed = parseCustomTranscriptText(fallbackTitle, {
+        title: fallbackTitle.slice(0, 70),
+        channelName: fallbackChannel,
         platform: 'tiktok',
-        durationFormatted: '00:30'
+        durationFormatted
       });
-      parsed.url = url;
-      parsed.thumbnailUrl = thumbnailUrl;
+      parsed.url = resolvedUrl || url;
+      parsed.thumbnailUrl = fallbackThumb;
+      parsed.isSynthesizedCaption = true;
       return parsed;
     }
 
-    throw Object.assign(new Error(`Transkrip/subtitle otomatis TikTok tidak dapat diambil langsung dari link ini (TikTok membatasi subtitle publik). Silakan gunakan tab "Tempel Transkrip Manual" untuk menempel naskah/subtitle video TikTok tersebut.`), {
+    // Layer 6: Structured Error with prefilled metadata for Manual Tab
+    throw Object.assign(new Error(`Transkrip/subtitle otomatis TikTok tidak dapat diambil langsung dari link ini. Silakan gunakan tab "Tempel Transkrip Manual" untuk menempel naskah/subtitle video TikTok tersebut.`), {
       status: 422,
       code: 'tiktok_transcript_manual_needed',
-      metadata: { title, channelName, thumbnailUrl, url }
+      metadata: { title: fallbackTitle, channelName: fallbackChannel, thumbnailUrl: fallbackThumb, url: resolvedUrl || url }
     });
   }
 
@@ -374,7 +619,7 @@ export async function extractSocialTranscript(urlOrId, { lang = 'id', fetcher = 
     const title = cleanText.slice(0, 70) || 'Postingan X / Twitter';
     const channelName = oembed?.author_name || 'Kreator X';
 
-    if (cleanText && cleanText.split(/\s+/).length >= 6) {
+    if (cleanText && cleanText.split(/\s+/).filter(Boolean).length >= 2) {
       const parsed = parseCustomTranscriptText(cleanText, {
         title,
         channelName,
@@ -388,7 +633,8 @@ export async function extractSocialTranscript(urlOrId, { lang = 'id', fetcher = 
 
   // Generic fallback: Instagram, Facebook, Web via OpenGraph meta
   try {
-    const res = await fetcher(url, {
+    const resolvedUrl = await resolveRedirectUrl(url, fetcher);
+    const res = await fetcher(resolvedUrl, {
       signal: AbortSignal.timeout(8000),
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -406,14 +652,15 @@ export async function extractSocialTranscript(urlOrId, { lang = 'id', fetcher = 
       const desc = (ogDescMatch?.[1] || '').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
       const thumbnailUrl = ogImageMatch?.[1] || '';
 
-      if (desc && desc.split(/\s+/).length >= 6) {
-        const parsed = parseCustomTranscriptText(desc, {
+      const contentText = desc || title;
+      if (contentText && contentText.split(/\s+/).filter(Boolean).length >= 2) {
+        const parsed = parseCustomTranscriptText(contentText, {
           title: title.slice(0, 70),
           channelName: `Kreator ${platform.toUpperCase()}`,
           platform,
           durationFormatted: '00:45'
         });
-        parsed.url = url;
+        parsed.url = resolvedUrl || url;
         parsed.thumbnailUrl = thumbnailUrl;
         return parsed;
       }

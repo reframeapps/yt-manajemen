@@ -18,6 +18,8 @@ import {
   detectMediaPlatform,
   parseWebVtt,
   parseCustomTranscriptText,
+  resolveRedirectUrl,
+  transcribeAudioWithWhisper,
   extractSocialTranscript
 } from '../radar-transcript.mjs';
 
@@ -227,4 +229,147 @@ test('parseCustomTranscriptText handles both timed and untimed text lines', () =
   assert.ok(res.wordCount > 10);
   assert.ok(res.timedText.includes('[00:00]'));
   assert.ok(res.fullText.includes('Ini pembuka investigasi yang tajam.'));
+});
+
+test('resolveRedirectUrl follows redirects for short domains', async () => {
+  const fakeFetcher = async (url) => {
+    if (url.includes('vt.tiktok.com')) {
+      return { url: 'https://www.tiktok.com/@creator/video/123456789' };
+    }
+    return { url };
+  };
+
+  const resolved = await resolveRedirectUrl('https://vt.tiktok.com/ABC123/', fakeFetcher);
+  assert.equal(resolved, 'https://www.tiktok.com/@creator/video/123456789');
+
+  const regular = await resolveRedirectUrl('https://example.com/normal', fakeFetcher);
+  assert.equal(regular, 'https://example.com/normal');
+});
+
+test('transcribeAudioWithWhisper handles speech-to-text response and segments', async () => {
+  const dummyAudio = new Uint8Array(1024).buffer; // 1KB dummy buffer
+  const fakeFetcher = async (url, options) => {
+    if (url.includes('/audio/transcriptions')) {
+      return {
+        ok: true,
+        json: async () => ({
+          text: 'Investigasi aliran dana mencurigakan tahun 2026.',
+          segments: [
+            { id: 0, start: 0.0, end: 3.5, text: 'Investigasi aliran dana' },
+            { id: 1, start: 3.5, end: 7.2, text: 'mencurigakan tahun 2026.' }
+          ]
+        })
+      };
+    }
+    return { ok: false };
+  };
+
+  const oldGroq = process.env.GROQ_API_KEY;
+  process.env.GROQ_API_KEY = 'mock_groq_key';
+  try {
+    const res = await transcribeAudioWithWhisper(dummyAudio, { lang: 'id', fetcher: fakeFetcher });
+    assert.ok(res);
+    assert.equal(res.text, 'Investigasi aliran dana mencurigakan tahun 2026.');
+    assert.equal(res.segments.length, 2);
+    assert.equal(res.segments[0].timestamp, '00:00');
+    assert.equal(res.segments[1].timestamp, '00:03');
+    assert.equal(res.engine, 'groq-whisper-large-v3');
+  } finally {
+    if (oldGroq) process.env.GROQ_API_KEY = oldGroq;
+    else delete process.env.GROQ_API_KEY;
+  }
+});
+
+test('extractSocialTranscript layered TikTok extraction via TikWM and Whisper', async () => {
+  const fakeFetcher = async (url, options) => {
+    if (url.includes('vt.tiktok.com')) {
+      return { url: 'https://www.tiktok.com/@obung.bae/video/7702627185957342485' };
+    }
+    if (url.includes('tikwm.com/api')) {
+      return {
+        ok: true,
+        json: async () => ({
+          code: 0,
+          data: {
+            id: '7702627185957342485',
+            title: '#raffiahmad #SumpahPemuda2026',
+            author: { nickname: 'Obung.Bae', unique_id: 'obung.bae' },
+            duration: 24,
+            cover: 'https://example.com/cover.jpg',
+            music: 'https://example.com/audio.mp3'
+          }
+        })
+      };
+    }
+    if (url.includes('audio.mp3')) {
+      return {
+        ok: true,
+        arrayBuffer: async () => new Uint8Array(2048).buffer
+      };
+    }
+    if (url.includes('/audio/transcriptions')) {
+      return {
+        ok: true,
+        json: async () => ({
+          text: 'Detik-detik Raffi Ahmad sebelum temui pendemo.',
+          segments: [
+            { id: 0, start: 0.0, end: 4.1, text: 'Detik-detik Raffi Ahmad sebelum temui pendemo.' }
+          ]
+        })
+      };
+    }
+    return { ok: false };
+  };
+
+  const oldGroq = process.env.GROQ_API_KEY;
+  process.env.GROQ_API_KEY = 'mock_groq_key';
+  try {
+    const res = await extractSocialTranscript('https://vt.tiktok.com/ZSgT5dJq7/', { lang: 'id', fetcher: fakeFetcher });
+    assert.ok(res);
+    assert.equal(res.platform, 'tiktok');
+    assert.equal(res.channelName, 'Obung.Bae (@obung.bae)');
+    assert.equal(res.durationFormatted, '00:24');
+    assert.equal(res.segmentCount, 1);
+    assert.match(res.fullText, /Detik-detik Raffi Ahmad/);
+    assert.match(res.timedText, /\[00:00\] Detik-detik Raffi Ahmad/);
+  } finally {
+    if (oldGroq) process.env.GROQ_API_KEY = oldGroq;
+    else delete process.env.GROQ_API_KEY;
+  }
+});
+
+test('extractSocialTranscript falls back to caption when audio has no speech or Whisper is unavailable', async () => {
+  const fakeFetcher = async (url) => {
+    if (url.includes('tikwm.com/api')) {
+      return {
+        ok: true,
+        json: async () => ({
+          code: 0,
+          data: {
+            id: '999888',
+            title: 'Pembongkaran skandal mafia tanah di pesisir utara',
+            author: { nickname: 'Jurnalis Rakyat', unique_id: 'jurnalis' },
+            duration: 45,
+            cover: 'https://example.com/cover2.jpg',
+            music: '' // No audio stream
+          }
+        })
+      };
+    }
+    return { ok: false };
+  };
+
+  const oldGroq = process.env.GROQ_API_KEY;
+  delete process.env.GROQ_API_KEY;
+  try {
+    const res = await extractSocialTranscript('https://www.tiktok.com/@jurnalis/video/999888', { fetcher: fakeFetcher });
+    assert.ok(res);
+    assert.equal(res.platform, 'tiktok');
+    assert.equal(res.channelName, 'Jurnalis Rakyat (@jurnalis)');
+    assert.equal(res.title, 'Pembongkaran skandal mafia tanah di pesisir utara');
+    assert.equal(res.durationFormatted, '00:45');
+    assert.ok(res.fullText.includes('Pembongkaran skandal mafia tanah'));
+  } finally {
+    if (oldGroq) process.env.GROQ_API_KEY = oldGroq;
+  }
 });
