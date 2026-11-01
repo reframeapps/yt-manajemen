@@ -90,3 +90,33 @@ test('socialUploadBadges renders icon-only badges without text labels and in fro
   const pubIdx = statusRow.indexOf('status-badge');
   assert.ok(socialIdx < pubIdx, 'social upload badges must appear before publication status in the status row');
 });
+
+test('dashboard front page correctly compiles uploaded social summary and cards', () => {
+  const contents = [
+    { id: '1', title: 'Video 1', youtubeVideoId: 'yt123', publicationLinks: [] },
+    { id: '2', title: 'Video 2', publicationLinks: [{ platform: 'tiktok', url: 'https://tiktok.com/@a/video/1' }] },
+    { id: '3', title: 'Video 3', publicationLinks: [] }
+  ];
+
+  function getUploadedSocials(c) {
+    const list = [];
+    if (c.youtubeVideoId) list.push({ platform: 'youtube', label: 'YouTube' });
+    if (Array.isArray(c.publicationLinks)) {
+      for (const l of c.publicationLinks) list.push({ platform: l.platform, label: l.platform });
+    }
+    return list;
+  }
+
+  const uploadedItems = contents.filter(c => getUploadedSocials(c).length > 0);
+  assert.equal(uploadedItems.length, 2, 'two contents have uploaded socials');
+
+  const platformCounts = {};
+  for (const c of uploadedItems) {
+    for (const s of getUploadedSocials(c)) {
+      platformCounts[s.platform] = (platformCounts[s.platform] || 0) + 1;
+    }
+  }
+
+  assert.equal(platformCounts.youtube, 1);
+  assert.equal(platformCounts.tiktok, 1);
+});

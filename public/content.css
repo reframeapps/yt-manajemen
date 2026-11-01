@@ -39,6 +39,8 @@
 .social-upload-badge.platform-facebook svg{fill:#1d4ed8}
 .social-upload-badge.platform-twitter,.social-upload-badge.platform-x{background:#0f172a;color:#ffffff;border:1px solid #1e293b}
 .social-upload-badge.platform-twitter svg,.social-upload-badge.platform-x svg{fill:#ffffff}
+.stat-social-row{display:flex;align-items:center;gap:5px;margin-top:8px;flex-wrap:wrap}
+.stat-social-row .social-upload-badge{width:22px;height:22px;min-width:22px;min-height:22px}
 .publication-platform{display:inline-flex;align-items:center;gap:5px}
 .publication-platform svg{width:13px;height:13px;flex:none}
 .platform-youtube{color:#dc2626;background:#fee2e2}
