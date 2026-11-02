@@ -1,4 +1,4 @@
-import {detectPublicationLink,PUBLICATION_PLATFORMS} from './publication-links.mjs?v=4.70.0';
+import {detectPublicationLink,PUBLICATION_PLATFORMS} from './publication-links.mjs?v=4.71.0';
 const root=document.querySelector('#otherPublications'),input=document.querySelector('#publicationLinkInput'),status=document.querySelector('#publicationLinkDetection'),button=document.querySelector('#addPublicationLink'),cancel=document.querySelector('#cancelPublicationLink'),list=document.querySelector('#publicationLinkList');
 let editingId=null;
 function detect(){button.disabled=true;status.className='publication-link-detection';if(!input.value.trim()){status.textContent='Facebook, TikTok, Instagram, Threads dan X dikenali otomatis.';return null;}try{const result=detectPublicationLink(input.value);status.textContent=PUBLICATION_PLATFORMS[result.platform]+' terdeteksi';status.classList.add('platform-'+result.platform);button.disabled=false;return result;}catch(error){status.textContent=error.message;status.classList.add('invalid');return null;}}

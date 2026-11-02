@@ -678,7 +678,7 @@ async function closeEditor(){if(hub.editing?.saving)return false;if(hub.editing?
 $('#closeEditor').onclick=closeEditor;$('#contentEditor').addEventListener('cancel',e=>{e.preventDefault();closeEditor()});
 window.addEventListener('beforeunload',e=>{if(hub.editing?.dirty||state.uploading){e.preventDefault();e.returnValue=''}});
 $('#reloadContent').onclick=async()=>{if(!confirm('Muat versi server dan abaikan perubahan lokal untuk konten ini?'))return;try{const id=hub.editing.content.id;clearTimeout(hub.timer);hub.editing=null;clearLocalDraft(id);showDraftBanner();$('#contentEditor').close();await openContent(id)}catch(err){toast(err.message)}};
-function scriptStats(){if(!hub.editing)return;const text=formValue('script').value,words=text.trim().split(/\s+/).filter(Boolean).length,seconds=Math.round(words/140*60),duration=seconds>=60?`${Math.floor(seconds/60)} menit${seconds%60?' '+seconds%60+' detik':''}`:`${seconds} detik`;$('#scriptStats').textContent=`${words.toLocaleString('id-ID')} kata · ${text.length.toLocaleString('id-ID')} karakter · Estimasi narasi ${duration} (140 kata/menit)`;$('#copyScript').disabled=!text.trim();$('#openTeleprompter').disabled=!text.trim();if($('#openThumbnailSeo'))$('#openThumbnailSeo').disabled=!text.trim();}
+function scriptStats(){if(!hub.editing)return;const text=formValue('script').value,words=text.trim().split(/\s+/).filter(Boolean).length,seconds=Math.round(words/140*60),duration=seconds>=60?`${Math.floor(seconds/60)} menit${seconds%60?' '+seconds%60+' detik':''}`:`${seconds} detik`;$('#scriptStats').textContent=`${words.toLocaleString('id-ID')} kata · ${text.length.toLocaleString('id-ID')} karakter · Estimasi narasi ${duration} (140 kata/menit)`;$('#copyScript').disabled=!text.trim();if($('#downloadScriptTxt'))$('#downloadScriptTxt').disabled=!text.trim();$('#openTeleprompter').disabled=!text.trim();if($('#openThumbnailSeo'))$('#openThumbnailSeo').disabled=!text.trim();}
 $('#openThumbnailSeo').onclick=()=>{if(!hub.editing)return;const script=formValue('script').value||'';const format=formValue('format').value==='shorts'?'short':'thumbnail';if(window.openThumbnailSeoModal){window.openThumbnailSeoModal(script,format);}else{toast('Generator Thumbnail & SEO sedang dimuat…');}};
 if($('#importTranscriptFromUrl')){
   $('#importTranscriptFromUrl').onclick=()=>{
@@ -705,6 +705,42 @@ if($('#importTranscriptFromUrl')){
 }
 $('#openTeleprompter').onclick=()=>{if(!hub.editing)return;const edit=hub.editing;HubTeleprompter.open({id:hub.editing.content.id,title:formValue('title').value||'Naskah konten',category:FORMAT_NAMES[formValue('format').value]||'Konten',text:formValue('script').value},toast,()=>{if(hub.editing===edit){switchTab('plan');$('#editor-tab-plan').focus();}})};
 $('#copyScript').onclick=async()=>{const text=formValue('script').value;if(!text.trim())return;try{await navigator.clipboard.writeText(text);toast('Script disalin.')}catch{HubRichText.select(formValue('script'));toast('Pilih Salin pada script yang disorot.')}};
+if($('#downloadScriptTxt')){
+  $('#downloadScriptTxt').onclick=()=>{
+    const text=formValue('script').value;
+    if(!text.trim()){toast('Belum ada naskah untuk diunduh.');return;}
+    const title=formValue('title').value||'Naskah Konten';
+    const clean=(title||'naskah-konten').toLowerCase().replace(/[^\w\s-]/g,'').trim().replace(/\s+/g,'-').slice(0,50)||'naskah-konten';
+    const filename=`naskah-${clean}.txt`;
+    const formatName=FORMAT_NAMES[formValue('format').value]||'Konten';
+    const now=new Date().toLocaleString('id-ID',{timeZone:'Asia/Jakarta'});
+    const divider='='.repeat(70);
+    const content=[
+      divider,
+      `NASKAH KONTEN: ${title}`,
+      divider,
+      `Format      : ${formatName}`,
+      `Jumlah Kata : ${text.trim().split(/\s+/).filter(Boolean).length} kata`,
+      `Waktu Unduh : ${now} WIB`,
+      divider,
+      '',
+      text,
+      '',
+      divider,
+      'YouTube Content Hub'
+    ].join('\r\n');
+    const blob=new Blob([content],{type:'text/plain;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    toast(`Naskah berhasil diunduh (${filename})`);
+  };
+}
 function productionProgress(checklist={}){const total=Object.keys(CHECK_NAMES).length,done=Object.keys(CHECK_NAMES).filter(key=>checklist[key]===true).length;return {done,total,percent:Math.round(done/total*100)}}
 function progressSummary(c){const {done,total,percent}=productionProgress(c.checklist);return `<div class="content-progress ${percent===100?'is-complete':''}"><span>${done}/${total} selesai <b>${percent}%</b></span><progress class="production-progress-bar" max="100" value="${percent}" aria-label="Progres produksi ${esc(c.title)}"></progress></div>`}
 function renderEditorProgress(){if(!hub.editing)return;const checklist=Object.fromEntries([...$('#contentChecklist').querySelectorAll('[data-check]')].map(el=>[el.dataset.check,el.checked])),{done,total,percent}=productionProgress(checklist);$('#editorProgressText').textContent=`${done}/${total} · ${percent}%`;$('#editorProgressBar').value=percent;$('#editorProgress').classList.toggle('is-complete',percent===100);const next=Object.keys(CHECK_NAMES).find(key=>!checklist[key]);$('#editorNextStep').textContent=next?'Berikutnya: '+CHECK_NAMES[next]:'Semua checklist produksi selesai.'}

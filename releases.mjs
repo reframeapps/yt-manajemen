@@ -1,6 +1,11 @@
-export const APP_VERSION='4.70.0';
+export const APP_VERSION='4.71.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.71.0',date:'2026-11-02',title:'Fitur Unduh Transkrip Video & Naskah Format .txt',changes:[
+    {type:'feature',title:'Tombol Unduh Transkrip .txt pada Modal Transkrip Video',desc:'Menambahkan tombol "💾 Unduh .txt" langsung pada baris aksi utama dan toolbar modal transkrip. File .txt terstruktur rapi dilengkapi metadata video (Judul, Kreator, Platform, Durasi, Total Kata, URL Sumber, Waktu Ekstraksi) dan mendukung dua mode unduhan: Dengan Waktu [MM:SS] maupun Paragraf Bersih.'},
+    {type:'feature',title:'Tombol Unduh Naskah .txt pada Editor Konten',desc:'Menambahkan tombol "💾 Unduh .txt" pada panel Script editor konten untuk mengekspor naskah lengkap ke file teks lokal dengan penamaan file otomatis yang aman dan rapi.'},
+    {type:'feature',title:'Endpoint Server Ekspor Transkrip /api/radar/transcript/download',desc:'Menyediakan endpoint download transkrip server-side dengan header Content-Disposition attachment untuk mendukung unduhan langsung via API maupun browser.'}
+  ]},
   {version:'4.70.0',date:'2026-11-01',title:'Resolusi Cache Browser Publikasi & Validasi Instan Link Threads.com',changes:[
     {type:'fix',title:'Eliminasi Cache Stale Browser pada Modul Publikasi Link',desc:'Menambahkan query versioning eksplisit pada import internal publication-links.mjs serta mengonfigurasi header cache server menjadi no-cache, must-revalidate dengan ETag sehingga browser selalu memuat logika deteksi link terbaru tanpa tertahan cache disk.'},
     {type:'fix',title:'Verifikasi Penuh Link Threads.com',desc:'Memastikan URL threads.com (seperti tautan profil/postingan yang ditempel pengguna) langsung terdeteksi valid sebagai platform Threads, dinormalisasi ke www.threads.net, dan tombol Tambahkan aktif tanpa pesan error platform belum didukung.'}

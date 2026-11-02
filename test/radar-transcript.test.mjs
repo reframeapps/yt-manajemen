@@ -20,7 +20,9 @@ import {
   parseCustomTranscriptText,
   resolveRedirectUrl,
   transcribeAudioWithWhisper,
-  extractSocialTranscript
+  extractSocialTranscript,
+  formatTranscriptFilename,
+  generateTranscriptTxtFile
 } from '../radar-transcript.mjs';
 
 test('formatTimestamp accurately handles milliseconds, minutes, and hours', () => {
@@ -374,4 +376,45 @@ test('extractSocialTranscript falls back to caption when audio has no speech or 
   } finally {
     if (oldGroq) process.env.GROQ_API_KEY = oldGroq;
   }
+});
+
+test('formatTranscriptFilename produces safe and clean filename', () => {
+  assert.equal(formatTranscriptFilename('Mengapa Mobil Listrik Sepi Peminat? (Kasus Indonesia)'), 'transkrip-mengapa-mobil-listrik-sepi-peminat-kasus-indonesia.txt');
+  assert.equal(formatTranscriptFilename(''), 'transkrip-transkrip-video.txt');
+  assert.equal(formatTranscriptFilename('Video #1: Heboh 100% Viral!'), 'transkrip-video-1-heboh-100-viral.txt');
+});
+
+test('generateTranscriptTxtFile produces structured text file for both timed and clean modes', () => {
+  const sample = {
+    title: 'Investigasi Skandal Subsidi Energi',
+    channelName: 'Kanal Investigasi',
+    platform: 'tiktok',
+    durationFormatted: '02:30',
+    wordCount: 350,
+    url: 'https://tiktok.com/@kanal/video/12345',
+    paragraphs: [
+      { timestamp: '00:00', text: 'Siapa yang sebenarnya diuntungkan dari alokasi subsidi ini?' },
+      { timestamp: '00:45', text: 'Fakta di lapangan menunjukkan ketimpangan distribusi di wilayah timur.' }
+    ]
+  };
+
+  // Timed mode output
+  const timedTxt = generateTranscriptTxtFile(sample, { mode: 'timed' });
+  assert.ok(timedTxt.includes('TRANSKRIP VIDEO: Investigasi Skandal Subsidi Energi'));
+  assert.ok(timedTxt.includes('Platform          : TIKTOK'));
+  assert.ok(timedTxt.includes('Kreator / Channel : Kanal Investigasi'));
+  assert.ok(timedTxt.includes('Durasi            : 02:30'));
+  assert.ok(timedTxt.includes('URL Sumber        : https://tiktok.com/@kanal/video/12345'));
+  assert.ok(timedTxt.includes('--- [BAGIAN 1] TRANSKRIP DENGAN TIMESTAMPS ---'));
+  assert.ok(timedTxt.includes('[00:00] Siapa yang sebenarnya diuntungkan'));
+  assert.ok(timedTxt.includes('--- [BAGIAN 2] NASKAH BERSIH (PARAGRAF LENGKAP) ---'));
+  assert.ok(timedTxt.includes('Fakta di lapangan menunjukkan ketimpangan'));
+
+  // Clean mode output
+  const cleanTxt = generateTranscriptTxtFile(sample, { mode: 'clean' });
+  assert.ok(cleanTxt.includes('TRANSKRIP VIDEO: Investigasi Skandal Subsidi Energi'));
+  assert.ok(cleanTxt.includes('Format File       : Paragraf Bersih (Tanpa Timestamp)'));
+  assert.ok(!cleanTxt.includes('--- [BAGIAN 1]'));
+  assert.ok(!cleanTxt.includes('[00:00]'));
+  assert.ok(cleanTxt.includes('Siapa yang sebenarnya diuntungkan dari alokasi subsidi ini?'));
 });

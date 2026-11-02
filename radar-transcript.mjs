@@ -1172,3 +1172,79 @@ Estimasi Durasi: ${scriptData.estimatedDurationMin || (scriptData.format === 'sh
     content: newContent
   };
 }
+
+export function formatTranscriptFilename(title, ext = 'txt') {
+  const clean = (title || 'transkrip-video')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 50) || 'transkrip-video';
+  return `transkrip-${clean}.${(ext || 'txt').replace(/^\./, '')}`;
+}
+
+export function generateTranscriptTxtFile(transcript, { mode = 'timed' } = {}) {
+  if (!transcript || typeof transcript !== 'object') {
+    throw Object.assign(new Error('Data transkrip tidak valid.'), { status: 400 });
+  }
+
+  const title = (transcript.title || 'Transkrip Video').trim();
+  const channel = (transcript.channelName || 'Kreator').trim();
+  const platform = (transcript.platform || 'Sosmed').toUpperCase();
+  const duration = transcript.durationFormatted || '-';
+  const words = transcript.wordCount || (transcript.fullText ? transcript.fullText.split(/\s+/).filter(Boolean).length : 0);
+  const url = transcript.url || '-';
+  const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+
+  const divider = '='.repeat(70);
+  const subDivider = '-'.repeat(70);
+
+  const paragraphs = Array.isArray(transcript.paragraphs) && transcript.paragraphs.length
+    ? transcript.paragraphs
+    : (Array.isArray(transcript.segments) && transcript.segments.length
+      ? transcript.segments
+      : [{ timestamp: '00:00', text: transcript.fullText || '' }]);
+
+  const timedBody = paragraphs.map(p => `[${p.timestamp || '00:00'}] ${p.text || ''}`).join('\r\n\r\n');
+  const cleanBody = paragraphs.map(p => p.text || '').join('\r\n\r\n');
+
+  const lines = [
+    divider,
+    `TRANSKRIP VIDEO: ${title}`,
+    divider,
+    `Kreator / Channel : ${channel}`,
+    `Platform          : ${platform}`,
+    `Durasi            : ${duration}`,
+    `Total Kata        : ${words} kata`,
+    `URL Sumber        : ${url}`,
+    `Waktu Unduh       : ${now} WIB`,
+    `Format File       : ${mode === 'clean' ? 'Paragraf Bersih (Tanpa Timestamp)' : 'Dengan Penanda Waktu [MM:SS] & Naskah Bersih'}`,
+    divider,
+    ''
+  ];
+
+  if (mode === 'clean') {
+    lines.push(cleanBody);
+  } else {
+    lines.push(
+      '--- [BAGIAN 1] TRANSKRIP DENGAN TIMESTAMPS ---',
+      '',
+      timedBody,
+      '',
+      subDivider,
+      '--- [BAGIAN 2] NASKAH BERSIH (PARAGRAF LENGKAP) ---',
+      '',
+      cleanBody
+    );
+  }
+
+  lines.push(
+    '',
+    divider,
+    'YouTube Content Hub — Editorial Radar Reframe',
+    divider
+  );
+
+  return lines.join('\r\n');
+}

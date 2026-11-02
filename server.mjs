@@ -45,7 +45,9 @@ import {
   synthesizeIdeaFromTranscript,
   synthesizeScriptFromTranscript,
   saveTranscriptIdeaToKanban,
-  saveTranscriptScriptToKanban
+  saveTranscriptScriptToKanban,
+  generateTranscriptTxtFile,
+  formatTranscriptFilename
 } from './radar-transcript.mjs';
 import { generateThumbnailAndSeo } from './thumbnail-seo.mjs';
 
@@ -1208,6 +1210,34 @@ const server = http.createServer(async (req, res) => {
         return json(res,200,{ok:true,transcript},{'cache-control':'no-store'});
       }catch(e){
         return json(res,e.status||400,{ok:false,error:e.message},{'cache-control':'no-store'});
+      }
+    }
+    if(pathname==='/api/radar/transcript/download'&&(req.method==='GET'||req.method==='POST')){
+      try{
+        let transcript=null,mode='timed';
+        if(req.method==='POST'){
+          const body=await readJson(req);
+          mode=body.mode||'timed';
+          if(body.transcript)transcript=body.transcript;
+          else if(body.text)transcript=parseCustomTranscriptText(body.text,body);
+          else if(body.videoId||body.url)transcript=await extractSocialTranscript(body.videoId||body.url);
+        }else{
+          const videoId=u.searchParams.get('videoId')||u.searchParams.get('url');
+          mode=u.searchParams.get('mode')||'timed';
+          if(videoId)transcript=await extractSocialTranscript(videoId);
+        }
+        if(!transcript)return json(res,400,{ok:false,error:'Transkrip tidak ditemukan.'});
+        const txt=generateTranscriptTxtFile(transcript,{mode});
+        const filename=formatTranscriptFilename(transcript.title||'video');
+        res.writeHead(200,{
+          'content-type':'text/plain; charset=utf-8',
+          'content-disposition':`attachment; filename="${filename}"`,
+          'cache-control':'no-store'
+        });
+        res.end(txt);
+        return;
+      }catch(e){
+        return json(res,e.status||500,{ok:false,error:e.message},{'cache-control':'no-store'});
       }
     }
     if(pathname==='/api/radar/transcript/idea'&&req.method==='POST'){

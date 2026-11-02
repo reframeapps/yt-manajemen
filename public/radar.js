@@ -663,6 +663,89 @@ async function radarOpenTranscriptModal(channelId, videoId) {
   }
 }
 
+function formatTranscriptDownloadFilename(title, ext = 'txt') {
+  const clean = (title || 'transkrip-video')
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .slice(0, 50) || 'transkrip-video';
+  return `transkrip-${clean}.${ext.replace(/^\./, '')}`;
+}
+
+function generateClientTranscriptTxt(t, videoInfo, mode = 'timed') {
+  const title = (videoInfo?.title || t.title || 'Transkrip Video').trim();
+  const channel = (videoInfo?.channelName || t.channelName || 'Kreator').trim();
+  const platform = (t.platform || videoInfo?.platform || 'Sosmed').toUpperCase();
+  const duration = t.durationFormatted || '-';
+  const words = t.wordCount || (t.fullText ? t.fullText.split(/\s+/).filter(Boolean).length : 0);
+  const url = videoInfo?.url || t.url || '-';
+  const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+
+  const divider = '='.repeat(70);
+  const subDivider = '-'.repeat(70);
+
+  const paragraphs = Array.isArray(t.paragraphs) && t.paragraphs.length
+    ? t.paragraphs
+    : (Array.isArray(t.segments) && t.segments.length
+      ? t.segments
+      : [{ timestamp: '00:00', text: t.fullText || '' }]);
+
+  const timedBody = paragraphs.map(p => `[${p.timestamp || '00:00'}] ${p.text || ''}`).join('\r\n\r\n');
+  const cleanBody = paragraphs.map(p => p.text || '').join('\r\n\r\n');
+
+  const lines = [
+    divider,
+    `TRANSKRIP VIDEO: ${title}`,
+    divider,
+    `Kreator / Channel : ${channel}`,
+    `Platform          : ${platform}`,
+    `Durasi            : ${duration}`,
+    `Total Kata        : ${words} kata`,
+    `URL Sumber        : ${url}`,
+    `Waktu Unduh       : ${now} WIB`,
+    `Format File       : ${mode === 'clean' ? 'Paragraf Bersih (Tanpa Timestamp)' : 'Dengan Penanda Waktu [MM:SS] & Naskah Bersih'}`,
+    divider,
+    ''
+  ];
+
+  if (mode === 'clean') {
+    lines.push(cleanBody);
+  } else {
+    lines.push(
+      '--- [BAGIAN 1] TRANSKRIP DENGAN TIMESTAMPS ---',
+      '',
+      timedBody,
+      '',
+      subDivider,
+      '--- [BAGIAN 2] NASKAH BERSIH (PARAGRAF LENGKAP) ---',
+      '',
+      cleanBody
+    );
+  }
+
+  lines.push(
+    '',
+    divider,
+    'YouTube Content Hub — Editorial Radar Reframe',
+    divider
+  );
+
+  return lines.join('\r\n');
+}
+
+function downloadBlobTextFile(filename, content) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function radarRenderTranscriptView(t, videoInfo, options = {}) {
   const box = document.getElementById('radarTranscriptModalBox');
   if (!box) return;
@@ -698,6 +781,7 @@ function radarRenderTranscriptView(t, videoInfo, options = {}) {
       <button class="btn" id="btnGenLongScriptDirect" title="Susun naskah investigasi panjang 12–16 menit">📹 Naskah Video Panjang</button>
       <button class="btn" id="btnGenThumbnailFromTranscript" title="Rancang judul 3 kata & konsep thumbnail visual Magnets Media">🎨 Thumbnail & SEO</button>
       <button class="btn" id="btnCopyTranscriptText" title="Salin seluruh transkrip ke clipboard">📋 Salin Transkrip</button>
+      <button class="btn" id="btnDownloadTranscriptTxt" style="background:#0f766e;color:#fff;border-color:#0d9488;" title="Unduh seluruh transkrip dalam format file .txt">💾 Unduh .txt</button>
       ${options.onApplyScript ? `<button class="btn primary" id="btnApplyTranscriptDirect" title="Salin teks ini langsung ke editor naskah aktif">📥 Masukkan ke Editor Naskah</button>` : ''}
       <button class="btn" id="btnAddToRadarIssue" title="Tambahkan video ini sebagai sumber ke ruang riset Radar">➕ Tambah ke Riset Radar</button>
     </div>
@@ -709,6 +793,7 @@ function radarRenderTranscriptView(t, videoInfo, options = {}) {
       <div class="radar-transcript-view-toggles">
         <button class="btn mini active" id="btnViewTimed">Dengan Waktu [MM:SS]</button>
         <button class="btn mini" id="btnViewClean">Paragraf Bersih</button>
+        <button class="btn mini" id="btnQuickDownloadTxt" style="margin-left:4px;" title="Unduh file .txt sesuai tampilan">💾 Unduh .txt</button>
       </div>
     </div>
 
@@ -733,6 +818,23 @@ function radarRenderTranscriptView(t, videoInfo, options = {}) {
       });
     };
   }
+
+  const handleDownloadTranscriptTxt = () => {
+    try {
+      const content = generateClientTranscriptTxt(t, videoInfo, currentMode);
+      const filename = formatTranscriptDownloadFilename(videoInfo.title || t.title);
+      downloadBlobTextFile(filename, content);
+      toast(`Transkrip berhasil diunduh (${filename})`);
+    } catch (e) {
+      toast('Gagal mengunduh transkrip: ' + (e.message || 'Error'));
+    }
+  };
+
+  const dlBtn = box.querySelector('#btnDownloadTranscriptTxt');
+  if (dlBtn) dlBtn.onclick = handleDownloadTranscriptTxt;
+
+  const quickDlBtn = box.querySelector('#btnQuickDownloadTxt');
+  if (quickDlBtn) quickDlBtn.onclick = handleDownloadTranscriptTxt;
 
   const addRadarBtn = box.querySelector('#btnAddToRadarIssue');
   if (addRadarBtn) {
