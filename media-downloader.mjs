@@ -532,8 +532,10 @@ export async function streamMediaDownload(req, res, { url, quality = 'best', tit
   if (directInfo && directInfo.directUrl) {
     try {
       const abortCtrl = new AbortController();
-      req.on('close', () => abortCtrl.abort());
-      req.on('aborted', () => abortCtrl.abort());
+      const onReqClose = () => {
+        try { abortCtrl.abort(); } catch {}
+      };
+      req.once('close', onReqClose);
 
       const upstreamRes = await fetch(directInfo.directUrl, {
         headers: {
@@ -559,10 +561,13 @@ export async function streamMediaDownload(req, res, { url, quality = 'best', tit
       if (upstreamLength) headers['Content-Length'] = upstreamLength;
 
       res.writeHead(200, headers);
-      Readable.fromWeb(upstreamRes.body).pipe(res);
+      const nodeStream = Readable.fromWeb(upstreamRes.body);
+      nodeStream.on('error', () => {});
+      res.on('error', () => {});
+      nodeStream.pipe(res);
       return;
     } catch (e) {
-      if (req.destroyed) return;
+      if (req.destroyed || res.writableEnded) return;
       // Fall through to yt-dlp pipeline if direct CDN fetch fails
     }
   }
@@ -590,6 +595,7 @@ export async function streamMediaDownload(req, res, { url, quality = 'best', tit
 
   req.on('close', cleanup);
   req.on('aborted', cleanup);
+  res.on('error', () => {});
 
   if (isAudio) {
     // AUDIO PIPELINE: yt-dlp -> ffmpeg -> res
