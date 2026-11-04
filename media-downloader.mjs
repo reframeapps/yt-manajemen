@@ -661,6 +661,11 @@ export async function streamMediaDownload(req, res, { url, quality = 'best', tit
       res.write(chunk);
     });
 
+    childYtDlp.stdout.on('error', () => {});
+    childFfmpeg.stdin.on('error', () => {});
+    childFfmpeg.stdout.on('error', () => {});
+    res.on('error', () => {});
+
     childYtDlp.stdout.pipe(childFfmpeg.stdin);
     childFfmpeg.stdout.pipe(res);
 
@@ -725,6 +730,8 @@ export async function streamMediaDownload(req, res, { url, quality = 'best', tit
     res.write(chunk);
   });
 
+  childYtDlp.stdout.on('error', () => {});
+  res.on('error', () => {});
   childYtDlp.stdout.pipe(res);
 
   childYtDlp.on('error', err => {
