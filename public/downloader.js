@@ -50,7 +50,10 @@
   window.renderDownloader = function(body) {
     if (!state.cookiesLoaded) {
       loadCookiesStatus().then(() => {
-        window.renderDownloader(body);
+        if (typeof hub !== 'undefined' && hub.view === 'downloader') {
+          const curBody = document.querySelector('#hubBody');
+          if (curBody) window.renderDownloader(curBody);
+        }
       });
     }
 

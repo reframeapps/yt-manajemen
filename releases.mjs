@@ -1,6 +1,10 @@
-export const APP_VERSION='4.73.0';
+export const APP_VERSION='4.74.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.74.0',date:'2026-11-04',title:'Perbaikan Routing Aset Statis Frontend Downloader Sosmed',changes:[
+    {type:'fix',title:'Pendaftaran downloader.js & downloader.css pada STATIC_FILES Server',desc:'Mendaftarkan file downloader.js dan downloader.css ke dalam set STATIC_FILES pada server.mjs sehingga browser dapat memuat modul client Downloader Sosmed secara sempurna tanpa status 404 Not Found.'},
+    {type:'fix',title:'Resolusi Konflik Tampilan View Note pada Halaman Downloader',desc:'Menghilangkan bug di mana klik menu Downloader Sosmed tidak me-render antarmuka karena kegagalan pemuatan script downloader.js, memastikan form input link video, preview card, dan opsi format muncul seketika.'}
+  ]},
   {version:'4.73.0',date:'2026-11-04',title:'Penyempurnaan Engine TikTok No Watermark, Manajer Cookies Server, dan Streaming Direct Pipe',changes:[
     {type:'feature',title:'Integrasi Engine TikWM API TikTok Tanpa Watermark',desc:'Mengintegrasikan engine TikWM berkecepatan tinggi yang lolos 100% dari proteksi WAF/IP datacenter TikTok. Menghasilkan unduhan MP4 HD bersih tanpa watermark TikTok, resolusi Full HD, serta audio MP3 original secara instan.'},
     {type:'feature',title:'Panel Interaktif Kelola Cookies Server & Endpoint API',desc:'Menyediakan tombol "Kelola Cookies" pada halaman Downloader dan endpoint /api/download/cookies (GET/POST/DELETE). Pengguna dapat langsung menempel atau mengunggah file cookies.txt dari ekstensi browser untuk bypass bot-check dan mengunduh video dibatasi umur atau Instagram Reels.'},

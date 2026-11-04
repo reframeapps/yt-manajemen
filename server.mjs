@@ -871,7 +871,8 @@ const STATIC_FILES = new Set([
   'updates.js', 'storage.css', 'radar.js', 'radar.css', 'script-format.js', 'writing.css',
   'preferences.js', 'preferences.css', 'hub-teleprompter.js', 'teleprompter.html',
   'teleprompter.js', 'radar-trends.js', 'storyboard.js', 'storyboard.css',
-  'publication-links.mjs', 'publication-links-ui.js', 'radar-social.js'
+  'publication-links.mjs', 'publication-links-ui.js', 'radar-social.js',
+  'downloader.js', 'downloader.css'
 ]);
 
 async function getStaticAsset(rel) {
