@@ -883,3 +883,56 @@
 .downloader-btn-danger:hover {
   background: #fee2e2;
 }
+
+/* High Definition Highlights (1080p & 720p) */
+.format-btn-1080p {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  border: 1.5px solid #3b82f6;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.format-btn-1080p:hover:not(:disabled) {
+  border-color: #1d4ed8;
+  background: #dbeafe;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2);
+}
+
+.format-btn-720p {
+  background: #f8fafc;
+  border: 1.5px solid #94a3b8;
+}
+
+.format-btn-720p:hover:not(:disabled) {
+  border-color: #2563eb;
+  background: #f1f5f9;
+}
+
+.format-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+
+.format-hd-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.format-hd-badge.badge-1080 {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
+}
+
+.format-hd-badge.badge-720 {
+  background: #059669;
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(5, 150, 105, 0.3);
+}
+

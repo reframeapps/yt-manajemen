@@ -212,11 +212,14 @@
             ${info.formats.map(f => {
               const isAudio = f.type === 'audio';
               const isDownloading = state.downloadingId === f.id;
+              const is1080 = f.id === '1080p';
+              const is720 = f.id === '720p';
+              const btnClass = `format-btn ${isAudio ? 'audio-btn' : ''} ${is1080 ? 'format-btn-1080p' : ''} ${is720 ? 'format-btn-720p' : ''} ${isDownloading ? 'active-downloading' : ''}`.trim();
 
               return `
                 <button 
                   type="button" 
-                  class="format-btn ${isAudio ? 'audio-btn' : ''} ${isDownloading ? 'active-downloading' : ''}" 
+                  class="${btnClass}" 
                   data-download-format="${f.id}"
                   ${isDownloading ? 'disabled' : ''}
                 >
@@ -224,7 +227,11 @@
                     <span class="format-res">${f.label}</span>
                     <span class="format-type-pill">${f.ext.toUpperCase()}</span>
                   </div>
-                  <span class="format-note">${f.qualityNote || f.resolution}</span>
+                  <div class="format-sub-row">
+                    <span class="format-note">${f.qualityNote || f.resolution}</span>
+                    ${is1080 ? '<span class="format-hd-badge badge-1080">★ FULL HD</span>' : ''}
+                    ${is720 ? '<span class="format-hd-badge badge-720">★ HD OPTIMAL</span>' : ''}
+                  </div>
                   <div class="format-action">
                     ${isDownloading ? '⏳ Menyiapkan file…' : (window.hubIcon ? window.hubIcon('download') : '⬇') + ' Unduh ' + f.ext.toUpperCase()}
                   </div>

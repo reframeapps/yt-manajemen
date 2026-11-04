@@ -1,6 +1,12 @@
-export const APP_VERSION='4.74.0';
+export const APP_VERSION='4.75.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.75.0',date:'2026-11-04',title:'Peningkatan Resolusi Video Downloader: Dukungan Penuh 1080p Full HD & 720p HD dengan Universal Remux AAC',changes:[
+    {type:'fix',title:'Eliminasi Throttling SABR YouTube Android Client (Resolusi Mentok 360p Teratasi)',desc:'Menghapus argumen player_client=android yang memicu error SABR-only streaming pada YouTube dan memaksa yt-dlp jatuh ke legacy format 18 (360p). yt-dlp kini mengekstrak seluruh stream terpisah DASH Full HD (1080p) dan HD (720p) dengan sempurna.'},
+    {type:'feature',title:'Cross-Orientation Selector (Dukungan Resolusi Video Horizontal & Vertikal)',desc:'Mengimplementasikan format selector cerdas yang memperhitungkan dimensi horizontal (height <= 1080/720) maupun vertikal portrait (width <= 1080/720). Konten YouTube Shorts, Instagram Reels, dan TikTok kini selalu diunduh dengan kualitas maksimal HD (720p/1080p) tanpa penurunan resolusi.'},
+    {type:'feature',title:'Universal AAC Audio Remuxing ke Fragmented MP4',desc:'Menyematkan konfigurasi FFmpeg -f mp4 -movflags frag_keyframe+empty_moov+default_base_moof -c:a aac pada streaming stdout sehingga audio Opus/WebM ditranskode ke AAC universal secara real-time di dalam kontainer fragmented MP4. Video 1080p dan 720p dapat langsung diputar dengan suara jernih di semua pemutar media.'},
+    {type:'ui',title:'Highlight Lencana Format HD pada Tampilan Pilihan Unduhan',desc:'Memperbarui antarmuka pilihan unduhan dengan lencana khusus "★ FULL HD" dan "★ HD OPTIMAL", menyajikan opsi kualitas tertinggi di posisi teratas secara default.'}
+  ]},
   {version:'4.74.0',date:'2026-11-04',title:'Perbaikan Routing Aset Statis Frontend Downloader Sosmed',changes:[
     {type:'fix',title:'Pendaftaran downloader.js & downloader.css pada STATIC_FILES Server',desc:'Mendaftarkan file downloader.js dan downloader.css ke dalam set STATIC_FILES pada server.mjs sehingga browser dapat memuat modul client Downloader Sosmed secara sempurna tanpa status 404 Not Found.'},
     {type:'fix',title:'Resolusi Konflik Tampilan View Note pada Halaman Downloader',desc:'Menghilangkan bug di mana klik menu Downloader Sosmed tidak me-render antarmuka karena kegagalan pemuatan script downloader.js, memastikan form input link video, preview card, dan opsi format muncul seketika.'}

@@ -256,17 +256,17 @@ export async function fetchTikTokTikWm(url) {
 
   // Cache direct URLs for 1 hour
   const expiresAt = Date.now() + 60 * 60 * 1000;
-  const noWatermarkUrl = item.play || item.hdplay;
-  const hdWatermarkUrl = item.hdplay || item.play;
+  const hdNoWatermarkUrl = item.hdplay || item.play;
+  const stdNoWatermarkUrl = item.play || item.hdplay;
   const audioUrl = item.music;
   const withWatermarkUrl = item.wmplay;
 
-  if (noWatermarkUrl) {
-    directStreamCache.set(`${cleanUrl}::best`, { directUrl: noWatermarkUrl, expiresAt });
-    directStreamCache.set(`${cleanUrl}::720p`, { directUrl: noWatermarkUrl, expiresAt });
+  if (hdNoWatermarkUrl) {
+    directStreamCache.set(`${cleanUrl}::1080p`, { directUrl: hdNoWatermarkUrl, expiresAt });
+    directStreamCache.set(`${cleanUrl}::best`, { directUrl: hdNoWatermarkUrl, expiresAt });
   }
-  if (hdWatermarkUrl) {
-    directStreamCache.set(`${cleanUrl}::1080p`, { directUrl: hdWatermarkUrl, expiresAt });
+  if (stdNoWatermarkUrl) {
+    directStreamCache.set(`${cleanUrl}::720p`, { directUrl: stdNoWatermarkUrl, expiresAt });
   }
   if (audioUrl) {
     directStreamCache.set(`${cleanUrl}::mp3`, { directUrl: audioUrl, expiresAt });
@@ -277,26 +277,24 @@ export async function fetchTikTokTikWm(url) {
 
   const formats = [];
   formats.push({
-    id: 'best',
-    label: 'No Watermark HD (MP4)',
-    resolution: 'HD No Watermark',
+    id: '1080p',
+    label: '1080p Full HD No Watermark',
+    resolution: '1080p Full HD',
     ext: 'mp4',
     type: 'video',
-    qualityNote: 'Video jernih bersih tanpa logo watermark TikTok',
+    qualityNote: 'Kualitas video maksimal tanpa watermark TikTok',
     direct: true
   });
 
-  if (item.hdplay && item.hdplay !== item.play) {
-    formats.push({
-      id: '1080p',
-      label: 'Full HD No Watermark (MP4)',
-      resolution: '1080p HD',
-      ext: 'mp4',
-      type: 'video',
-      qualityNote: 'Kualitas video maksimal tanpa watermark',
-      direct: true
-    });
-  }
+  formats.push({
+    id: '720p',
+    label: '720p HD No Watermark',
+    resolution: '720p HD',
+    ext: 'mp4',
+    type: 'video',
+    qualityNote: 'Video jernih bersih tanpa watermark (optimal & cepat)',
+    direct: true
+  });
 
   if (item.music) {
     formats.push({
@@ -305,7 +303,7 @@ export async function fetchTikTokTikWm(url) {
       resolution: 'Audio only',
       ext: 'mp3',
       type: 'audio',
-      qualityNote: 'Suara jernih / sound lagu asli',
+      qualityNote: 'Suara jernih / sound lagu asli TikTok',
       direct: true
     });
   }
@@ -317,7 +315,7 @@ export async function fetchTikTokTikWm(url) {
       resolution: 'Original with Watermark',
       ext: 'mp4',
       type: 'video',
-      qualityNote: 'Format asli beserta watermark TikTok',
+      qualityNote: 'Format asli beserta logo watermark TikTok',
       direct: true
     });
   }
@@ -361,7 +359,6 @@ export async function fetchYtDlpInfo(url, options = {}) {
     '--no-playlist',
     '--skip-download',
     '--js-runtimes', `node:${nodeBin}`,
-    '--extractor-args', 'youtube:player_client=android,web',
     '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
   ];
 
@@ -415,37 +412,88 @@ export async function fetchYtDlpInfo(url, options = {}) {
         const duration = Math.floor(Number(data.duration) || 0);
         const durationFormatted = formatDuration(duration);
 
-        // Determine available resolutions
+        // Determine available resolutions (support both horizontal & vertical videos)
         const rawFormats = Array.isArray(data.formats) ? data.formats : [];
         let maxHeight = 0;
         for (const f of rawFormats) {
           const h = Number(f.height) || 0;
-          if (h > maxHeight && f.vcodec !== 'none') {
-            maxHeight = h;
+          const w = Number(f.width) || 0;
+          const id = String(f.format_id || '').toLowerCase();
+          const note = String(f.format_note || '').toLowerCase();
+
+          let inferredH = h;
+          // In vertical video (Shorts, Reels), width is e.g. 1080, height is 1920
+          if (w >= 1080 || h >= 1080 || id.includes('1080') || note.includes('1080')) {
+            inferredH = Math.max(inferredH, 1080);
+          } else if (w >= 720 || h >= 720 || id.includes('720') || note.includes('720') || id.includes('hd') || note.includes('hd')) {
+            inferredH = Math.max(inferredH, 720);
+          } else if (w >= 480 || h >= 480 || id.includes('480') || note.includes('480') || id.includes('sd') || note.includes('sd')) {
+            inferredH = Math.max(inferredH, 480);
+          }
+
+          if (inferredH > maxHeight && f.vcodec !== 'none') {
+            maxHeight = inferredH;
           }
         }
 
-        const formatOptions = [];
-        if (maxHeight >= 1080) {
-          formatOptions.push({ id: '1080p', label: '1080p Full HD', resolution: '1080p', ext: 'mp4', type: 'video', qualityNote: 'Kualitas tertinggi (HD)' });
-        }
-        if (maxHeight >= 720) {
-          formatOptions.push({ id: '720p', label: '720p HD', resolution: '720p', ext: 'mp4', type: 'video', qualityNote: 'Kualitas standar jernih' });
-        }
-        if (maxHeight >= 480) {
-          formatOptions.push({ id: '480p', label: '480p SD', resolution: '480p', ext: 'mp4', type: 'video', qualityNote: 'Kualitas hemat kuota' });
-        }
-        if (maxHeight >= 360 && maxHeight < 480) {
-          formatOptions.push({ id: '360p', label: '360p', resolution: '360p', ext: 'mp4', type: 'video', qualityNote: 'Ukuran ringan' });
-        }
+        const rootH = Number(data.height) || 0;
+        const rootW = Number(data.width) || 0;
+        if (rootH > maxHeight) maxHeight = rootH;
+        if (rootW >= 1080 && maxHeight < 1080) maxHeight = 1080;
+        else if (rootW >= 720 && maxHeight < 720) maxHeight = 720;
 
-        // If no specific height detected, provide Best Video
-        if (formatOptions.length === 0) {
-          formatOptions.push({ id: 'best', label: 'Resolusi Terbaik (Auto)', resolution: 'Best HD', ext: 'mp4', type: 'video', qualityNote: 'Format optimal platform' });
+        const formatOptions = [];
+        // Maximize resolution: default to Full HD 1080p and HD 720p at the top
+        if (maxHeight >= 1080 || maxHeight === 0) {
+          formatOptions.push({
+            id: '1080p',
+            label: '1080p Full HD (Maksimal)',
+            resolution: '1080p Full HD',
+            ext: 'mp4',
+            type: 'video',
+            qualityNote: 'Kualitas terbaik jernih maksimal (1080p MP4)'
+          });
+        }
+        if (maxHeight >= 720 || maxHeight === 0) {
+          formatOptions.push({
+            id: '720p',
+            label: '720p HD (Optimal)',
+            resolution: '720p HD',
+            ext: 'mp4',
+            type: 'video',
+            qualityNote: 'Kualitas standar jernih & seimbang'
+          });
+        }
+        if (maxHeight >= 480 || maxHeight === 0) {
+          formatOptions.push({
+            id: '480p',
+            label: '480p SD (Hemat Data)',
+            resolution: '480p SD',
+            ext: 'mp4',
+            type: 'video',
+            qualityNote: 'Ukuran file lebih kecil & hemat kuota'
+          });
+        }
+        if (maxHeight > 0 && maxHeight < 480) {
+          formatOptions.push({
+            id: '360p',
+            label: '360p (Kualitas Asli)',
+            resolution: '360p',
+            ext: 'mp4',
+            type: 'video',
+            qualityNote: 'Format maksimal yang disediakan pengunggah'
+          });
         }
 
         // Audio MP3 option
-        formatOptions.push({ id: 'mp3', label: 'Audio MP3', resolution: 'Audio only', ext: 'mp3', type: 'audio', qualityNote: 'Hanya suara / musik jernih' });
+        formatOptions.push({
+          id: 'mp3',
+          label: 'Audio MP3 (Jernih 192k)',
+          resolution: 'Audio only',
+          ext: 'mp3',
+          type: 'audio',
+          qualityNote: 'Hanya suara musik / narasi kualitas tinggi'
+        });
 
         resolve({
           ok: true,
@@ -603,7 +651,6 @@ export async function streamMediaDownload(req, res, { url, quality = 'best', tit
       '--no-warnings',
       '--no-playlist',
       '--js-runtimes', `node:${nodeBin}`,
-      '--extractor-args', 'youtube:player_client=android,web',
       '-f', 'ba/b',
       '-o', '-'
     ];
@@ -681,24 +728,25 @@ export async function streamMediaDownload(req, res, { url, quality = 'best', tit
   }
 
   // VIDEO STREAMING PIPELINE: yt-dlp -> res
-  let formatSelector = 'bestvideo+bestaudio/best';
+  // Support both horizontal (height-based) and vertical (width-based, e.g. Shorts/Reels/TikTok)
+  // Prioritize native MP4/M4A muxing with fallback to best formats + AAC universal audio transcode
+  let formatSelector = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best';
   if (quality === '1080p') {
-    formatSelector = 'bestvideo[height<=1080]+bestaudio/best[height<=1080]/best';
+    formatSelector = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[width<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=1080]+bestaudio/bestvideo[width<=1080]+bestaudio/bestvideo+bestaudio/best';
   } else if (quality === '720p') {
-    formatSelector = 'bestvideo[height<=720]+bestaudio/best[height<=720]/best';
+    formatSelector = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[width<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/bestvideo[width<=720]+bestaudio/bestvideo+bestaudio/best';
   } else if (quality === '480p') {
-    formatSelector = 'bestvideo[height<=480]+bestaudio/best[height<=480]/best';
+    formatSelector = 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[width<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/bestvideo[width<=480]+bestaudio/bestvideo+bestaudio/best';
   } else if (quality === '360p') {
-    formatSelector = 'bestvideo[height<=360]+bestaudio/best[height<=360]/best';
+    formatSelector = 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[width<=360][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=360]+bestaudio/bestvideo[width<=360]+bestaudio/best';
   }
 
   const ytArgs = [
     '--no-warnings',
     '--no-playlist',
     '--js-runtimes', `node:${nodeBin}`,
-    '--extractor-args', 'youtube:player_client=android,web',
     '-f', formatSelector,
-    '--downloader-args', 'ffmpeg_o:-movflags frag_keyframe+empty_moov+default_base_moof',
+    '--downloader-args', 'ffmpeg_o:-f mp4 -movflags frag_keyframe+empty_moov+default_base_moof -c:a aac',
     '-o', '-'
   ];
 

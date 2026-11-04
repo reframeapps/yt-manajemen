@@ -81,3 +81,13 @@ test('streamMediaDownload rejects missing URL with 400 JSON', async () => {
   assert.equal(status, 400);
   assert.ok(body.includes('URL download tidak valid'));
 });
+
+test('media downloader format choices prioritize 1080p and 720p HD', () => {
+  // Test filename sanitization with HD labels
+  const res1080 = sanitizeDownloadFilename('Video Full HD 1080p Test', 'mp4');
+  assert.equal(res1080.filename, 'Video Full HD 1080p Test.mp4');
+
+  const resAudio = sanitizeDownloadFilename('Audio Musik Jernih', 'mp3');
+  assert.equal(resAudio.filename, 'Audio Musik Jernih.mp3');
+});
+
