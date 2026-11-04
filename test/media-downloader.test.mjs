@@ -1,0 +1,68 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  sanitizeDownloadFilename,
+  formatDuration,
+  mapYtDlpError,
+  findCookiesPath,
+  fetchMediaInfo,
+  streamMediaDownload
+} from '../media-downloader.mjs';
+
+test('sanitizeDownloadFilename handles normal, special and unicode characters', () => {
+  const r1 = sanitizeDownloadFilename('Video Keren: Cara Cepat & Mantap! * 2026', 'mp4');
+  assert.equal(r1.filename, 'Video Keren Cara Cepat & Mantap! 2026.mp4');
+  assert.ok(r1.headerValue.includes('attachment; filename='));
+  assert.ok(r1.headerValue.includes('filename*=UTF-8\'\''));
+
+  const r2 = sanitizeDownloadFilename('', 'mp3');
+  assert.match(r2.filename, /^media_\d+\.mp3$/);
+
+  const r3 = sanitizeDownloadFilename('Jepang ラーメン & Sushi 🍣', 'mp4');
+  assert.ok(r3.headerValue.includes("UTF-8''"));
+});
+
+test('formatDuration formats seconds to mm:ss or h:mm:ss', () => {
+  assert.equal(formatDuration(0), '');
+  assert.equal(formatDuration(-10), '');
+  assert.equal(formatDuration(45), '00:45');
+  assert.equal(formatDuration(65), '01:05');
+  assert.equal(formatDuration(3600), '1:00:00');
+  assert.equal(formatDuration(3665), '1:01:05');
+});
+
+test('mapYtDlpError maps common errors to friendly Indonesian text', () => {
+  assert.match(mapYtDlpError('ERROR: This video is private'), /privat/i);
+  assert.match(mapYtDlpError('Sign in to confirm your age'), /dibatasi usia/i);
+  assert.match(mapYtDlpError('Bot detected, please sign in'), /bot check/i);
+  assert.match(mapYtDlpError('Video unavailable: not found'), /tidak ditemukan/i);
+  assert.match(mapYtDlpError('Unsupported URL: https://example.com/foo'), /tidak valid atau platform belum didukung/i);
+  assert.match(mapYtDlpError('spawn yt-dlp ENOENT'), /belum terpasang/i);
+});
+
+test('findCookiesPath returns string if file exists or null', () => {
+  const p = findCookiesPath();
+  assert.ok(p === null || typeof p === 'string');
+});
+
+test('fetchMediaInfo rejects empty URL with 400', async () => {
+  await assert.rejects(
+    async () => fetchMediaInfo(''),
+    (err) => err.status === 400 && err.message.includes('URL media wajib disertakan')
+  );
+});
+
+test('streamMediaDownload rejects missing URL with 400 JSON', () => {
+  let status = 0;
+  let headers = {};
+  let body = '';
+  const mockRes = {
+    writeHead(s, h) { status = s; headers = h; },
+    end(data) { body = data; }
+  };
+  const mockReq = { on() {} };
+
+  streamMediaDownload(mockReq, mockRes, { url: '' });
+  assert.equal(status, 400);
+  assert.ok(body.includes('URL download tidak valid'));
+});

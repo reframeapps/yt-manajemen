@@ -50,6 +50,7 @@ import {
   formatTranscriptFilename
 } from './radar-transcript.mjs';
 import { generateThumbnailAndSeo } from './thumbnail-seo.mjs';
+import { fetchMediaInfo, streamMediaDownload } from './media-downloader.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
@@ -1314,6 +1315,27 @@ const server = http.createServer(async (req, res) => {
       }catch(e){
         return json(res,e.status||502,{ok:false,error:e.message},{'cache-control':'no-store'});
       }
+    }
+    if(pathname==='/api/download/info'&&req.method==='POST'){
+      try{
+        const body=await readJson(req);
+        if(!body||!body.url||typeof body.url!=='string'||!body.url.trim()){
+          return json(res,400,{ok:false,error:'URL media wajib disertakan.'},{'cache-control':'no-store'});
+        }
+        const info=await fetchMediaInfo(body.url.trim());
+        return json(res,200,info,{'cache-control':'no-store'});
+      }catch(e){
+        return json(res,e.status||422,{ok:false,error:e.message,raw:e.raw},{'cache-control':'no-store'});
+      }
+    }
+    if(pathname==='/api/download/stream'&&req.method==='GET'){
+      const url=u.searchParams.get('url');
+      const quality=u.searchParams.get('quality')||u.searchParams.get('format')||'best';
+      const title=u.searchParams.get('title')||'';
+      if(!url){
+        return json(res,400,{ok:false,error:'Parameter link URL video wajib disertakan.'},{'cache-control':'no-store'});
+      }
+      return streamMediaDownload(req,res,{url,quality,title});
     }
     if(pathname==='/api/radar/sync'&&req.method==='POST')return json(res,200,await radarSync.sync({force:true}));
     if(pathname==='/api/radar/ai/check'&&req.method==='POST')return json(res,200,await radarAI.checkConnection(await readJson(req)));

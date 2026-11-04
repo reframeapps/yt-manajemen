@@ -1,6 +1,12 @@
-export const APP_VERSION='4.71.0';
+export const APP_VERSION='4.72.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.72.0',date:'2026-11-04',title:'Universal Social Media Downloader (YouTube, TikTok No Watermark, Instagram, X, Facebook, Threads)',changes:[
+    {type:'feature',title:'Universal Social Media Downloader Backend Engine',desc:'Mengintegrasikan yt-dlp standalone engine dan FFmpeg di VPS untuk ekstraksi metadata serta streaming pengunduhan media video/audio non-blocking. Mendukung YouTube (1080p, 720p, 480p, 360p, MP3), TikTok (No Watermark), Instagram Reels/Post, X/Twitter, Facebook, dan Threads.'},
+    {type:'feature',title:'Endpoint POST /api/download/info & GET /api/download/stream',desc:'Menyediakan endpoint POST /api/download/info untuk membaca metadata video (judul, thumbnail, author, platform, durasi, dan format resolusi yang tersedia) serta GET /api/download/stream untuk streaming transfer data langsung ke browser dengan header Content-Disposition attachment RFC 5987 dan auto-merge audio/video 1080p+ via FFmpeg.'},
+    {type:'feature',title:'Tampilan Frontend Antarmuka Downloader Sosmed',desc:'Menambahkan menu "Downloader Sosmed" pada sidebar navigasi dengan input bar tunggal, deteksi platform real-time, preview card video (thumbnail, judul, kreator, durasi, ikon platform), tombol pilihan format (1080p, 720p, 480p, MP3 audio), serta indikator status pemrosesan.'},
+    {type:'resilience',title:'Error Handling Berlapis & Dukungan cookies.txt',desc:'Menangani link privat, video dibatasi umur (age-restricted), atau link tidak valid dengan pesan ramah bahasa Indonesia. Mendukung pembacaan cookies.txt otomatis untuk mengatasi limitasi dan bot-check pada YouTube serta Instagram.'}
+  ]},
   {version:'4.71.0',date:'2026-11-02',title:'Fitur Unduh Transkrip Video & Naskah Format .txt',changes:[
     {type:'feature',title:'Tombol Unduh Transkrip .txt pada Modal Transkrip Video',desc:'Menambahkan tombol "💾 Unduh .txt" langsung pada baris aksi utama dan toolbar modal transkrip. File .txt terstruktur rapi dilengkapi metadata video (Judul, Kreator, Platform, Durasi, Total Kata, URL Sumber, Waktu Ekstraksi) dan mendukung dua mode unduhan: Dengan Waktu [MM:SS] maupun Paragraf Bersih.'},
     {type:'feature',title:'Tombol Unduh Naskah .txt pada Editor Konten',desc:'Menambahkan tombol "💾 Unduh .txt" pada panel Script editor konten untuk mengekspor naskah lengkap ke file teks lokal dengan penamaan file otomatis yang aman dan rapi.'},
