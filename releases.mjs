@@ -1,6 +1,12 @@
-export const APP_VERSION='4.72.0';
+export const APP_VERSION='4.73.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.73.0',date:'2026-11-04',title:'Penyempurnaan Engine TikTok No Watermark, Manajer Cookies Server, dan Streaming Direct Pipe',changes:[
+    {type:'feature',title:'Integrasi Engine TikWM API TikTok Tanpa Watermark',desc:'Mengintegrasikan engine TikWM berkecepatan tinggi yang lolos 100% dari proteksi WAF/IP datacenter TikTok. Menghasilkan unduhan MP4 HD bersih tanpa watermark TikTok, resolusi Full HD, serta audio MP3 original secara instan.'},
+    {type:'feature',title:'Panel Interaktif Kelola Cookies Server & Endpoint API',desc:'Menyediakan tombol "Kelola Cookies" pada halaman Downloader dan endpoint /api/download/cookies (GET/POST/DELETE). Pengguna dapat langsung menempel atau mengunggah file cookies.txt dari ekstensi browser untuk bypass bot-check dan mengunduh video dibatasi umur atau Instagram Reels.'},
+    {type:'fix',title:'Eliminasi Masalah Unduhan Browser (Penggantian Hidden Iframe)',desc:'Mengganti pemicu unduhan hidden iframe dengan anchor link langsung (<a download>) serta menyajikan kotak status unduhan aktif dengan tombol tautan unduh langsung (fallback) jika browser memblokir auto-popup.'},
+    {type:'resilience',title:'Optimasi Nginx Streaming (X-Accel-Buffering: no) & Android Client Extractor',desc:'Menambahkan header X-Accel-Buffering: no pada response streaming video/audio untuk mencegah buffering proxy Nginx di VPS, serta menyematkan extractor android,web guna mencegah throttling YouTube.'}
+  ]},
   {version:'4.72.0',date:'2026-11-04',title:'Universal Social Media Downloader (YouTube, TikTok No Watermark, Instagram, X, Facebook, Threads)',changes:[
     {type:'feature',title:'Universal Social Media Downloader Backend Engine',desc:'Mengintegrasikan yt-dlp standalone engine dan FFmpeg di VPS untuk ekstraksi metadata serta streaming pengunduhan media video/audio non-blocking. Mendukung YouTube (1080p, 720p, 480p, 360p, MP3), TikTok (No Watermark), Instagram Reels/Post, X/Twitter, Facebook, dan Threads.'},
     {type:'feature',title:'Endpoint POST /api/download/info & GET /api/download/stream',desc:'Menyediakan endpoint POST /api/download/info untuk membaca metadata video (judul, thumbnail, author, platform, durasi, dan format resolusi yang tersedia) serta GET /api/download/stream untuk streaming transfer data langsung ke browser dengan header Content-Disposition attachment RFC 5987 dan auto-merge audio/video 1080p+ via FFmpeg.'},

@@ -50,7 +50,7 @@ import {
   formatTranscriptFilename
 } from './radar-transcript.mjs';
 import { generateThumbnailAndSeo } from './thumbnail-seo.mjs';
-import { fetchMediaInfo, streamMediaDownload } from './media-downloader.mjs';
+import { fetchMediaInfo, streamMediaDownload, getCookiesStatus, saveCookiesFile, deleteCookiesFile } from './media-downloader.mjs';
 
 const PORT = Number(process.env.PORT || 3000);
 const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
@@ -1336,6 +1336,22 @@ const server = http.createServer(async (req, res) => {
         return json(res,400,{ok:false,error:'Parameter link URL video wajib disertakan.'},{'cache-control':'no-store'});
       }
       return streamMediaDownload(req,res,{url,quality,title});
+    }
+    if(pathname==='/api/download/cookies'&&req.method==='GET'){
+      return json(res,200,{ok:true,...getCookiesStatus()},{'cache-control':'no-store'});
+    }
+    if(pathname==='/api/download/cookies'&&req.method==='POST'){
+      try{
+        const body=await readJson(req);
+        const result=saveCookiesFile(body?.content||'');
+        return json(res,200,{ok:true,...result},{'cache-control':'no-store'});
+      }catch(e){
+        return json(res,400,{ok:false,error:e.message},{'cache-control':'no-store'});
+      }
+    }
+    if(pathname==='/api/download/cookies'&&req.method==='DELETE'){
+      const result=deleteCookiesFile();
+      return json(res,200,{ok:true,...result},{'cache-control':'no-store'});
     }
     if(pathname==='/api/radar/sync'&&req.method==='POST')return json(res,200,await radarSync.sync({force:true}));
     if(pathname==='/api/radar/ai/check'&&req.method==='POST')return json(res,200,await radarAI.checkConnection(await readJson(req)));

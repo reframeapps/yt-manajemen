@@ -5,6 +5,9 @@ import {
   formatDuration,
   mapYtDlpError,
   findCookiesPath,
+  getCookiesStatus,
+  saveCookiesFile,
+  deleteCookiesFile,
   fetchMediaInfo,
   streamMediaDownload
 } from '../media-downloader.mjs';
@@ -38,11 +41,23 @@ test('mapYtDlpError maps common errors to friendly Indonesian text', () => {
   assert.match(mapYtDlpError('Video unavailable: not found'), /tidak ditemukan/i);
   assert.match(mapYtDlpError('Unsupported URL: https://example.com/foo'), /tidak valid atau platform belum didukung/i);
   assert.match(mapYtDlpError('spawn yt-dlp ENOENT'), /belum terpasang/i);
+  assert.match(mapYtDlpError('empty media response', 'instagram'), /instagram/i);
 });
 
-test('findCookiesPath returns string if file exists or null', () => {
-  const p = findCookiesPath();
-  assert.ok(p === null || typeof p === 'string');
+test('findCookiesPath and cookie lifecycle management', () => {
+  const initialStatus = getCookiesStatus();
+  assert.ok(typeof initialStatus.exists === 'boolean');
+
+  // Test saving test cookie
+  const sampleCookie = '# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t1799999999\tSID\tsample\n.instagram.com\tTRUE\t/\tTRUE\t1799999999\tsessionid\tsample';
+  const saved = saveCookiesFile(sampleCookie);
+  assert.equal(saved.exists, true);
+  assert.ok(saved.domains.includes('youtube.com'));
+  assert.ok(saved.domains.includes('instagram.com'));
+
+  // Test deleting
+  const del = deleteCookiesFile();
+  assert.equal(del.ok, true);
 });
 
 test('fetchMediaInfo rejects empty URL with 400', async () => {
@@ -52,7 +67,7 @@ test('fetchMediaInfo rejects empty URL with 400', async () => {
   );
 });
 
-test('streamMediaDownload rejects missing URL with 400 JSON', () => {
+test('streamMediaDownload rejects missing URL with 400 JSON', async () => {
   let status = 0;
   let headers = {};
   let body = '';
@@ -62,7 +77,7 @@ test('streamMediaDownload rejects missing URL with 400 JSON', () => {
   };
   const mockReq = { on() {} };
 
-  streamMediaDownload(mockReq, mockRes, { url: '' });
+  await streamMediaDownload(mockReq, mockRes, { url: '' });
   assert.equal(status, 400);
   assert.ok(body.includes('URL download tidak valid'));
 });

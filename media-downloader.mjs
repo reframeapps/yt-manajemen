@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { Readable } from 'node:stream';
 import fs from 'node:fs';
 import path from 'node:path';
 import { detectMediaPlatform } from './radar-transcript.mjs';
@@ -7,6 +8,17 @@ import { detectMediaPlatform } from './radar-transcript.mjs';
  * Universal Social Media Downloader Engine
  * Supports YouTube, TikTok (No Watermark), Instagram Reels/Post, X/Twitter, Facebook, Threads, and generic web video.
  */
+
+// In-memory cache for direct CDN stream URLs (e.g. TikTok No Watermark & MP3)
+// Key: `${cleanUrl}::${quality}` -> Value: { directUrl, expiresAt }
+const directStreamCache = new Map();
+
+function cleanDirectStreamCache() {
+  const now = Date.now();
+  for (const [key, val] of directStreamCache.entries()) {
+    if (val.expiresAt < now) directStreamCache.delete(key);
+  }
+}
 
 export function sanitizeDownloadFilename(title, ext = 'mp4') {
   const safeExt = (ext || 'mp4').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'mp4';
@@ -46,6 +58,71 @@ export function findCookiesPath() {
     } catch {}
   }
   return null;
+}
+
+export function getCookiesStatus() {
+  const cookiesPath = findCookiesPath();
+  if (!cookiesPath || !fs.existsSync(cookiesPath)) {
+    return {
+      exists: false,
+      path: null,
+      size: 0,
+      updated: null,
+      domains: []
+    };
+  }
+
+  try {
+    const stat = fs.statSync(cookiesPath);
+    const text = fs.readFileSync(cookiesPath, 'utf8');
+    const domains = new Set();
+    const candidateDomains = ['youtube.com', 'google.com', 'instagram.com', 'tiktok.com', 'facebook.com', 'twitter.com', 'x.com', 'threads.net'];
+    for (const d of candidateDomains) {
+      if (text.includes(d)) domains.add(d);
+    }
+    return {
+      exists: true,
+      path: cookiesPath,
+      size: stat.size,
+      updated: stat.mtime.toISOString(),
+      domains: Array.from(domains)
+    };
+  } catch (e) {
+    return {
+      exists: false,
+      path: cookiesPath,
+      size: 0,
+      updated: null,
+      domains: [],
+      error: e.message
+    };
+  }
+}
+
+export function saveCookiesFile(content) {
+  if (!content || typeof content !== 'string' || !content.trim()) {
+    throw new Error('Konten cookies tidak boleh kosong.');
+  }
+
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  const targetPath = path.join(dataDir, 'cookies.txt');
+  fs.writeFileSync(targetPath, content.trim(), 'utf8');
+
+  return getCookiesStatus();
+}
+
+export function deleteCookiesFile() {
+  const p = findCookiesPath();
+  if (p && fs.existsSync(p)) {
+    try {
+      fs.unlinkSync(p);
+    } catch {}
+  }
+  return { ok: true, exists: false };
 }
 
 export function resolveBinary(envVar, fallbackNames) {
@@ -105,10 +182,13 @@ export function mapYtDlpError(rawError, platform = '') {
     return 'Video ini bersifat privat atau akun kreator dikunci.';
   }
   if (msg.includes('sign in to confirm your age') || msg.includes('age-restricted') || msg.includes('confirm your age')) {
-    return 'Video dibatasi usia (age-restricted). Silakan sediakan cookies.txt pada server untuk mengunduh konten ini.';
+    return 'Video dibatasi usia (age-restricted). Pasang cookies.txt pada menu Kelola Cookies untuk mengunduh konten ini.';
   }
-  if (msg.includes('bot') || msg.includes('sign in') || msg.includes('cookies') || msg.includes('automated queries')) {
-    return 'Platform membatasi akses otomatis (bot check). Tambahkan file cookies.txt ke server untuk verifikasi sesi.';
+  if (msg.includes('empty media response') || (platform === 'instagram' && (msg.includes('login') || msg.includes('cookies')))) {
+    return 'Konten Instagram memerlukan autentikasi login atau sesi aktif. Pasang cookies.txt akun Instagram Anda melalui tombol "Kelola Cookies".';
+  }
+  if (msg.includes('bot') || msg.includes('sign in') || msg.includes('automated queries')) {
+    return 'Platform membatasi akses otomatis (bot check). Pasang cookies.txt akun Anda melalui menu Kelola Cookies.';
   }
   if (msg.includes('video unavailable') || msg.includes('not found') || msg.includes('404')) {
     return 'Video tidak ditemukan atau telah dihapus oleh pengunggah.';
@@ -117,19 +197,153 @@ export function mapYtDlpError(rawError, platform = '') {
     return 'Format tautan URL tidak valid atau platform belum didukung.';
   }
   if (msg.includes('enoent') || msg.includes('not found: yt-dlp') || msg.includes('spawn yt-dlp')) {
-    return 'Engine backend yt-dlp belum terpasang di sistem server. Silakan install yt-dlp terlebih dahulu.';
+    return 'Engine backend yt-dlp belum terpasang di sistem server.';
   }
   return rawError || 'Gagal mengekstrak informasi media dari tautan yang diberikan.';
 }
 
 /**
- * Fetch video metadata and supported download formats
+ * TikWM API engine for TikTok (No Watermark MP4 & MP3)
+ * Bypasses TikTok datacenter IP WAF blockages seamlessly.
  */
-export async function fetchMediaInfo(url, options = {}) {
-  if (!url || typeof url !== 'string' || !url.trim()) {
-    throw Object.assign(new Error('URL media wajib disertakan.'), { status: 400 });
+export async function fetchTikTokTikWm(url) {
+  cleanDirectStreamCache();
+  const cleanUrl = url.trim();
+
+  // If short URL, resolve redirect or use direct
+  let targetUrl = cleanUrl;
+  if (/vt\.tiktok\.com|vm\.tiktok\.com/i.test(cleanUrl)) {
+    try {
+      const headRes = await fetch(cleanUrl, {
+        method: 'GET',
+        redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+      });
+      if (headRes.url && headRes.url.includes('tiktok.com')) {
+        targetUrl = headRes.url;
+      }
+    } catch {}
   }
 
+  const endpoint = `https://www.tikwm.com/api/?url=${encodeURIComponent(targetUrl)}`;
+  const res = await fetch(endpoint, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      'Accept': 'application/json'
+    },
+    signal: AbortSignal.timeout(15000)
+  });
+
+  if (!res.ok) {
+    throw new Error(`TikWM API HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data.code !== 0 || !data.data) {
+    throw new Error(data.msg || 'Gagal mengekstrak video TikTok tanpa watermark.');
+  }
+
+  const item = data.data;
+  const title = (item.title || 'TikTok Video').trim();
+  const thumbnail = item.cover || item.origin_cover || '';
+  const authorNickname = item.author?.nickname || '';
+  const authorUniqueId = item.author?.unique_id || '';
+  const author = authorNickname && authorUniqueId 
+    ? `${authorNickname} (@${authorUniqueId})`
+    : (authorNickname || authorUniqueId || 'TikTok Creator');
+  const duration = Math.floor(Number(item.duration) || 0);
+  const durationFormatted = formatDuration(duration);
+
+  // Cache direct URLs for 1 hour
+  const expiresAt = Date.now() + 60 * 60 * 1000;
+  const noWatermarkUrl = item.play || item.hdplay;
+  const hdWatermarkUrl = item.hdplay || item.play;
+  const audioUrl = item.music;
+  const withWatermarkUrl = item.wmplay;
+
+  if (noWatermarkUrl) {
+    directStreamCache.set(`${cleanUrl}::best`, { directUrl: noWatermarkUrl, expiresAt });
+    directStreamCache.set(`${cleanUrl}::720p`, { directUrl: noWatermarkUrl, expiresAt });
+  }
+  if (hdWatermarkUrl) {
+    directStreamCache.set(`${cleanUrl}::1080p`, { directUrl: hdWatermarkUrl, expiresAt });
+  }
+  if (audioUrl) {
+    directStreamCache.set(`${cleanUrl}::mp3`, { directUrl: audioUrl, expiresAt });
+  }
+  if (withWatermarkUrl) {
+    directStreamCache.set(`${cleanUrl}::watermark`, { directUrl: withWatermarkUrl, expiresAt });
+  }
+
+  const formats = [];
+  formats.push({
+    id: 'best',
+    label: 'No Watermark HD (MP4)',
+    resolution: 'HD No Watermark',
+    ext: 'mp4',
+    type: 'video',
+    qualityNote: 'Video jernih bersih tanpa logo watermark TikTok',
+    direct: true
+  });
+
+  if (item.hdplay && item.hdplay !== item.play) {
+    formats.push({
+      id: '1080p',
+      label: 'Full HD No Watermark (MP4)',
+      resolution: '1080p HD',
+      ext: 'mp4',
+      type: 'video',
+      qualityNote: 'Kualitas video maksimal tanpa watermark',
+      direct: true
+    });
+  }
+
+  if (item.music) {
+    formats.push({
+      id: 'mp3',
+      label: 'Audio Musik Asli (MP3)',
+      resolution: 'Audio only',
+      ext: 'mp3',
+      type: 'audio',
+      qualityNote: 'Suara jernih / sound lagu asli',
+      direct: true
+    });
+  }
+
+  if (item.wmplay) {
+    formats.push({
+      id: 'watermark',
+      label: 'Dengan Watermark (MP4)',
+      resolution: 'Original with Watermark',
+      ext: 'mp4',
+      type: 'video',
+      qualityNote: 'Format asli beserta watermark TikTok',
+      direct: true
+    });
+  }
+
+  return {
+    ok: true,
+    url: cleanUrl,
+    id: String(item.id || ''),
+    title,
+    thumbnail,
+    author,
+    duration,
+    durationFormatted,
+    platform: 'tiktok',
+    platformLabel: 'TikTok (No Watermark)',
+    maxHeight: 1080,
+    formats,
+    engine: 'tikwm',
+    cookiesActive: !!findCookiesPath()
+  };
+}
+
+/**
+ * Fetch video metadata via yt-dlp (YouTube, Facebook, Twitter/X, Instagram, Threads, generic web)
+ */
+export async function fetchYtDlpInfo(url, options = {}) {
   const cleanUrl = url.trim();
   let detectedPlatform = 'web';
   try {
@@ -146,7 +360,9 @@ export async function fetchMediaInfo(url, options = {}) {
     '--no-warnings',
     '--no-playlist',
     '--skip-download',
-    '--js-runtimes', `node:${nodeBin}`
+    '--js-runtimes', `node:${nodeBin}`,
+    '--extractor-args', 'youtube:player_client=android,web',
+    '--add-header', 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
   ];
 
   if (cookiesPath) {
@@ -223,9 +439,9 @@ export async function fetchMediaInfo(url, options = {}) {
           formatOptions.push({ id: '360p', label: '360p', resolution: '360p', ext: 'mp4', type: 'video', qualityNote: 'Ukuran ringan' });
         }
 
-        // If no height detected (TikTok/Instagram Reels or custom platforms), provide Best Video
+        // If no specific height detected, provide Best Video
         if (formatOptions.length === 0) {
-          formatOptions.push({ id: 'best', label: 'Resolusi Terbaik (Auto)', resolution: 'Best HD', ext: 'mp4', type: 'video', qualityNote: 'Format optimal platform (No Watermark)' });
+          formatOptions.push({ id: 'best', label: 'Resolusi Terbaik (Auto)', resolution: 'Best HD', ext: 'mp4', type: 'video', qualityNote: 'Format optimal platform' });
         }
 
         // Audio MP3 option
@@ -250,6 +466,7 @@ export async function fetchMediaInfo(url, options = {}) {
             : 'Video Web',
           maxHeight,
           formats: formatOptions,
+          engine: 'yt-dlp',
           cookiesActive: !!cookiesPath
         });
       } catch (e) {
@@ -260,9 +477,36 @@ export async function fetchMediaInfo(url, options = {}) {
 }
 
 /**
+ * Universal fetchMediaInfo with platform dispatch
+ */
+export async function fetchMediaInfo(url, options = {}) {
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    throw Object.assign(new Error('URL media wajib disertakan.'), { status: 400 });
+  }
+
+  const cleanUrl = url.trim();
+  const isTikTok = /tiktok\.com/i.test(cleanUrl);
+
+  if (isTikTok) {
+    try {
+      return await fetchTikTokTikWm(cleanUrl);
+    } catch (tikWmErr) {
+      // If TikWM fails, try yt-dlp fallback
+      try {
+        return await fetchYtDlpInfo(cleanUrl, options);
+      } catch {
+        throw tikWmErr;
+      }
+    }
+  }
+
+  return fetchYtDlpInfo(cleanUrl, options);
+}
+
+/**
  * Stream video/audio download directly into HTTP response
  */
-export function streamMediaDownload(req, res, { url, quality = 'best', title = '' }) {
+export async function streamMediaDownload(req, res, { url, quality = 'best', title = '' }) {
   if (!url || typeof url !== 'string' || !url.trim()) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ ok: false, error: 'URL download tidak valid.' }));
@@ -272,7 +516,58 @@ export function streamMediaDownload(req, res, { url, quality = 'best', title = '
   const isAudio = quality === 'mp3' || quality === 'audio';
   const targetExt = isAudio ? 'mp3' : 'mp4';
   const disposition = sanitizeDownloadFilename(title || 'download', targetExt);
+  const cacheKey = `${cleanUrl}::${quality}`;
 
+  cleanDirectStreamCache();
+
+  // 1. Direct CDN Stream (TikWM TikTok or pre-cached direct link)
+  let directInfo = directStreamCache.get(cacheKey) || directStreamCache.get(`${cleanUrl}::best`);
+  if (!directInfo && /tiktok\.com/i.test(cleanUrl)) {
+    try {
+      await fetchTikTokTikWm(cleanUrl);
+      directInfo = directStreamCache.get(cacheKey) || directStreamCache.get(`${cleanUrl}::best`);
+    } catch {}
+  }
+
+  if (directInfo && directInfo.directUrl) {
+    try {
+      const abortCtrl = new AbortController();
+      req.on('close', () => abortCtrl.abort());
+      req.on('aborted', () => abortCtrl.abort());
+
+      const upstreamRes = await fetch(directInfo.directUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+          'Referer': 'https://www.tiktok.com/'
+        },
+        signal: abortCtrl.signal
+      });
+
+      if (!upstreamRes.ok || !upstreamRes.body) {
+        throw new Error(`Upstream CDN status ${upstreamRes.status}`);
+      }
+
+      const headers = {
+        'Content-Type': isAudio ? 'audio/mpeg' : 'video/mp4',
+        'Content-Disposition': disposition.headerValue,
+        'X-Accel-Buffering': 'no',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'X-Content-Type-Options': 'nosniff'
+      };
+
+      const upstreamLength = upstreamRes.headers.get('content-length');
+      if (upstreamLength) headers['Content-Length'] = upstreamLength;
+
+      res.writeHead(200, headers);
+      Readable.fromWeb(upstreamRes.body).pipe(res);
+      return;
+    } catch (e) {
+      if (req.destroyed) return;
+      // Fall through to yt-dlp pipeline if direct CDN fetch fails
+    }
+  }
+
+  // 2. Universal Engine (yt-dlp + FFmpeg)
   const ytDlpBin = resolveYtDlp();
   const ffmpegBin = resolveFfmpeg();
   const cookiesPath = findCookiesPath();
@@ -297,11 +592,12 @@ export function streamMediaDownload(req, res, { url, quality = 'best', title = '
   req.on('aborted', cleanup);
 
   if (isAudio) {
-    // AUDIO STREAMING PIPELINE: yt-dlp -> ffmpeg -> res
+    // AUDIO PIPELINE: yt-dlp -> ffmpeg -> res
     const ytArgs = [
       '--no-warnings',
       '--no-playlist',
       '--js-runtimes', `node:${nodeBin}`,
+      '--extractor-args', 'youtube:player_client=android,web',
       '-f', 'ba/b',
       '-o', '-'
     ];
@@ -351,6 +647,7 @@ export function streamMediaDownload(req, res, { url, quality = 'best', title = '
         res.writeHead(200, {
           'Content-Type': 'audio/mpeg',
           'Content-Disposition': disposition.headerValue,
+          'X-Accel-Buffering': 'no',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'X-Content-Type-Options': 'nosniff'
         });
@@ -388,6 +685,7 @@ export function streamMediaDownload(req, res, { url, quality = 'best', title = '
     '--no-warnings',
     '--no-playlist',
     '--js-runtimes', `node:${nodeBin}`,
+    '--extractor-args', 'youtube:player_client=android,web',
     '-f', formatSelector,
     '--downloader-args', 'ffmpeg_o:-movflags frag_keyframe+empty_moov+default_base_moof',
     '-o', '-'
@@ -413,6 +711,7 @@ export function streamMediaDownload(req, res, { url, quality = 'best', title = '
       res.writeHead(200, {
         'Content-Type': 'video/mp4',
         'Content-Disposition': disposition.headerValue,
+        'X-Accel-Buffering': 'no',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'X-Content-Type-Options': 'nosniff'
       });
