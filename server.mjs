@@ -1389,7 +1389,6 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && pathname === '/api/contents') {
       const data = await contentStore.read();
-      const fields = ['id','title','stage','pillarId','format','priority','owner','deadline','plannedPublishAt','checklist','archived','revision','createdAt','updatedAt','youtubeVideoId','youtubePublication','publicationLinks'];
       const maxRev = data.contents.reduce((max, c) => Math.max(max, c.revision || 0), 0);
       const lastUpdated = data.contents.reduce((latest, c) => (c.updatedAt > latest ? c.updatedAt : latest), '');
       const etag = `W/"contents-${data.boardRevision || 1}-${maxRev}-${data.contents.length}-${data.pillars.length}-${lastUpdated}"`;
@@ -1401,7 +1400,22 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, {
         pillars: data.pillars, stages: data.columns.map(c=>c.id), columns: data.columns, boardRevision: data.boardRevision,
         contents: data.contents.map(c => ({
-          ...Object.fromEntries(fields.map(k => [k,c[k]])),
+          id: c.id,
+          title: c.title,
+          stage: c.stage,
+          pillarId: c.pillarId,
+          format: c.format,
+          priority: c.priority,
+          owner: c.owner,
+          deadline: c.deadline,
+          plannedPublishAt: c.plannedPublishAt,
+          checklist: c.checklist,
+          archived: c.archived,
+          revision: c.revision,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+          youtubeVideoId: c.youtubeVideoId,
+          youtubePublication: c.youtubePublication,
           publicationLinks: Array.isArray(c.publicationLinks) ? c.publicationLinks : [],
           scriptLength: c.script ? c.script.length : 0
         }))
@@ -1428,7 +1442,7 @@ const server = http.createServer(async (req, res) => {
         res.end();
         return;
       }
-      return json(res,200,{categories:db.categories,categoriesRevision:db.categoriesRevision,notes:notes.map(n=>{const {body,bodyHtml,...rest}=n;return {...rest,format:n.format||'',preview:body.slice(0,280),bodyLength:body.length}})},{'etag':etag,'cache-control':'private, no-cache'});
+      return json(res,200,{categories:db.categories,categoriesRevision:db.categoriesRevision,notes:notes.map(n=>({id:n.id,title:n.title,category:n.category,format:n.format||'',kind:n.kind,tags:n.tags,pinned:n.pinned,archived:n.archived,revision:n.revision,createdAt:n.createdAt,updatedAt:n.updatedAt,preview:n.body?n.body.slice(0,280):'',bodyLength:n.body?n.body.length:0}))},{'etag':etag,'cache-control':'private, no-cache'});
     }
     if(pathname==='/api/note-categories'&&req.method==='POST')return json(res,201,await notesStore.createCategory(await readJson(req)));
     if(pathname==='/api/note-categories'&&['PATCH','DELETE'].includes(req.method))return json(res,200,await notesStore.changeCategory(await readJson(req),req.method==='DELETE'));

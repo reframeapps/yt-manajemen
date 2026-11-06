@@ -133,7 +133,10 @@ export class ContentStore {
     })();
     try { return await this.loaded; } catch (e) { this.loaded = null; throw e; }
   }
-  async read() { return structuredClone(await this.load()); }
+  async read() {
+    if (this.persistence) return this.persistence.read('contents');
+    return structuredClone(await this.load());
+  }
   mutate(fn) {
     if(this.persistence)return this.persistence.mutate('contents',fn);
     const work = this.chain.catch(() => {}).then(async () => {

@@ -2,7 +2,32 @@ const $ = s => document.querySelector(s);
 const state = { files: [], server: null, uploading: false, relatedDefault: null };
 const CHUNK = 8 * 1024 * 1024;
 function toast(msg){const t=$('#toast');t.textContent=msg;t.style.display='block';clearTimeout(window._toast);window._toast=setTimeout(()=>t.style.display='none',2600)}
-async function api(url,opt={}){const r=await fetch(url,{credentials:'same-origin',...opt,headers:{...(opt.body instanceof Blob?{}:{'content-type':'application/json'}),...(opt.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d.error||`HTTP ${r.status}`);return d}
+const inflightGet = new Map();
+async function api(url,opt={}){
+  const isGet = !opt.method || opt.method.toUpperCase() === 'GET';
+  if (isGet && !opt.body) {
+    const existing = inflightGet.get(url);
+    if (existing) return existing;
+    const p = (async () => {
+      try {
+        const r = await fetch(url, { credentials: 'same-origin', ...opt, headers: { ...(opt.headers || {}) } });
+        let d = {};
+        try { d = await r.json(); } catch {}
+        if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+        return d;
+      } finally {
+        inflightGet.delete(url);
+      }
+    })();
+    inflightGet.set(url, p);
+    return p;
+  }
+  const r = await fetch(url, { credentials: 'same-origin', ...opt, headers: { ...(opt.body instanceof Blob ? {} : { 'content-type': 'application/json' }), ...(opt.headers || {}) } });
+  let d = {};
+  try { d = await r.json(); } catch {}
+  if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+  return d;
+}
 const pad=n=>String(n).padStart(2,'0');
 function localInput(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`}
 function fmtDate(v){if(!v)return '—';return new Date(v).toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})}

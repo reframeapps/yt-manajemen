@@ -156,7 +156,7 @@ function renderBulkBar(){
     hub.selected.clear();saveHubCache();renderHub();toast('Memindahkan '+selectedIds.length+' konten...');
     try{
       await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'move',ids:selectedIds,stage})});
-      toast('Berhasil memindahkan tahap');saveHubCache();void loadHub();
+      toast('Berhasil memindahkan tahap');saveHubCache();
     }catch(err){hub.data.contents=prev;saveHubCache();renderHub();toast('Gagal: '+err.message)}
   };
   bar.querySelector('#bulkPillarSelect').onchange=async e=>{
@@ -168,7 +168,7 @@ function renderBulkBar(){
     hub.selected.clear();saveHubCache();renderHub();toast('Mengubah pilar '+selectedIds.length+' konten...');
     try{
       await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'pillar',ids:selectedIds,pillarId})});
-      toast('Berhasil mengubah pilar');saveHubCache();void loadHub();
+      toast('Berhasil mengubah pilar');saveHubCache();
     }catch(err){hub.data.contents=prev;saveHubCache();renderHub();toast('Gagal: '+err.message)}
   };
   bar.querySelector('#bulkArchiveBtn').onclick=async()=>{
@@ -178,7 +178,7 @@ function renderBulkBar(){
     hub.selected.clear();saveHubCache();renderHub();toast('Mengarsipkan '+selectedIds.length+' konten...');
     try{
       await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'archive',ids:selectedIds,archived:true})});
-      toast('Berhasil mengarsipkan konten terpilih');saveHubCache();void loadHub();
+      toast('Berhasil mengarsipkan konten terpilih');saveHubCache();
     }catch(err){hub.data.contents=prev;saveHubCache();renderHub();toast('Gagal: '+err.message)}
   };
   bar.querySelector('#bulkDeleteBtn').onclick=async()=>{
@@ -190,14 +190,23 @@ function renderBulkBar(){
     hub.selected.clear();saveHubCache();renderHub();toast('Menghapus '+selectedIds.length+' konten...');
     try{
       await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'delete',ids:selectedIds})});
-      toast('Berhasil menghapus konten terpilih');saveHubCache();void loadHub();
+      toast('Berhasil menghapus konten terpilih');saveHubCache();
     }catch(err){hub.data.contents=prev;saveHubCache();renderHub();toast('Gagal: '+err.message)}
   };
   bar.querySelector('#bulkClearBtn').onclick=()=>{hub.selected.clear();renderHub()};
 }
 const HUB_CACHE_KEY='yt-hub-cached-data';
-function saveHubCache(){
-  try{if(hub.data?.contents&&hub.data?.pillars)sessionStorage.setItem(HUB_CACHE_KEY,JSON.stringify(hub.data))}catch{}
+let hubCacheTimer=null;
+function saveHubCache(immediate=false){
+  if(immediate){
+    clearTimeout(hubCacheTimer);
+    try{if(hub.data?.contents&&hub.data?.pillars)sessionStorage.setItem(HUB_CACHE_KEY,JSON.stringify(hub.data))}catch{}
+    return;
+  }
+  clearTimeout(hubCacheTimer);
+  hubCacheTimer=setTimeout(()=>{
+    try{if(hub.data?.contents&&hub.data?.pillars)sessionStorage.setItem(HUB_CACHE_KEY,JSON.stringify(hub.data))}catch{}
+  },100);
 }
 function restoreHubCache(){
   try{
@@ -283,7 +292,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-social-ur
 function navigate(view){hub.view=view;setNavigation(false);document.querySelectorAll('.hub-nav [data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));$('#contentHub').classList.toggle('hide',view==='upload');$('#uploadView').classList.toggle('hide',view!=='upload');renderHub()}
 document.querySelector('.hub-nav').addEventListener('click',e=>{const button=e.target.closest('[data-view]');if(button)navigate(button.dataset.view)});
 const VIEW_TEXT={preferences:['Pengaturan','Kelola koneksi, periksa status layanan, dan atur workspace.'],radar:['Radar Konten','Temukan isu, pantau channel, dan siapkan referensi produksi.'],downloader:['Downloader Sosmed','Download video & audio tanpa watermark dari YouTube, TikTok, Instagram, X, Threads, dan Facebook.'],updates:['Riwayat Update','Fitur baru dan perbaikan pada setiap versi aplikasi.'],storage:['Data & Backup','Penyimpanan PostgreSQL dan salinan pemulihan data.'],dashboard:['Dashboard','Pantau rencana, progres produksi, dan publikasi.'],calendar:['Kalender Konten','Rencana produksi dan jadwal tayang dalam zona waktu WIB.'],kanban:['Kanban Produksi','Atur progres pekerjaan tanpa mengubah status publikasi.'],library:['Semua Konten','Temukan ide, script, dan bahan produksi dalam satu tempat.'],analytics:['YouTube Analytics','Analisis channel dan per video, dari jangkauan sampai pendapatan.'],notes:['Note','Simpan ide dan catatan dengan kategori pilihan Anda.'],settings:['Pilar Konten','Atur nama dan warna yang konsisten di semua tampilan.']};
-function renderHub(){updateWorkspaceChrome(hub.view,VIEW_TEXT[hub.view]?.[0]||'Upload & Antrean');updateAlertBadges();if(!['library','kanban'].includes(hub.view))renderBulkBar();if(hub.view==='upload')return;const txt=VIEW_TEXT[hub.view];$('#viewTitle').textContent=txt[0];$('#viewSubtitle').textContent=txt[1];$('#hubFilters').classList.toggle('hide',!['calendar','kanban','library'].includes(hub.view));$('#newContent').classList.toggle('hide',['radar','analytics','kanban','notes','storage','updates','preferences','downloader'].includes(hub.view));$('#hubFilters').classList.toggle('filters-closed',hub.view==='kanban'&&!hub.boardFilters);const body=$('#hubBody');if(hub.view==='radar'){window.renderRadar(body);return}if(hub.view==='downloader'){window.renderDownloader(body);return}if(hub.view==='analytics'){window.renderAnalytics(body);return}if(hub.view==='notes'){window.renderNotes(body);return}if(hub.view==='storage'){window.renderStorage(body);return}if(hub.view==='updates'){window.renderUpdates(body);return}if(hub.view==='preferences'){window.renderPreferences(body);return}if(!hub.loaded){body.innerHTML='<div class="empty">Memuat konten…</div>';return}if(hub.view==='dashboard')renderDashboard(body);if(hub.view==='calendar')renderCalendar(body);if(hub.view==='kanban')renderKanban(body);if(hub.view==='library')renderLibrary(body);if(hub.view==='settings')renderSettings(body)}
+function renderHub(){updateWorkspaceChrome(hub.view,VIEW_TEXT[hub.view]?.[0]||'Upload & Antrean');updateAlertBadges();if(!['library','kanban'].includes(hub.view))renderBulkBar();if(hub.view==='upload')return;const txt=VIEW_TEXT[hub.view];$('#viewTitle').textContent=txt[0];$('#viewSubtitle').textContent=txt[1];$('#hubFilters').classList.toggle('hide',!['calendar','kanban','library'].includes(hub.view));$('#newContent').classList.toggle('hide',['radar','analytics','kanban','notes','storage','updates','preferences','downloader'].includes(hub.view));$('#hubFilters').classList.toggle('filters-closed',hub.view==='kanban'&&!hub.boardFilters);const body=$('#hubBody');if(hub.view==='radar'){if(window.renderRadar)window.renderRadar(body);else body.innerHTML='<div class="empty">Memuat Radar…</div>';return}if(hub.view==='downloader'){if(window.renderDownloader)window.renderDownloader(body);else body.innerHTML='<div class="empty">Memuat Downloader Sosmed…</div>';return}if(hub.view==='analytics'){if(window.renderAnalytics)window.renderAnalytics(body);else body.innerHTML='<div class="empty">Memuat Analytics…</div>';return}if(hub.view==='notes'){if(window.renderNotes)window.renderNotes(body);else body.innerHTML='<div class="empty">Memuat Note…</div>';return}if(hub.view==='storage'){if(window.renderStorage)window.renderStorage(body);else body.innerHTML='<div class="empty">Memuat Data & Backup…</div>';return}if(hub.view==='updates'){if(window.renderUpdates)window.renderUpdates(body);else body.innerHTML='<div class="empty">Memuat Riwayat Update…</div>';return}if(hub.view==='preferences'){if(window.renderPreferences)window.renderPreferences(body);else body.innerHTML='<div class="empty">Memuat Pengaturan…</div>';return}if(!hub.loaded){body.innerHTML='<div class="empty">Memuat konten…</div>';return}if(hub.view==='dashboard')renderDashboard(body);if(hub.view==='calendar')renderCalendar(body);if(hub.view==='kanban')renderKanban(body);if(hub.view==='library')renderLibrary(body);if(hub.view==='settings')renderSettings(body)}
 for(const id of ['contentSearch','pillarFilter','stageFilter','formatFilter','archiveFilter','alertFilter'])$('#'+id)?.addEventListener(id==='contentSearch'?'input':'change',renderHub);
 function card(c){const alertSt=contentAlertStatus(c),alertPill=alertSt==='overdue'?'<span class="alert-pill overdue">⚠️ Lewat Tenggat</span>':alertSt==='today'?'<span class="alert-pill today">🔔 Hari Ini</span>':'';const socials=socialUploadBadges(c);return `<article class="content-card" draggable="true" data-card="${c.id}" tabindex="0" role="button" aria-label="Buka ${esc(c.title)}" style="--pillar:${pillar(c)?.color||'#d2d9e3'}"><div class="card-meta">${pillarTag(c)}${formatBadge(c.format)}${c.priority==='high'?'<span class="overdue">Prioritas tinggi</span>':''}${alertPill}</div><div class="card-title">${esc(c.title)}</div>${progressSummary(c)}<div class="card-meta"><span>${esc(c.owner||'Belum ditugaskan')}</span></div>${c.deadline?`<div class="card-meta ${new Date(c.deadline)<new Date()&&!isDoneStage(c.stage)?'overdue':''}" style="margin-top:7px">Deadline ${dateWib(c.deadline)}</div>`:''}<div class="card-meta" style="margin-top:7px">${socials}${productionBadge(c)}${publicationBadge(c)}${c.scriptLength?'<span>• Script tersedia</span>':''}</div></article>`}
 function renderDashboard(body){const all=hub.data.contents.filter(c=>!c.archived),jobs=state.server?.jobs||[],counts=Object.keys(STAGE_NAMES).map(k=>all.filter(c=>c.stage===k).length),upcoming=all.filter(c=>activeJob(c)?.scheduledAt||c.plannedPublishAt).sort((a,b)=>Date.parse(activeJob(a)?.scheduledAt||a.plannedPublishAt)-Date.parse(activeJob(b)?.scheduledAt||b.plannedPublishAt)).filter(c=>Date.parse(activeJob(c)?.scheduledAt||c.plannedPublishAt)>=Date.now()).slice(0,5);const alerts=getAlertCounts();const alertBanner=alerts.total>0?`<div class="alert-dashboard-banner"><div><strong>🚨 Ada ${alerts.overdue} konten melewati tenggat dan ${alerts.today} konten dijadwalkan hari ini.</strong><div class="hint" style="color:inherit;margin-top:2px">Segera periksa dan selesaikan tahapan produksinya.</div></div><button type="button" class="btn mini primary" id="dashViewAlerts">Lihat Semua (${alerts.total})</button></div>`:'';const overdueItems=all.filter(c=>contentAlertStatus(c)==='overdue');const uploadedItems=all.filter(c=>getUploadedSocials(c).length>0).sort((a,b)=>Date.parse(b.youtubePublication?.publishedAt||b.updatedAt||0)-Date.parse(a.youtubePublication?.publishedAt||a.updatedAt||0));const ALL_DASHBOARD_PLATFORMS=[{platform:'youtube',label:'YouTube'},{platform:'tiktok',label:'TikTok'},{platform:'instagram',label:'Instagram'},{platform:'facebook',label:'Facebook'},{platform:'threads',label:'Threads'}];const platformCounts={};for(const p of ALL_DASHBOARD_PLATFORMS)platformCounts[p.platform]=0;for(const c of uploadedItems){for(const s of getUploadedSocials(c)){const k=s.platform==='x'?'twitter':s.platform;if(platformCounts[k]!==undefined)platformCounts[k]++;}}const allSocialBadges=ALL_DASHBOARD_PLATFORMS.map(p=>{const count=platformCounts[p.platform]||0;return `<span class="social-upload-badge platform-${esc(p.platform)} ${count>0?'is-active':'is-empty'}" data-platform-filter="${esc(p.platform)}" title="${esc(p.label)}: ${count} konten terupload · Klik untuk filter" role="button" tabindex="0"><span class="social-icon-wrap">${socialIconSvg(p.platform)}</span><span class="social-count-mini">${count}</span></span>`;}).join('');const publishedCount=Math.max(uploadedItems.length,jobs.filter(j=>j.status==='published').length);const signature=JSON.stringify([all.length,counts,alerts.total,upcoming.map(c=>[c.id,c.plannedPublishAt]),jobs.map(j=>[j.id,j.status]),uploadedItems.map(c=>[c.id,c.updatedAt,c.publicationLinks])]);if(hub.dashboardSignature===signature&&body.querySelector('.dash-grid'))return;hub.dashboardSignature=signature;body.innerHTML=`${alertBanner}<div class="stats-grid">${[[all.length,'Konten aktif','folder','Ide & produksi dalam workspace',''],[all.filter(c=>isDoneStage(c.stage)).length,'Produksi selesai','check','Selesai melalui proses produksi',''],[jobs.filter(j=>j.status==='scheduled_youtube').length,'Terjadwal YouTube','calendar','Jadwal tersimpan di YouTube',''],[publishedCount,'Sudah tayang','upload',`${uploadedItems.length} konten di 5 platform sosmed`,allSocialBadges]].map(([n,l,ico,note,extra])=>`<div class="stat-card"><div class="stat-top"><span>${esc(l)}</span><div class="stat-icon">${hubIcon(ico)}</div></div><strong>${n}</strong><div class="stat-note">${esc(note)}</div>${extra?`<div class="stat-social-row">${extra}</div>`:''}</div>`).join('')}</div><div class="dash-grid"><div class="hub-panel"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h3 style="margin:0">Konten Terupload di Sosmed</h3><div class="card-social-uploads">${allSocialBadges}</div></div><p class="hint" style="margin-top:0;margin-bottom:14px">Video dan postingan yang sudah berhasil dipublikasikan di seluruh platform media sosial.</p>${uploadedItems.length?uploadedItems.slice(0,5).map(card).join(''):'<div class="empty">Belum ada konten dengan video terupload. Hubungkan video YouTube atau tambahkan link TikTok/Instagram pada tab Publikasi.</div>'}<div class="subheading" style="margin-top:28px"><h3 style="margin:0">Jadwal terdekat</h3></div><p class="hint" style="margin-top:4px">Rencana konten yang akan tayang berikutnya.</p>${upcoming.length?upcoming.map(c=>`<div class="hint">${dateWib(activeJob(c)?.scheduledAt||c.plannedPublishAt)}</div>${card(c)}`).join(''):'<div class="empty">Mulai dengan ide baru, lalu tentukan target tayangnya.</div>'}</div><div class="hub-panel"><h3>Progres produksi</h3><div class="stage-bars">${Object.entries(STAGE_NAMES).map(([k,l],i)=>`<div><span>${esc(l)}</span><i><b style="width:${counts[i]/Math.max(all.length,1)*100}%"></b></i><span>${counts[i]}</span></div>`).join('')}</div><div class="subheading"><h3 style="margin-top:25px">Perlu perhatian</h3></div><p class="hint">${alerts.overdue} konten melewati deadline · ${alerts.today} hari ini · ${jobs.filter(j=>j.status==='failed').length} upload gagal</p>${overdueItems.slice(0,3).map(card).join('')}<button class="btn mini" data-go="upload">Lihat antrean YouTube</button></div></div><p class="hub-footer">Script dan bahan riset dapat disimpan tanpa video. Status produksi dan status publikasi dikelola terpisah.</p>`}
@@ -441,22 +450,51 @@ function renderLibrary(body){const items=filtered();const allSelected=items.leng
 function renderSettings(body){const signature=JSON.stringify(hub.data.pillars);if(body.querySelector('.pillar-setting')&&hub.settingsSignature===signature)return;hub.settingsSignature=signature;body.innerHTML=`<div class="hub-panel"><h3>Warna pilar</h3><p class="hint">Nama dan warna ini digunakan di Kalender, Kanban, dan daftar konten.</p>${hub.data.pillars.map(p=>`<form class="pillar-setting" data-pillar="${p.id}"><input type="color" name="color" value="${p.color}" aria-label="Warna ${esc(p.name)}"><input name="name" type="text" value="${esc(p.name)}" required aria-label="Nama pilar"><button class="btn mini">Simpan</button></form>`).join('')}<h3 style="margin-top:25px">Tambah pilar</h3><form class="pillar-setting" data-pillar=""><input type="color" name="color" value="#346dff" aria-label="Warna pilar baru"><input name="name" type="text" placeholder="Nama pilar baru" required aria-label="Nama pilar baru"><button class="btn primary mini">Tambah</button></form></div>`}
 $('#hubBody').onsubmit=async e=>{
   if(e.target.matches('.card-composer')){
-    e.preventDefault();const composer=hub.composer;if(!composer||composer.saving)return;
+    e.preventDefault();const composer=hub.composer;if(!composer)return;
     composer.title=e.target.elements.cardTitle.value;const title=composer.title.trim();if(!title)return;
-    composer.saving=true;composer.error='';renderHub();
-    try{
-      const result=await api('/api/contents',{method:'POST',body:JSON.stringify({title,stage:composer.stage,pillarId:$('#pillarFilter').value,format:$('#formatFilter').value||'shorts',archived:$('#archiveFilter').checked})});
-      hub.data.contents.unshift(contentSummary(result.content));
-      saveHubCache();
-      composer.title='';
-      composer.saving=false;
-      renderHub();
-      toast('Kartu ditambahkan.');
-      const input=$('#hubBody [name="cardTitle"]');
-      input?.focus();
-      void loadHub();
-    }
-    catch(err){composer.saving=false;composer.error=err.message;renderHub();$('#hubBody [name="cardTitle"]')?.focus()}return;
+    const stage=composer.stage;
+    const tempId='temp-'+crypto.randomUUID();
+    const optimisticCard={
+      id:tempId,
+      title,
+      stage,
+      pillarId:$('#pillarFilter').value||(hub.data.pillars[0]?.id||''),
+      format:$('#formatFilter').value||'shorts',
+      archived:$('#archiveFilter').checked,
+      owner:'',
+      priority:'normal',
+      progress:0,
+      scriptLength:0,
+      updatedAt:new Date().toISOString(),
+      plannedPublishAt:'',
+      deadline:'',
+      publicationStatus:'not_published',
+      publicationLinks:[]
+    };
+    hub.data.contents.unshift(optimisticCard);
+    composer.title='';
+    composer.saving=false;
+    composer.error='';
+    saveHubCache();
+    renderHub();
+    toast('Kartu ditambahkan.');
+    const input=$('#hubBody [name="cardTitle"]');
+    input?.focus();
+    api('/api/contents',{method:'POST',body:JSON.stringify({title,stage,pillarId:$('#pillarFilter').value,format:$('#formatFilter').value||'shorts',archived:$('#archiveFilter').checked})})
+      .then(result=>{
+        const idx=hub.data.contents.findIndex(c=>c.id===tempId);
+        if(idx>=0)hub.data.contents[idx]=contentSummary(result.content);
+        saveHubCache();
+        const cardEl=document.querySelector(`[data-card="${tempId}"]`);
+        if(cardEl){cardEl.dataset.card=result.content.id;cardEl.setAttribute('aria-label',`Buka ${result.content.title}`);}
+      })
+      .catch(err=>{
+        hub.data.contents=hub.data.contents.filter(c=>c.id!==tempId);
+        saveHubCache();
+        renderHub();
+        toast('Gagal menyimpan kartu: '+err.message);
+      });
+    return;
   }
   if(!e.target.matches('.pillar-setting'))return;e.preventDefault();const form=e.target;try{await api('/api/pillars',{method:'POST',body:JSON.stringify({id:form.dataset.pillar||undefined,name:form.elements.name.value,color:form.elements.color.value})});await loadHub();toast('Pilar tersimpan.')}catch(err){toast(err.message)}};
 $('#hubBody').onkeydown=e=>{
@@ -647,7 +685,7 @@ hubForm.onchange=e=>{if(e.target.matches('select,input[type=checkbox]'))hubForm.
 hubForm.onsubmit=e=>{e.preventDefault();flushSave()};
 $('#contentChecklist').onchange=()=>markDirty();
 function showConflict(message){$('#editorConflict').classList.remove('hide');$('#conflictText').textContent=message}
-async function flushSave(){clearTimeout(hub.timer);const edit=hub.editing;if(!edit)return true;if(edit.isNew&&!edit.dirty){showConflict('Isi judul sebelum menyimpan. Konten kosong tidak disimpan.');return false;}if(edit.saving)return edit.saving;edit.saving=(async()=>{while(edit.dirty){const epoch=edit.epoch;let fields;try{fields=readForm();if(!fields.title.trim())throw Error('Judul wajib diisi. Draft tetap disimpan di browser.');$('#saveIndicator').textContent='Menyimpan…';const previousId=edit.content.id;const r=await api('/api/contents'+(edit.isNew?'':'/'+edit.content.id),{method:edit.isNew?'POST':'PATCH',body:JSON.stringify({...fields,...(edit.isNew?{}:{revision:edit.content.revision})})});const pendingAssets=edit.content.assets,pendingSources=edit.content.sources,pendingPublicationLinks=edit.content.publicationLinks;edit.content=r.content;edit.isNew=false;edit.content.sources=pendingSources;edit.content.assets=pendingAssets;if(epoch!==edit.epoch)edit.content.publicationLinks=pendingPublicationLinks||[];if(epoch===edit.epoch){clearLocalDraft(previousId);edit.dirty=false;}else{try{const value=JSON.stringify({id:edit.content.id,revision:edit.content.revision,fields:readForm(),isNew:false,epoch:edit.epoch,at:Date.now()});localStorage.setItem('yt-hub-draft-'+edit.content.id,value);localStorage.setItem('yt-hub-pending',value);if(previousId!==edit.content.id)clearLocalDraft(previousId);}catch{}}edit.conflict=false;$('#editorConflict').classList.add('hide');$('#editorHeading').textContent=r.content.title;$('#saveIndicator').textContent=edit.dirty?'Menyimpan perubahan berikutnya…':'Tersimpan di server';if(!edit.dirty){clearLocalDraft(edit.content.id)}renderEditorMeta();}catch(err){edit.dirty=true;edit.conflict=true;$('#saveIndicator').textContent='Belum tersimpan — draft dipertahankan';showConflict(err.message);return false}}void loadHub();showDraftBanner();return true})();try{return await edit.saving}finally{edit.saving=null}}
+async function flushSave(){clearTimeout(hub.timer);const edit=hub.editing;if(!edit)return true;if(edit.isNew&&!edit.dirty){showConflict('Isi judul sebelum menyimpan. Konten kosong tidak disimpan.');return false;}if(edit.saving)return edit.saving;edit.saving=(async()=>{while(edit.dirty){const epoch=edit.epoch;let fields;try{fields=readForm();if(!fields.title.trim())throw Error('Judul wajib diisi. Draft tetap disimpan di browser.');$('#saveIndicator').textContent='Menyimpan…';const previousId=edit.content.id;const r=await api('/api/contents'+(edit.isNew?'':'/'+edit.content.id),{method:edit.isNew?'POST':'PATCH',body:JSON.stringify({...fields,...(edit.isNew?{}:{revision:edit.content.revision})})});const pendingAssets=edit.content.assets,pendingSources=edit.content.sources,pendingPublicationLinks=edit.content.publicationLinks;edit.content=r.content;edit.isNew=false;edit.content.sources=pendingSources;edit.content.assets=pendingAssets;if(epoch!==edit.epoch)edit.content.publicationLinks=pendingPublicationLinks||[];if(epoch===edit.epoch){clearLocalDraft(previousId);edit.dirty=false;}else{try{const value=JSON.stringify({id:edit.content.id,revision:edit.content.revision,fields:readForm(),isNew:false,epoch:edit.epoch,at:Date.now()});localStorage.setItem('yt-hub-draft-'+edit.content.id,value);localStorage.setItem('yt-hub-pending',value);if(previousId!==edit.content.id)clearLocalDraft(previousId);}catch{}}edit.conflict=false;$('#editorConflict').classList.add('hide');$('#editorHeading').textContent=r.content.title;$('#saveIndicator').textContent=edit.dirty?'Menyimpan perubahan berikutnya…':'Tersimpan di server';if(!edit.dirty){clearLocalDraft(edit.content.id)}renderEditorMeta();const summary=contentSummary(r.content);const sIdx=hub.data.contents.findIndex(c=>c.id===previousId||c.id===r.content.id);if(sIdx>=0)hub.data.contents[sIdx]=summary;else hub.data.contents.unshift(summary);saveHubCache();renderHub();}catch(err){edit.dirty=true;edit.conflict=true;$('#saveIndicator').textContent='Belum tersimpan — draft dipertahankan';showConflict(err.message);return false}}showDraftBanner();return true})();try{return await edit.saving}finally{edit.saving=null}}
 $('#saveContent').onclick=()=>flushSave();
 $('#fillContentEngine').onclick=async()=>{
  const edit=hub.editing;if(!edit)return;const epoch=edit.epoch,button=$('#fillContentEngine');button.disabled=true;
@@ -765,7 +803,24 @@ function renderEditorMeta(){
 $('#contentPublication').onclick=async e=>{if(!e.target.closest('[data-content-retry]'))return;const j=linkedJob(hub.editing.content);try{await api('/api/jobs/'+j.id+'/retry',{method:'POST',body:'{}'});await refresh();toast('Antrean dilanjutkan dari file tersimpan.')}catch(err){toast(err.message)}};
 $('#duplicateContent').onclick=async()=>{if(!await flushSave())return;try{const r=await api('/api/contents/'+hub.editing.content.id+'/duplicate',{method:'POST',body:'{}'});await closeEditor();await loadHub();await openContent(r.content.id)}catch(err){toast(err.message)}};
 $('#archiveContent').onclick=async()=>{if(!await flushSave())return;hub.editing.content.archived=!hub.editing.content.archived;markDirty();if(await flushSave()){await closeEditor();toast('Status arsip diperbarui.')}};
-$('#deleteContent').onclick=async()=>{if(!await flushSave())return;if(!confirm('Hapus konten beserta script dan riwayatnya secara permanen?'))return;try{await api('/api/contents/'+hub.editing.content.id,{method:'DELETE',body:JSON.stringify({revision:hub.editing.content.revision})});hub.editing=null;$('#contentEditor').close();await loadHub();toast('Konten dihapus.')}catch(err){toast(err.message)}};
+$('#deleteContent').onclick=async()=>{
+  if(!await flushSave())return;
+  if(!confirm('Hapus konten beserta script dan riwayatnya secara permanen?'))return;
+  const id=hub.editing.content.id,rev=hub.editing.content.revision;
+  const oldIdx=hub.data.contents.findIndex(c=>c.id===id);
+  const oldItem=oldIdx>=0?hub.data.contents[oldIdx]:null;
+  if(oldIdx>=0)hub.data.contents.splice(oldIdx,1);
+  saveHubCache();
+  hub.editing=null;
+  $('#contentEditor').close();
+  renderHub();
+  toast('Konten dihapus.');
+  api('/api/contents/'+id,{method:'DELETE',body:JSON.stringify({revision:rev})})
+    .catch(err=>{
+      if(oldItem&&oldIdx>=0){hub.data.contents.splice(oldIdx,0,oldItem);saveHubCache();renderHub();}
+      toast('Gagal menghapus konten: '+err.message);
+    });
+};
 $('#prepareUpload').onclick=async()=>{if(!await flushSave())return;if(state.files.length>1)return toast('Kosongkan pilihan video terlebih dahulu. Satu konten dihubungkan dengan satu video.');const c=hub.editing.content;if(c.youtubeVideoId)return toast('Konten sudah terhubung ke video YouTube. Duplikasikan untuk produksi video baru.');state.linkedContentId=c.id;state.linkedContent=c;$('#description').value=c.description;$('#tags').value=c.tags;if(c.plannedPublishAt)$('#startAt').value=localInput(new Date(c.plannedPublishAt));for(const x of state.files){x.contentId=c.id;x.videoFormat=c.format;x.title=c.title.slice(0,100);x.autoTitle=false}autoSchedule();renderFiles();$('#linkedUploadText').textContent='Video untuk: '+c.title;$('#linkedUpload').classList.remove('hide');await closeEditor();navigate('upload')};
 $('#clearUploadLink').onclick=()=>{state.linkedContentId=null;state.linkedContent=null;for(const x of state.files)x.contentId=null;$('#linkedUpload').classList.add('hide')};
 

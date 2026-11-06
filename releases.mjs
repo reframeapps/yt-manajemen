@@ -1,6 +1,13 @@
-export const APP_VERSION='4.75.0';
+export const APP_VERSION='4.76.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.76.0',date:'2026-11-06',title:'Optimasi Performa Menyeluruh & CRUD Instan (Optimistic UI 0ms)',changes:[
+    {type:'perf',title:'Optimistic Card Creation pada Kanban (0ms Latensi)',desc:'Pembuatan kartu baru via inline card composer kini instan (0ms). Kartu langsung tampil pada kolom kanban dan input tetap aktif/fokus tanpa freeze, sementara sinkronisasi database PostgreSQL berjalan di latar belakang.'},
+    {type:'perf',title:'Instant Notes CRUD & Client-Side Search Filtering',desc:'Operasi catatan (Pin/Unpin, Simpan, Hapus, Arsip) kini dieksekusi secara instan di memori dengan session cache lokal. Pencarian catatan memfilter hasil seketika saat mengetik tanpa menunggu roundtrip server.'},
+    {type:'perf',title:'Optimasi Serialisasi JSON Server & Eliminasi Double Clone',desc:'Menghilangkan double structuredClone pada contentStore dan notesStore, serta mempercepat serialisasi endpoint GET /api/contents dan /api/notes dengan pemetaan properti objek langsung.'},
+    {type:'perf',title:'Request Deduplication & Debounced Cache Sync',desc:'Menambahkan inflight GET deduplication pada client API untuk mencegah redundant fetch bersamaan, serta debouncing 100ms pada sessionStorage cache guna mengeliminasi jitter pada main thread.'},
+    {type:'fix',title:'Proteksi Transisi View Render Downloader & Fallback Elemen',desc:'Menyematkan pengecekan aman pada renderHub untuk semua tampilan khusus termasuk Downloader Sosmed dan Note sehingga transisi menu selalu membersihkan DOM dan mencegah kebocoran antarmuka.'}
+  ]},
   {version:'4.75.0',date:'2026-11-04',title:'Peningkatan Resolusi Video Downloader: Dukungan Penuh 1080p Full HD & 720p HD dengan Universal Remux AAC',changes:[
     {type:'fix',title:'Eliminasi Throttling SABR YouTube Android Client (Resolusi Mentok 360p Teratasi)',desc:'Menghapus argumen player_client=android yang memicu error SABR-only streaming pada YouTube dan memaksa yt-dlp jatuh ke legacy format 18 (360p). yt-dlp kini mengekstrak seluruh stream terpisah DASH Full HD (1080p) dan HD (720p) dengan sempurna.'},
     {type:'feature',title:'Cross-Orientation Selector (Dukungan Resolusi Video Horizontal & Vertikal)',desc:'Mengimplementasikan format selector cerdas yang memperhitungkan dimensi horizontal (height <= 1080/720) maupun vertikal portrait (width <= 1080/720). Konten YouTube Shorts, Instagram Reels, dan TikTok kini selalu diunduh dengan kualitas maksimal HD (720p/1080p) tanpa penurunan resolusi.'},
