@@ -976,7 +976,22 @@ setInterval(archiveTick,60*60*1000).unref();setTimeout(archiveTick,60000).unref(
 const socialTick=async()=>{try{const report=await radarSocial.getReport(),last=report?.lastScanAt?Date.parse(report.lastScanAt):0;if(!last||Date.now()-last>=24*3600*1000)await radarSocial.scan();}catch(e){console.error('Radar social tick:',e.message);}};
 setInterval(socialTick,60*60*1000).unref();setTimeout(socialTick,30000).unref();
 
+const sseClients = new Set();
+function broadcastSync(type, payload = {}) {
+  if (!sseClients.size) return;
+  const data = JSON.stringify({ type, at: nowIso(), ...payload });
+  const msg = `data: ${data}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.write(msg);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+}
+
 const server = http.createServer(async (req, res) => {
+  res.req = req;
   try {
     const u = new URL(req.url, APP_URL);
     const pathname = u.pathname;
@@ -1009,6 +1024,25 @@ const server = http.createServer(async (req, res) => {
     const isOAuthCallback = pathname === '/auth/google/callback';
     if ((pathname.startsWith('/api/') || (pathname.startsWith('/auth/') && !isOAuthCallback)) && !isAuthed(req))
       return json(res, 401, { error: 'Silakan login' });
+
+    if (req.method === 'GET' && pathname === '/api/sync/events') {
+      res.writeHead(200, {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache, no-transform',
+        'connection': 'keep-alive',
+        'x-accel-buffering': 'no'
+      });
+      res.write(`:connected\n\n`);
+      sseClients.add(res);
+      const keepAlive = setInterval(() => {
+        try { res.write(`:keepalive\n\n`); } catch { clearInterval(keepAlive); sseClients.delete(res); }
+      }, 25000);
+      req.on('close', () => {
+        clearInterval(keepAlive);
+        sseClients.delete(res);
+      });
+      return;
+    }
 
     if(req.method==='GET'&&pathname==='/api/releases')return json(res,200,{currentVersion:APP_VERSION,releases:RELEASES},{'cache-control':'no-store'});
     if(req.method==='GET'&&pathname==='/api/settings/connections'){
@@ -1421,15 +1455,32 @@ const server = http.createServer(async (req, res) => {
         }))
       }, { 'etag': etag, 'cache-control': 'private, no-cache' });
     }
-    if (pathname === '/api/columns' && req.method === 'POST')
-      return json(res,201,await contentStore.saveColumn(await readJson(req)));
-    if (pathname === '/api/columns/order' && req.method === 'POST')
-      return json(res,200,await contentStore.reorderColumns(await readJson(req)));
-    if (pathname === '/api/contents/order' && req.method === 'POST')
-      return json(res,200,await contentStore.reorderContents(await readJson(req)));
+    if (pathname === '/api/columns' && req.method === 'POST') {
+      const result = await contentStore.saveColumn(await readJson(req));
+      broadcastSync('contents');
+      return json(res, 201, result);
+    }
+    if (pathname === '/api/columns/order' && req.method === 'POST') {
+      const result = await contentStore.reorderColumns(await readJson(req));
+      broadcastSync('contents');
+      return json(res, 200, result);
+    }
+    if (pathname === '/api/contents/order' && req.method === 'POST') {
+      const result = await contentStore.reorderContents(await readJson(req));
+      broadcastSync('contents');
+      return json(res, 200, result);
+    }
     const columnMatch=pathname.match(/^\/api\/columns\/([a-z0-9-]{1,60})$/);
-    if(columnMatch&&req.method==='PATCH')return json(res,200,await contentStore.saveColumn(await readJson(req),columnMatch[1]));
-    if(columnMatch&&req.method==='DELETE')return json(res,200,await contentStore.removeColumn(columnMatch[1],await readJson(req)));
+    if(columnMatch&&req.method==='PATCH') {
+      const result = await contentStore.saveColumn(await readJson(req),columnMatch[1]);
+      broadcastSync('contents');
+      return json(res, 200, result);
+    }
+    if(columnMatch&&req.method==='DELETE') {
+      const result = await contentStore.removeColumn(columnMatch[1],await readJson(req));
+      broadcastSync('contents');
+      return json(res, 200, result);
+    }
     if(pathname==='/api/notes'&&req.method==='GET'){
       const db=await notesStore.read(),q=(u.searchParams.get('q')||'').toLocaleLowerCase('id-ID'),kind=u.searchParams.get('kind'),category=u.searchParams.get('category'),format=u.searchParams.get('format'),archived=u.searchParams.get('archived')==='1';
       if(format!==null&&!['','long','shorts'].includes(format))return json(res,400,{error:'Pilih kategori video Long atau Short'});
@@ -1444,18 +1495,42 @@ const server = http.createServer(async (req, res) => {
       }
       return json(res,200,{categories:db.categories,categoriesRevision:db.categoriesRevision,notes:notes.map(n=>({id:n.id,title:n.title,category:n.category,format:n.format||'',kind:n.kind,tags:n.tags,pinned:n.pinned,archived:n.archived,revision:n.revision,createdAt:n.createdAt,updatedAt:n.updatedAt,preview:n.body?n.body.slice(0,280):'',bodyLength:n.body?n.body.length:0}))},{'etag':etag,'cache-control':'private, no-cache'});
     }
-    if(pathname==='/api/note-categories'&&req.method==='POST')return json(res,201,await notesStore.createCategory(await readJson(req)));
-    if(pathname==='/api/note-categories'&&['PATCH','DELETE'].includes(req.method))return json(res,200,await notesStore.changeCategory(await readJson(req),req.method==='DELETE'));
-    if(pathname==='/api/notes'&&req.method==='POST')return json(res,201,{note:await notesStore.create(await readJson(req,WRITING_PAYLOAD_BYTES))});
+    if(pathname==='/api/note-categories'&&req.method==='POST') {
+      const result = await notesStore.createCategory(await readJson(req));
+      broadcastSync('notes');
+      return json(res, 201, result);
+    }
+    if(pathname==='/api/note-categories'&&['PATCH','DELETE'].includes(req.method)) {
+      const result = await notesStore.changeCategory(await readJson(req),req.method==='DELETE');
+      broadcastSync('notes');
+      return json(res, 200, result);
+    }
+    if(pathname==='/api/notes'&&req.method==='POST') {
+      const note = await notesStore.create(await readJson(req,WRITING_PAYLOAD_BYTES));
+      broadcastSync('notes');
+      return json(res, 201, { note });
+    }
     const noteMatch=pathname.match(/^\/api\/notes\/([0-9a-f-]{36})$/i);
     if(noteMatch){
       const id=noteMatch[1];
       if(req.method==='GET'){const db=await notesStore.read(),note=db.notes.find(n=>n.id===id);if(!note)return json(res,404,{error:'Catatan tidak ditemukan'});return json(res,200,{note},{'cache-control':'no-store'});}
-      if(req.method==='PATCH')return json(res,200,{note:await notesStore.update(id,await readJson(req,WRITING_PAYLOAD_BYTES))});
-      if(req.method==='DELETE'){const body=await readJson(req);return json(res,200,await notesStore.remove(id,body?.revision));}
+      if(req.method==='PATCH') {
+        const note = await notesStore.update(id,await readJson(req,WRITING_PAYLOAD_BYTES));
+        broadcastSync('notes');
+        return json(res, 200, { note });
+      }
+      if(req.method==='DELETE') {
+        const body = await readJson(req);
+        const result = await notesStore.remove(id,body?.revision);
+        broadcastSync('notes');
+        return json(res, 200, result);
+      }
     }
-    if (req.method === 'POST' && pathname === '/api/contents')
-      return json(res, 201, { content: await contentStore.create(await readJson(req,WRITING_PAYLOAD_BYTES),{fillEngine:true}) });
+    if (req.method === 'POST' && pathname === '/api/contents') {
+      const content = await contentStore.create(await readJson(req,WRITING_PAYLOAD_BYTES),{fillEngine:true});
+      broadcastSync('contents');
+      return json(res, 201, { content });
+    }
     if (req.method === 'POST' && pathname === '/api/contents/batch') {
       const body = await readJson(req, WRITING_PAYLOAD_BYTES);
       const db = await readDb();
@@ -1465,10 +1540,14 @@ const server = http.createServer(async (req, res) => {
           throw Object.assign(new Error(`Konten "${item.title}" terhubung ke antrean upload YouTube. Batalkan antrean sebelum menghapus.`), { status: 409 });
         }
       });
+      broadcastSync('contents');
       return json(res, 200, result);
     }
-    if (req.method === 'POST' && pathname === '/api/pillars')
-      return json(res, 200, { pillar: await contentStore.savePillar(await readJson(req)) });
+    if (req.method === 'POST' && pathname === '/api/pillars') {
+      const pillar = await contentStore.savePillar(await readJson(req));
+      broadcastSync('contents');
+      return json(res, 200, { pillar });
+    }
     if(pathname==='/api/contents/engine-preview'&&req.method==='POST'){
       const body=await readJson(req,WRITING_PAYLOAD_BYTES);
       if(!body||typeof body.title!=='string'||!body.title.trim()||['script','brief','hook','cta','description','tags','productionNotes','audience'].some(k=>body[k]!==undefined&&typeof body[k]!=='string')||body.sources!==undefined&&(!Array.isArray(body.sources)||body.sources.length>100||body.sources.some(s=>!s||['label','notes','url'].some(k=>s[k]!==undefined&&typeof s[k]!=='string'))))return json(res,400,{error:'Isi judul dan bahan konten yang valid.'});
@@ -1477,8 +1556,11 @@ const server = http.createServer(async (req, res) => {
     const contentMatch = pathname.match(/^\/api\/contents\/([0-9a-f-]+)(?:\/(duplicate|publication))?$/i);
     if (contentMatch) {
       const contentId = contentMatch[1];
-      if (contentMatch[2] === 'duplicate' && req.method === 'POST')
-        return json(res, 201, { content: await contentStore.duplicate(contentId) });
+      if (contentMatch[2] === 'duplicate' && req.method === 'POST') {
+        const content = await contentStore.duplicate(contentId);
+        broadcastSync('contents');
+        return json(res, 201, { content });
+      }
       if(contentMatch[2]==='publication'&&req.method==='POST'){
         const body=await readJson(req),data=await contentStore.read(),content=data.contents.find(c=>c.id===contentId);
         if(!content)return json(res,404,{error:'Konten tidak ditemukan.'});
@@ -1493,6 +1575,7 @@ const server = http.createServer(async (req, res) => {
           if(fresh.jobs.some(j=>j.contentId===contentId&&!['failed','cancelled','published'].includes(j.status)&&j.youtubeVideoId!==id))throw Object.assign(Error('Antrean upload berubah. Batalkan antrean sebelum menautkan video manual.'),{status:409});
           return contentStore.recordPublication(contentId,body.revision,video,async()=>{if(generation!==tokenGeneration||(await readDb()).channel?.id!==channelId)throw Object.assign(Error('Channel berubah. Ulangi pengecekan.'),{status:409});});
         });
+        broadcastSync('contents');
         return json(res,200,{content:result});
       }
       if (!contentMatch[2] && req.method === 'GET') {
@@ -1508,6 +1591,7 @@ const server = http.createServer(async (req, res) => {
           if (old.plannedPublishAt !== next.plannedPublishAt && (await linkedJobs()).length)
             throw Object.assign(new Error('Jadwal sudah terhubung ke upload YouTube. Kelola jadwal di YouTube Studio.'), { status: 409 });
         });
+        broadcastSync('contents');
         return json(res, 200, { content });
       }
       if (!contentMatch[2] && req.method === 'DELETE') {
@@ -1515,6 +1599,7 @@ const server = http.createServer(async (req, res) => {
         const result = await contentStore.remove(contentId, body?.revision, async () => {
           if ((await linkedJobs()).length) throw Object.assign(new Error('Konten terhubung ke upload YouTube. Gunakan Arsipkan agar riwayat tetap tersedia.'), { status: 409 });
         });
+        broadcastSync('contents');
         return json(res, 200, result);
       }
     }

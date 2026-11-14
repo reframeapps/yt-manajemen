@@ -67,6 +67,7 @@ window.renderNotes=body=>{
         saveNotesCache();
         renderNotesList();
         toast(n.pinned?'Catatan disematkan di atas.':'Pin catatan dilepas.');
+        broadcastHubChange('notes');
         api('/api/notes/'+id,{method:'PATCH',body:JSON.stringify({revision:oldRev,pinned:n.pinned})})
           .then(r=>{if(r?.note){Object.assign(n,r.note);saveNotesCache();}})
           .catch(err=>{
@@ -87,6 +88,12 @@ async function loadNotes(){
   try{
     const r=await api('/api/notes?'+query);if(serial!==notesUi.serial)return;
     notesUi.notes=r.notes;notesUi.categories=r.categories;notesUi.categoriesRevision=r.categoriesRevision;
+    if(notesUi.editing&&!notesUi.editing.isNew){
+      const freshNote=r.notes.find(n=>n.id===notesUi.editing.note.id);
+      if(freshNote&&freshNote.revision>notesUi.editing.note.revision&&!notesUi.editing.dirty){
+        notesUi.editing.note.revision=freshNote.revision;
+      }
+    }
     saveNotesCache();
     renderNoteCategories();
     if($('#notesList')){renderNotesList();$('#notesError').classList.add('hide')}
@@ -140,6 +147,7 @@ async function saveNote(){
       notesUi.notes.sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.updatedAt.localeCompare(a.updatedAt));
       saveNotesCache();
       renderNotesList();
+      broadcastHubChange('notes');
       return !edit.dirty;
     }catch(e){noteConflict(e.message);return false}
   })();
@@ -162,6 +170,7 @@ $('#archiveNote').onclick=async()=>{
   if(n){n.archived=newArchived;n.revision=edit.note.revision;}
   saveNotesCache();
   renderNotesList();
+  broadcastHubChange('notes');
   await closeNote();
   toast(newArchived?'Catatan diarsipkan.':'Catatan dipulihkan dari arsip.');
   api('/api/notes/'+id,{method:'PATCH',body:JSON.stringify({revision:oldRev,archived:newArchived})})
@@ -179,6 +188,7 @@ $('#deleteNote').onclick=async()=>{
   if(oldIdx>=0)notesUi.notes.splice(oldIdx,1);
   saveNotesCache();
   renderNotesList();
+  broadcastHubChange('notes');
   try{localStorage.removeItem(noteDraftKey(id))}catch{}
   notesUi.editing=null;
   $('#noteEditor').close();
@@ -190,6 +200,7 @@ $('#deleteNote').onclick=async()=>{
     });
 };
 $('#reloadNote').onclick=async()=>{if(!confirm('Muat versi server dan abaikan draft lokal catatan ini?'))return;const id=notesUi.editing.note.id;notesUi.editing=null;try{localStorage.removeItem(noteDraftKey(id))}catch{}$('#noteEditor').close();try{await openNote(id)}catch(e){toast(e.message)}};
+$('#overwriteNote').onclick=async()=>{if(!notesUi.editing)return;const id=notesUi.editing.note.id;try{const r=await api('/api/notes/'+id);notesUi.editing.note.revision=r.note.revision;$('#noteConflict').classList.add('hide');notesUi.editing.conflict=false;markNoteDirty();const ok=await saveNote();if(ok)toast('Catatan berhasil disimpan dengan versi server terbaru.');}catch(err){toast('Gagal menyimpan: '+err.message)}};
 $('#copyNoteDraft').onclick=async()=>{if(notesUi.editing?.saving)return;const fields=noteFields(),id=notesUi.editing.note.id;if(!fields.title.trim())return toast('Isi judul sebelum menyimpan salinan.');fields.title=(fields.title+' (draft)');fields.archived=false;try{const r=await api('/api/notes',{method:'POST',body:JSON.stringify(fields)});try{localStorage.removeItem(noteDraftKey(id))}catch{}notesUi.editing=null;$('#noteEditor').close();await openNote(r.note.id);void loadNotes()}catch(e){toast(e.message)}};
 async function recoverNoteDraft(){let drafts=[];try{for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key.startsWith('yt-note-draft-')){const d=JSON.parse(localStorage.getItem(key));if(d?.fields)drafts.push(d)}}}catch{}drafts.sort((a,b)=>b.at-a.at);if(!drafts.length)return toast('Tidak ada draft lokal yang belum disimpan.');const draft=drafts[0];if(draft.isNew)return createNote(draft.fields,draft.id);try{await openNote(draft.id)}catch(e){if(confirm('Catatan asli belum tersedia. Buka draft sebagai Note baru?'))await createNote(draft.fields,draft.id)}}
 window.addEventListener('beforeunload',e=>{if(notesUi.editing?.dirty){e.preventDefault();e.returnValue=''}});

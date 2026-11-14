@@ -18,7 +18,8 @@ export class PostgresStorage {
   static async connect(url,options) {
     const {Pool}=await import('pg');
     const ssl = (url.includes('supabase') || url.includes('neon') || url.includes('sslmode')) ? { rejectUnauthorized: false } : undefined;
-    const pool=new Pool({connectionString:url,max:5,connectionTimeoutMillis:15000,idleTimeoutMillis:30000,keepAlive:true,keepAliveInitialDelayMillis:10000,...(ssl?{ssl}:{})});
+    const maxPool = Math.max(20, Number(process.env.PG_MAX_POOL || 20));
+    const pool=new Pool({connectionString:url,max:maxPool,connectionTimeoutMillis:10000,idleTimeoutMillis:60000,keepAlive:true,keepAliveInitialDelayMillis:10000,...(ssl?{ssl}:{})});
     pool.on('error',()=>console.error('Storage: PostgreSQL connection unavailable'));
     return new PostgresStorage(pool,options);
   }
@@ -65,7 +66,7 @@ export class PostgresStorage {
   }
   async read(key){
     const cached=this.docCache?.get(key);
-    if(cached)return structuredClone(cached.data);
+    if(cached&&this.now()-cached.cachedAt<15000)return structuredClone(cached.data);
     const {rows}=await this.pool.query('SELECT data FROM app_documents WHERE key=$1',[key]);
     if(!rows.length)throw storageError();
     const data=rows[0].data;

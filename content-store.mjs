@@ -328,7 +328,6 @@ export class ContentStore {
   }
   reorderContents(body) {
     return this.mutate(db=>{
-      if(body?.boardRevision!==undefined) checkBoardRevision(db,body.boardRevision);
       if(Array.isArray(body?.ids)){
         const idSet=new Set(body.ids);
         const ordered=[];
@@ -340,8 +339,7 @@ export class ContentStore {
           if(!idSet.has(item.id))ordered.push(item);
         }
         db.contents=ordered;
-        db.boardRevision=(db.boardRevision||1)+1;
-        return {ok:true,boardRevision:db.boardRevision};
+        return {ok:true};
       }
       const {id,targetId,position,stage}=body||{};
       if(!id)throw fail('ID konten wajib diisi',400);
@@ -385,8 +383,7 @@ export class ContentStore {
       }else{
         db.contents.splice(index,0,item);
       }
-      db.boardRevision=(db.boardRevision||1)+1;
-      return {ok:true,boardRevision:db.boardRevision};
+      return {ok:true};
     });
   }
   removeColumn(id,body) {

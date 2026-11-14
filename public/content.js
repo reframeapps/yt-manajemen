@@ -153,7 +153,7 @@ function renderBulkBar(){
     const selectedIds=[...hub.selected];
     const prev=hub.data.contents.map(c=>({...c}));
     hub.data.contents.forEach(c=>{if(hub.selected.has(c.id)){c.stage=stage;c.updatedAt=new Date().toISOString();}});
-    hub.selected.clear();saveHubCache();renderHub();toast('Memindahkan '+selectedIds.length+' konten...');
+    hub.selected.clear();saveHubCache();renderHub();broadcastHubChange('contents');toast('Memindahkan '+selectedIds.length+' konten...');
     try{
       await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'move',ids:selectedIds,stage})});
       toast('Berhasil memindahkan tahap');saveHubCache();
@@ -165,7 +165,7 @@ function renderBulkBar(){
     const selectedIds=[...hub.selected];
     const prev=hub.data.contents.map(c=>({...c}));
     hub.data.contents.forEach(c=>{if(hub.selected.has(c.id)){c.pillarId=pillarId;c.updatedAt=new Date().toISOString();}});
-    hub.selected.clear();saveHubCache();renderHub();toast('Mengubah pilar '+selectedIds.length+' konten...');
+    hub.selected.clear();saveHubCache();renderHub();broadcastHubChange('contents');toast('Mengubah pilar '+selectedIds.length+' konten...');
     try{
       await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'pillar',ids:selectedIds,pillarId})});
       toast('Berhasil mengubah pilar');saveHubCache();
@@ -175,7 +175,7 @@ function renderBulkBar(){
     const selectedIds=[...hub.selected];
     const prev=hub.data.contents.map(c=>({...c}));
     hub.data.contents.forEach(c=>{if(hub.selected.has(c.id)){c.archived=true;c.updatedAt=new Date().toISOString();}});
-    hub.selected.clear();saveHubCache();renderHub();toast('Mengarsipkan '+selectedIds.length+' konten...');
+    hub.selected.clear();saveHubCache();renderHub();broadcastHubChange('contents');toast('Mengarsipkan '+selectedIds.length+' konten...');
     try{
       await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'archive',ids:selectedIds,archived:true})});
       toast('Berhasil mengarsipkan konten terpilih');saveHubCache();
@@ -187,7 +187,7 @@ function renderBulkBar(){
     const prev=hub.data.contents.map(c=>({...c}));
     const delSet=new Set(selectedIds);
     hub.data.contents=hub.data.contents.filter(c=>!delSet.has(c.id));
-    hub.selected.clear();saveHubCache();renderHub();toast('Menghapus '+selectedIds.length+' konten...');
+    hub.selected.clear();saveHubCache();renderHub();broadcastHubChange('contents');toast('Menghapus '+selectedIds.length+' konten...');
     try{
       await api('/api/contents/batch',{method:'POST',body:JSON.stringify({action:'delete',ids:selectedIds})});
       toast('Berhasil menghapus konten terpilih');saveHubCache();
@@ -235,6 +235,12 @@ async function loadHub(force=false){
     const fresh=await api('/api/contents');
     const changed=!hub.loaded||JSON.stringify(fresh.contents)!==JSON.stringify(hub.data?.contents)||JSON.stringify(fresh.pillars)!==JSON.stringify(hub.data?.pillars);
     hub.data=fresh;
+    if(hub.editing&&!hub.editing.isNew){
+      const freshItem=fresh.contents.find(c=>c.id===hub.editing.content.id);
+      if(freshItem&&freshItem.revision>hub.editing.content.revision&&!hub.editing.dirty){
+        hub.editing.content.revision=freshItem.revision;
+      }
+    }
     saveHubCache();
     syncBoardColumns(hub.data);
     hub.loaded=true;
@@ -353,9 +359,9 @@ async function reorderCard(id,targetId,position,stage){
   }
   saveHubCache();renderHub();
   try{
-    const res=await api('/api/contents/order',{method:'POST',body:JSON.stringify({id,targetId,position,stage,boardRevision:state.boardRevision})});
-    if(res?.boardRevision)state.boardRevision=res.boardRevision;
+    await api('/api/contents/order',{method:'POST',body:JSON.stringify({id,targetId,position,stage})});
     toast('Urutan kartu diperbarui.');
+    broadcastHubChange('contents');
   }catch(err){
     hub.data.contents=oldContents;c.stage=oldStage;
     saveHubCache();renderHub();
@@ -383,6 +389,7 @@ async function moveContent(id,stage){
   c.stage=stage;c.updatedAt=new Date().toISOString();
   saveHubCache();renderHub();
   toast('Kartu dipindahkan ke '+(STAGE_NAMES[stage]||stage)+'.');
+  broadcastHubChange('contents');
   try{
     const result=await api('/api/contents/'+id,{method:'PATCH',body:JSON.stringify({revision:oldRev,stage})});
     hub.data.contents=hub.data.contents.map(item=>item.id===id?contentSummary(result.content):item);
@@ -402,6 +409,7 @@ async function deleteCard(id){
   hub.data.contents=hub.data.contents.filter(item=>item.id!==id);
   saveHubCache();renderHub();
   toast('Konten berhasil dihapus.');
+  broadcastHubChange('contents');
   try{
     await api('/api/contents/'+id,{method:'DELETE',body:JSON.stringify({revision:c?.revision})});
     saveHubCache();
@@ -478,6 +486,7 @@ $('#hubBody').onsubmit=async e=>{
     saveHubCache();
     renderHub();
     toast('Kartu ditambahkan.');
+    broadcastHubChange('contents');
     const input=$('#hubBody [name="cardTitle"]');
     input?.focus();
     api('/api/contents',{method:'POST',body:JSON.stringify({title,stage,pillarId:$('#pillarFilter').value,format:$('#formatFilter').value||'shorts',archived:$('#archiveFilter').checked})})
@@ -685,7 +694,7 @@ hubForm.onchange=e=>{if(e.target.matches('select,input[type=checkbox]'))hubForm.
 hubForm.onsubmit=e=>{e.preventDefault();flushSave()};
 $('#contentChecklist').onchange=()=>markDirty();
 function showConflict(message){$('#editorConflict').classList.remove('hide');$('#conflictText').textContent=message}
-async function flushSave(){clearTimeout(hub.timer);const edit=hub.editing;if(!edit)return true;if(edit.isNew&&!edit.dirty){showConflict('Isi judul sebelum menyimpan. Konten kosong tidak disimpan.');return false;}if(edit.saving)return edit.saving;edit.saving=(async()=>{while(edit.dirty){const epoch=edit.epoch;let fields;try{fields=readForm();if(!fields.title.trim())throw Error('Judul wajib diisi. Draft tetap disimpan di browser.');$('#saveIndicator').textContent='Menyimpan…';const previousId=edit.content.id;const r=await api('/api/contents'+(edit.isNew?'':'/'+edit.content.id),{method:edit.isNew?'POST':'PATCH',body:JSON.stringify({...fields,...(edit.isNew?{}:{revision:edit.content.revision})})});const pendingAssets=edit.content.assets,pendingSources=edit.content.sources,pendingPublicationLinks=edit.content.publicationLinks;edit.content=r.content;edit.isNew=false;edit.content.sources=pendingSources;edit.content.assets=pendingAssets;if(epoch!==edit.epoch)edit.content.publicationLinks=pendingPublicationLinks||[];if(epoch===edit.epoch){clearLocalDraft(previousId);edit.dirty=false;}else{try{const value=JSON.stringify({id:edit.content.id,revision:edit.content.revision,fields:readForm(),isNew:false,epoch:edit.epoch,at:Date.now()});localStorage.setItem('yt-hub-draft-'+edit.content.id,value);localStorage.setItem('yt-hub-pending',value);if(previousId!==edit.content.id)clearLocalDraft(previousId);}catch{}}edit.conflict=false;$('#editorConflict').classList.add('hide');$('#editorHeading').textContent=r.content.title;$('#saveIndicator').textContent=edit.dirty?'Menyimpan perubahan berikutnya…':'Tersimpan di server';if(!edit.dirty){clearLocalDraft(edit.content.id)}renderEditorMeta();const summary=contentSummary(r.content);const sIdx=hub.data.contents.findIndex(c=>c.id===previousId||c.id===r.content.id);if(sIdx>=0)hub.data.contents[sIdx]=summary;else hub.data.contents.unshift(summary);saveHubCache();renderHub();}catch(err){edit.dirty=true;edit.conflict=true;$('#saveIndicator').textContent='Belum tersimpan — draft dipertahankan';showConflict(err.message);return false}}showDraftBanner();return true})();try{return await edit.saving}finally{edit.saving=null}}
+async function flushSave(){clearTimeout(hub.timer);const edit=hub.editing;if(!edit)return true;if(edit.isNew&&!edit.dirty){showConflict('Isi judul sebelum menyimpan. Konten kosong tidak disimpan.');return false;}if(edit.saving)return edit.saving;edit.saving=(async()=>{while(edit.dirty){const epoch=edit.epoch;let fields;try{fields=readForm();if(!fields.title.trim())throw Error('Judul wajib diisi. Draft tetap disimpan di browser.');$('#saveIndicator').textContent='Menyimpan…';const previousId=edit.content.id;const r=await api('/api/contents'+(edit.isNew?'':'/'+edit.content.id),{method:edit.isNew?'POST':'PATCH',body:JSON.stringify({...fields,...(edit.isNew?{}:{revision:edit.content.revision})})});const pendingAssets=edit.content.assets,pendingSources=edit.content.sources,pendingPublicationLinks=edit.content.publicationLinks;edit.content=r.content;edit.isNew=false;edit.content.sources=pendingSources;edit.content.assets=pendingAssets;if(epoch!==edit.epoch)edit.content.publicationLinks=pendingPublicationLinks||[];if(epoch===edit.epoch){clearLocalDraft(previousId);edit.dirty=false;}else{try{const value=JSON.stringify({id:edit.content.id,revision:edit.content.revision,fields:readForm(),isNew:false,epoch:edit.epoch,at:Date.now()});localStorage.setItem('yt-hub-draft-'+edit.content.id,value);localStorage.setItem('yt-hub-pending',value);if(previousId!==edit.content.id)clearLocalDraft(previousId);}catch{}}edit.conflict=false;$('#editorConflict').classList.add('hide');$('#editorHeading').textContent=r.content.title;$('#saveIndicator').textContent=edit.dirty?'Menyimpan perubahan berikutnya…':'Tersimpan di server';if(!edit.dirty){clearLocalDraft(edit.content.id)}renderEditorMeta();const summary=contentSummary(r.content);const sIdx=hub.data.contents.findIndex(c=>c.id===previousId||c.id===r.content.id);if(sIdx>=0)hub.data.contents[sIdx]=summary;else hub.data.contents.unshift(summary);saveHubCache();renderHub();broadcastHubChange('contents');}catch(err){edit.dirty=true;edit.conflict=true;$('#saveIndicator').textContent='Belum tersimpan — draft dipertahankan';showConflict(err.message);return false}}showDraftBanner();return true})();try{return await edit.saving}finally{edit.saving=null}}
 $('#saveContent').onclick=()=>flushSave();
 $('#fillContentEngine').onclick=async()=>{
  const edit=hub.editing;if(!edit)return;const epoch=edit.epoch,button=$('#fillContentEngine');button.disabled=true;
@@ -716,6 +725,7 @@ async function closeEditor(){if(hub.editing?.saving)return false;if(hub.editing?
 $('#closeEditor').onclick=closeEditor;$('#contentEditor').addEventListener('cancel',e=>{e.preventDefault();closeEditor()});
 window.addEventListener('beforeunload',e=>{if(hub.editing?.dirty||state.uploading){e.preventDefault();e.returnValue=''}});
 $('#reloadContent').onclick=async()=>{if(!confirm('Muat versi server dan abaikan perubahan lokal untuk konten ini?'))return;try{const id=hub.editing.content.id;clearTimeout(hub.timer);hub.editing=null;clearLocalDraft(id);showDraftBanner();$('#contentEditor').close();await openContent(id)}catch(err){toast(err.message)}};
+$('#overwriteContent').onclick=async()=>{if(!hub.editing)return;const id=hub.editing.content.id;try{const r=await api('/api/contents/'+id);hub.editing.content.revision=r.content.revision;$('#editorConflict').classList.add('hide');hub.editing.conflict=false;markDirty();const ok=await flushSave();if(ok)toast('Perubahan berhasil disimpan dengan versi server terbaru.');}catch(err){toast('Gagal menyimpan: '+err.message)}};
 function scriptStats(){if(!hub.editing)return;const text=formValue('script').value,words=text.trim().split(/\s+/).filter(Boolean).length,seconds=Math.round(words/140*60),duration=seconds>=60?`${Math.floor(seconds/60)} menit${seconds%60?' '+seconds%60+' detik':''}`:`${seconds} detik`;$('#scriptStats').textContent=`${words.toLocaleString('id-ID')} kata · ${text.length.toLocaleString('id-ID')} karakter · Estimasi narasi ${duration} (140 kata/menit)`;$('#copyScript').disabled=!text.trim();if($('#downloadScriptTxt'))$('#downloadScriptTxt').disabled=!text.trim();$('#openTeleprompter').disabled=!text.trim();if($('#openThumbnailSeo'))$('#openThumbnailSeo').disabled=!text.trim();}
 $('#openThumbnailSeo').onclick=()=>{if(!hub.editing)return;const script=formValue('script').value||'';const format=formValue('format').value==='shorts'?'short':'thumbnail';if(window.openThumbnailSeoModal){window.openThumbnailSeoModal(script,format);}else{toast('Generator Thumbnail & SEO sedang dimuat…');}};
 if($('#importTranscriptFromUrl')){
@@ -814,6 +824,7 @@ $('#deleteContent').onclick=async()=>{
   hub.editing=null;
   $('#contentEditor').close();
   renderHub();
+  broadcastHubChange('contents');
   toast('Konten dihapus.');
   api('/api/contents/'+id,{method:'DELETE',body:JSON.stringify({revision:rev})})
     .catch(err=>{

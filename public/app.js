@@ -100,6 +100,66 @@ function statusBadge(kind,value){
   const accessible=(production?'Tahap produksi: ':'Status publikasi: ')+meta.label;
   return `<span class="status-badge status-${production?'production':'publication'} status-tone-${meta.tone}" ${colorStyle} data-status-kind="${production?'production':'publication'}" data-status-value="${esc(value||'not_uploaded')}" title="${esc(accessible)}" aria-label="${esc(accessible)}">${statusIcon(meta.icon)}<span>${esc(meta.label)}</span></span>`;
 }
+const hubChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('yt-hub-sync') : null;
+function broadcastHubChange(type, payload = {}) {
+  try { hubChannel?.postMessage({ type, at: Date.now(), ...payload }); } catch {}
+}
+if (hubChannel) {
+  hubChannel.onmessage = e => {
+    const type = e.data?.type;
+    if (type === 'contents' && typeof window.loadHub === 'function') {
+      if (typeof hub !== 'undefined' && (hub.draggedId || hub.composer?.title)) return;
+      window.loadHub();
+    } else if (type === 'notes' && typeof window.loadNotes === 'function') {
+      window.loadNotes();
+    }
+  };
+}
+
+let sseConn = null;
+let sseReconnectTimer = null;
+function initRealtimeSync() {
+  if (typeof EventSource === 'undefined') return;
+  if (sseConn) try { sseConn.close(); } catch {}
+  clearTimeout(sseReconnectTimer);
+  try {
+    sseConn = new EventSource('/api/sync/events');
+    sseConn.onmessage = e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'contents' && typeof window.loadHub === 'function') {
+          if (typeof hub !== 'undefined' && (hub.draggedId || hub.composer?.title)) return;
+          window.loadHub();
+        } else if (msg.type === 'notes' && typeof window.loadNotes === 'function') {
+          window.loadNotes();
+        }
+      } catch {}
+    };
+    sseConn.onerror = () => {
+      try { sseConn.close(); } catch {}
+      sseConn = null;
+      clearTimeout(sseReconnectTimer);
+      sseReconnectTimer = setTimeout(initRealtimeSync, 5000);
+    };
+  } catch {}
+}
+
+let lastVisibilitySync = Date.now();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && Date.now() - lastVisibilitySync > 5000) {
+    lastVisibilitySync = Date.now();
+    if (typeof window.loadHub === 'function') window.loadHub();
+    if (typeof window.loadNotes === 'function') window.loadNotes();
+  }
+});
+window.addEventListener('focus', () => {
+  if (Date.now() - lastVisibilitySync > 5000) {
+    lastVisibilitySync = Date.now();
+    if (typeof window.loadHub === 'function') window.loadHub();
+    if (typeof window.loadNotes === 'function') window.loadNotes();
+  }
+});
+
 let _lastServerSig='';
 let _refreshTimer=null;
 function scheduleNextRefresh(){
@@ -107,7 +167,7 @@ function scheduleNextRefresh(){
   const hasActive=state.server?.jobs?.some(j=>['receiving','queued_upload','uploading_youtube'].includes(j.status));
   _refreshTimer=setTimeout(async()=>{await refresh();scheduleNextRefresh();},hasActive?4000:12000);
 }
-async function boot(){const sess=await api('/api/session');if(sess.version){document.querySelectorAll('.version,#appVersion').forEach(el=>el.textContent='v'+sess.version)}if(!sess.authenticated){$('#loginView').classList.remove('hide');if(sess.configMissing?.length){$('#configWarning').classList.remove('hide');$('#configWarning').textContent='Cloud belum lengkap: '+sess.configMissing.join(', ')}return}$('#appView').classList.remove('hide');await refresh();scheduleNextRefresh()}
+async function boot(){const sess=await api('/api/session');if(sess.version){document.querySelectorAll('.version,#appVersion').forEach(el=>el.textContent='v'+sess.version)}if(!sess.authenticated){$('#loginView').classList.remove('hide');if(sess.configMissing?.length){$('#configWarning').classList.remove('hide');$('#configWarning').textContent='Cloud belum lengkap: '+sess.configMissing.join(', ')}return}$('#appView').classList.remove('hide');initRealtimeSync();await refresh();scheduleNextRefresh()}
 $('#loginBtn').onclick=async()=>{try{await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#loginPassword').value})});location.reload()}catch(e){toast(e.message)}};
 $('#loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')$('#loginBtn').click()});
 $('#logoutBtn').onclick=async()=>{await api('/api/logout',{method:'POST',body:'{}'});location.reload()};
