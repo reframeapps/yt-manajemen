@@ -67,26 +67,43 @@ export class PostgresStorage {
   async read(key){
     const cached=this.docCache?.get(key);
     if(cached&&this.now()-cached.cachedAt<15000)return structuredClone(cached.data);
-    const {rows}=await this.pool.query('SELECT data FROM app_documents WHERE key=$1',[key]);
-    if(!rows.length)throw storageError();
-    const data=rows[0].data;
-    this.docCache?.set(key,{data,cachedAt:this.now()});
-    return structuredClone(data);
+    for(let attempt=0;attempt<2;attempt++){
+      try{
+        const {rows}=await this.pool.query('SELECT data FROM app_documents WHERE key=$1',[key]);
+        if(!rows.length)throw storageError();
+        const data=rows[0].data;
+        this.docCache?.set(key,{data,cachedAt:this.now()});
+        return structuredClone(data);
+      }catch(err){
+        const retryable=attempt===0&&(err.message?.includes('Connection terminated')||err.message?.includes('timeout')||err.code==='57P01'||err.code==='ECONNRESET');
+        if(retryable){await new Promise(r=>setTimeout(r,500));continue;}
+        throw err;
+      }
+    }
   }
   async mutate(key,fn){
     this.docCache?.delete(key);
-    return this.transaction(async client=>{
-      const {rows}=await client.query('SELECT data FROM app_documents WHERE key=$1 FOR UPDATE',[key]);
-      if(!rows.length)throw storageError();
-      const data=structuredClone(rows[0].data),before=JSON.stringify(data),result=await fn(data),after=JSON.stringify(data);
-      if(after!==before){
-        await client.query('UPDATE app_documents SET data=$2::jsonb,revision=revision+1,updated_at=now() WHERE key=$1',[key,after]);
-        this.docCache?.set(key,{data:structuredClone(data),cachedAt:this.now()});
-      }else{
-        this.docCache?.set(key,{data:structuredClone(rows[0].data),cachedAt:this.now()});
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        return await this.transaction(async client=>{
+          await client.query("SET LOCAL statement_timeout = '30s'").catch(()=>{});
+          const {rows}=await client.query('SELECT data FROM app_documents WHERE key=$1 FOR UPDATE',[key]);
+          if(!rows.length)throw storageError();
+          const data=structuredClone(rows[0].data),before=JSON.stringify(data),result=await fn(data),after=JSON.stringify(data);
+          if(after!==before){
+            await client.query('UPDATE app_documents SET data=$2::jsonb,revision=revision+1,updated_at=now() WHERE key=$1',[key,after]);
+            this.docCache?.set(key,{data:structuredClone(data),cachedAt:this.now()});
+          }else{
+            this.docCache?.set(key,{data:structuredClone(rows[0].data),cachedAt:this.now()});
+          }
+          return structuredClone(result);
+        });
+      }catch(err){
+        const retryable=attempt<2&&(err.code==='57014'||err.code==='57P01'||err.code==='40P01'||err.message?.includes('Connection terminated')||err.message?.includes('timeout'));
+        if(retryable){await new Promise(r=>setTimeout(r,1000*(attempt+1)));continue;}
+        throw err;
       }
-      return structuredClone(result);
-    });
+    }
   }
   async write(key,data){this.docCache?.delete(key);await this.mutate(key,document=>{for(const k of Object.keys(document))delete document[k];Object.assign(document,structuredClone(data));});}
   backup(kind='manual',options={}) {

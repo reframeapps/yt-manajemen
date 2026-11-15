@@ -1,6 +1,13 @@
-export const APP_VERSION='4.77.0';
+export const APP_VERSION='4.78.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.78.0',date:'2026-11-15',title:'Perbaikan Total Sinkronisasi Radar Konten, Pruning Kapasitas Otomatis & Ketahanan AI Social Scanner',changes:[
+    {type:'fix',title:'Eliminasi Hard Cap Freeze Radar (Auto-Pruning Sliding Window FIFO)',desc:'Menghilangkan error pemblokiran "Radar penuh (800 isu)" yang membekukan sinkronisasi berita dan video baru. Radar kini menerapkan auto-pruning cerdas berbasis FIFO terhadap isu-isu lama tidak terlindungi (status new), menyisakan ruang secara otomatis tanpa kehilangan data naskah, catatan riset, atau kartu kanban.'},
+    {type:'fix',title:'Pemisahan Ketergantungan Google Drive pada Pembersihan Data Retensi',desc:'Memperbaiki radarRetention agar pembersihan berkala data Radar lama (7/14 hari) tetap berjalan secara independen di PostgreSQL tanpa terblokir status koneksi Google Drive.'},
+    {type:'fix',title:'Parsing AI Resilien & Mode JSON Murni pada Radar Social Intelligence',desc:'Mengaktifkan response_mime_type: application/json pada pemanggilan Gemini serta menyematkan parser toleran multi-tahap (pembersihan markdown fences, balancing bracket, pembersihan trailing commas, dan ekstraksi regex). Mengeliminasi error Unterminated string in JSON yang sebelumnya menggagalkan pemindaian tren sosial berkala.'},
+    {type:'resilience',title:'Fallback Otomatis ke Public RSS Feed YouTube Channel',desc:'Ketika token autentikasi YouTube OAuth kedaluwarsa atau dibatasi kuota Data API, sinkronisasi channel secara cerdas beralih ke public RSS channel feed untuk tetap memantau video terbaru tanpa error terputus.'},
+    {type:'perf',title:'Retry Transien & Timeout Protection pada PostgreSQL Supabase Pooler',desc:'Menambahkan timeout 30 detik pada mutasi row-lock app_documents dan mekanisme retry otomatis dengan exponential backoff pada error 57014 (statement timeout) dan koneksi terputus, mengeliminasi lock contention antara radar sync, publication sync, dan snapshot backup.'}
+  ]},
   {version:'4.77.0',date:'2026-11-14',title:'Dukungan Multi-User Kolaboratif Real-Time & Ekstensi Konkurensi Database',changes:[
     {type:'feature',title:'Real-Time Sync Stream via Server-Sent Events (SSE)',desc:'Menambahkan stream peristiwa langsung /api/sync/events yang memberitahu seluruh browser pengguna ketika ada kartu baru, perubahan tahap kanban, atau catatan yang diperbarui. Perubahan dari pengguna lain langsung sinkron dalam 30ms tanpa perlu refresh manual.'},
     {type:'feature',title:'Sinkronisasi Antar-Tab Instan dengan BroadcastChannel',desc:'Menghubungkan seluruh tab browser pada perangkat yang sama melalui BroadcastChannel yt-hub-sync. Perubahan kartu atau catatan di tab satu langsung terupdate di tab lain secara instan (0ms).'},

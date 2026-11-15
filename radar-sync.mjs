@@ -41,22 +41,58 @@ export class RadarSync{
  async yt(resource,params){const response=await this.youtube('https://www.googleapis.com/youtube/v3/'+resource+'?'+new URLSearchParams(params));const data=await response.json();if(!response.ok){const quota=data.error?.errors?.some(x=>['quotaExceeded','dailyLimitExceeded'].includes(x.reason));throw Object.assign(fail(quota?'Kuota YouTube habis. Data sebelumnya tetap tersedia.':data.error?.message||'YouTube belum terhubung.',503),{code:quota?'quota_exceeded':'youtube_error'});}return data.items||[];}
  async channel(c,topics,focus={mode:'general'}){
   let channelId=c.channelId,uploads=c.uploads,name=c.name,thumbnail=c.thumbnail;
-  if(!channelId||!uploads){const u=new URL(c.url),cleanPath=u.pathname.replace(/\/+$/,''),handle=cleanPath.startsWith('/@');const [channel]=await this.yt('channels',{part:'snippet,contentDetails',...(handle?{forHandle:decodeURIComponent(cleanPath.slice(1))}:{id:cleanPath.split('/')[2]})});if(!channel)throw fail('Channel tidak ditemukan.',404);channelId=channel.id;uploads=channel.contentDetails.relatedPlaylists.uploads;name=channel.snippet.title;thumbnail=channel.snippet.thumbnails?.default?.url||'';}
+  if(!channelId||!uploads){
+    const u=new URL(c.url),cleanPath=u.pathname.replace(/\/+$/,''),handle=cleanPath.startsWith('/@');
+    try{
+      const [channel]=await this.yt('channels',{part:'snippet,contentDetails',...(handle?{forHandle:decodeURIComponent(cleanPath.slice(1))}:{id:cleanPath.split('/')[2]})});
+      if(!channel)throw fail('Channel tidak ditemukan.',404);
+      channelId=channel.id;uploads=channel.contentDetails.relatedPlaylists.uploads;name=channel.snippet.title;thumbnail=channel.snippet.thumbnails?.default?.url||'';
+    }catch(e){
+      if(cleanPath.startsWith('/channel/UC')){channelId=cleanPath.split('/')[2];name=name||'YouTube Channel';}
+      else throw e;
+    }
+  }
   const at=this.now(),now=new Date(at).toISOString();
-  const entries=await this.yt('playlistItems',{part:'contentDetails',playlistId:uploads,maxResults:'10'}),latestIds=[...new Set(entries.map(x=>x.contentDetails.videoId).filter(id=>/^[\w-]{11}$/.test(id||'')))];
-  const archived=[...new Map([...(c.historyVideos||[]),...(c.videos||[])].map(v=>[v.id,v])).values()].filter(v=>!latestIds.includes(v.id)&&Date.parse(v.lastObservedAt||c.lastSyncAt)>=at-30*86400000).toSorted((a,b)=>a.id.localeCompare(b.id));
-  const cursor=(c.historyCursor||0)%Math.max(1,archived.length),tracked=Array.from({length:Math.min(40,archived.length)},(_,i)=>archived[(cursor+i)%archived.length].id);
-  const ids=[...latestIds,...tracked],videos=ids.length?await this.yt('videos',{part:'snippet,contentDetails,statistics',id:ids.join(',')}):[];
-  const snapshot={at:now,values:{}};
-  const mapped=videos.filter(v=>ids.includes(v.id)&&v.snippet).map(v=>{
-   const previous=(c.snapshots||[]).findLast(s=>s.values?.[v.id]),old=previous?.values[v.id];
-   const stats=Object.fromEntries(['viewCount','likeCount','commentCount'].map(k=>{const n=v.statistics?.[k]===undefined?null:Number(v.statistics[k]);return [k,Number.isSafeInteger(n)&&n>=0?n:null]}));snapshot.values[v.id]=stats;
-   return {id:v.id,title:v.snippet.title,description:(v.snippet.description||''),url:'https://www.youtube.com/watch?v='+v.id,thumbnail:v.snippet.thumbnails?.medium?.url||'',publishedAt:v.snippet.publishedAt,duration:v.contentDetails?.duration||'',lastObservedAt:now,...stats,delta:old?Object.fromEntries(Object.keys(stats).map(k=>[k,stats[k]===null||old[k]===null||old[k]===undefined?null:stats[k]-old[k]])):null,previousAt:old?previous.at:null};
-  });
-  const persisted=await this.store.mutate(r=>{const current=r.channels.find(x=>x.id===c.id);if(!current)return false;retainChannelHistory(current,mapped,snapshot,at);Object.assign(current,{channelId,uploads,name,thumbnail,videos:mapped.filter(v=>latestIds.includes(v.id)),lastSyncAt:now,historyCursor:cursor+tracked.length});return true;});
+  let mapped=[],latestIds=[],videos=[],usedFeed=false,snapshot={at:now,values:{}};
+  try{
+    const entries=await this.yt('playlistItems',{part:'contentDetails',playlistId:uploads,maxResults:'10'});
+    latestIds=[...new Set(entries.map(x=>x.contentDetails.videoId).filter(id=>/^[\w-]{11}$/.test(id||'')))];
+    const archived=[...new Map([...(c.historyVideos||[]),...(c.videos||[])].map(v=>[v.id,v])).values()].filter(v=>!latestIds.includes(v.id)&&Date.parse(v.lastObservedAt||c.lastSyncAt)>=at-30*86400000).toSorted((a,b)=>a.id.localeCompare(b.id));
+    const cursor=(c.historyCursor||0)%Math.max(1,archived.length),tracked=Array.from({length:Math.min(40,archived.length)},(_,i)=>archived[(cursor+i)%archived.length].id);
+    const ids=[...latestIds,...tracked];
+    videos=ids.length?await this.yt('videos',{part:'snippet,contentDetails,statistics',id:ids.join(',')}):[];
+    snapshot={at:now,values:{}};
+    mapped=videos.filter(v=>ids.includes(v.id)&&v.snippet).map(v=>{
+      const previous=(c.snapshots||[]).findLast(s=>s.values?.[v.id]),old=previous?.values[v.id];
+      const stats=Object.fromEntries(['viewCount','likeCount','commentCount'].map(k=>{const n=v.statistics?.[k]===undefined?null:Number(v.statistics[k]);return [k,Number.isSafeInteger(n)&&n>=0?n:null]}));snapshot.values[v.id]=stats;
+      return {id:v.id,title:v.snippet.title,description:(v.snippet.description||''),url:'https://www.youtube.com/watch?v='+v.id,thumbnail:v.snippet.thumbnails?.medium?.url||'',publishedAt:v.snippet.publishedAt,duration:v.contentDetails?.duration||'',lastObservedAt:now,...stats,delta:old?Object.fromEntries(Object.keys(stats).map(k=>[k,stats[k]===null||old[k]===null||old[k]===undefined?null:stats[k]-old[k]])):null,previousAt:old?previous.at:null};
+    });
+  }catch(e){
+    if(channelId&&(e.code==='youtube_auth_required'||e.code==='quota_exceeded'||e.status===401||e.status===503)){
+      try{
+        const xml=await this.feed('https://www.youtube.com/feeds/videos.xml?channel_id='+channelId);
+        const feedItems=parseFeed(xml,name||'YouTube');
+        if(feedItems.length){
+          usedFeed=true;
+          latestIds=feedItems.map(item=>item.url.match(/v=([\w-]{11})/)?.[1]).filter(Boolean);
+          mapped=feedItems.filter(item=>item.url.includes('watch?v=')).map(item=>{
+            const vid=item.url.match(/v=([\w-]{11})/)?.[1];
+            return {id:vid,title:item.title,description:item.excerpt||'',url:item.url,thumbnail:'https://i.ytimg.com/vi/'+vid+'/mqdefault.jpg',publishedAt:item.publishedAt,duration:'',lastObservedAt:now,viewCount:null,likeCount:null,commentCount:null,delta:null,previousAt:null};
+          });
+        }
+      }catch{}
+    }
+    if(!usedFeed)throw e;
+  }
+  const persisted=await this.store.mutate(r=>{const current=r.channels.find(x=>x.id===c.id);if(!current)return false;retainChannelHistory(current,mapped,snapshot||{at:now,values:{}},at);Object.assign(current,{channelId,uploads,name,thumbnail,videos:mapped.filter(v=>latestIds.includes(v.id)),lastSyncAt:now,historyCursor:(c.historyCursor||0)+latestIds.length});return true;});
   if(!persisted)return 0;
   const sources=[],topicIdsByUrl=new Map();
-  for(const v of mapped.filter(v=>latestIds.includes(v.id))){const original=videos.find(item=>item.id===v.id),source={...this.videoSource(original),publisher:name,publisherUrl:'https://www.youtube.com/channel/'+channelId},matches=topics.filter(t=>t.sources.includes('youtube')&&matchesTopic(source,t)).map(t=>t.id);if(matches.length&&focusAllows(source,focus)){sources.push(source);topicIdsByUrl.set(source.url,matches);}}
+  for(const v of mapped.filter(v=>latestIds.includes(v.id))){
+    const original=videos.find(item=>item.id===v.id);
+    const source=original?{...this.videoSource(original),publisher:name,publisherUrl:'https://www.youtube.com/channel/'+channelId}:{title:v.title,url:v.url,publisher:name||'YouTube',...(channelId?{publisherUrl:'https://www.youtube.com/channel/'+channelId}:{}),publishedAt:v.publishedAt,excerpt:v.description||'',coverage:v.description?'snippet':'headline',video:{thumbnail:v.thumbnail||'',duration:v.duration||'',viewCount:v.viewCount}};
+    const matches=topics.filter(t=>t.sources.includes('youtube')&&matchesTopic(source,t)).map(t=>t.id);
+    if(matches.length&&focusAllows(source,focus)){sources.push(source);topicIdsByUrl.set(source.url,matches);}
+  }
   if(sources.length)await this.store.addSources(sources,[],null,{topicIdsByUrl});
   return mapped.length;
  }

@@ -6,6 +6,7 @@ import {createIssueMatcher,rateIssue,RADAR_METHOD,displayHeadline} from './radar
 import {selectIssue,groupingProvenance} from './radar-grouping.mjs';
 import {analyzeEditorial,compareEditorial,relateIssues,EDITORIAL_METHOD} from './radar-editorial.mjs';
 import {matchesResearchTopic} from './radar-research-plan.mjs';
+import {protectedIssue} from './radar-retention.mjs';
 export const LENSES=[{id:'system',name:'The System & Capital',color:'#6b55d8',role:'Bedah struktur, uang, kekuasaan, dan kebijakan.'},{id:'history',name:'The Hidden History & Mechanics',color:'#22799a',role:'Sejarah, arsip, kronologi, dan data sebagai bukti.'},{id:'human',name:'The Human Mirror',color:'#b26930',role:'Dampak sehari-hari, empati, dan pergeseran perspektif.'}];
 export const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const txt=(v,required=false)=>{if(typeof v!=='string'||(required&&!v.trim()))throw fail('Teks wajib diisi dan harus valid.');return v.trim()};
@@ -23,6 +24,23 @@ function videoMetadata(video){
  return {thumbnail:typeof video.thumbnail==='string'&&/^https:\/\/i\.ytimg\.com\//.test(video.thumbnail)?video.thumbnail.slice(0,2048):'',duration:typeof video.duration==='string'&&/^PT[0-9HMS.]+$/.test(video.duration)?video.duration.slice(0,60):'',viewCount:Number.isSafeInteger(video.viewCount)&&video.viewCount>=0?video.viewCount:null};
 }
 export const issueStats=rateIssue;
+export function pruneEvictableIssues(r, db, targetCount = 750, targetSources = 1800) {
+  if (!r?.issues) return 0;
+  let totalSources = r.issues.reduce((n, i) => n + (i.sources?.length || 0), 0);
+  if (r.issues.length <= targetCount && totalSources <= targetSources) return 0;
+  const evictable = r.issues
+    .filter(i => i.status === 'new' && (!db || !protectedIssue(i, db)))
+    .sort((a, b) => (Date.parse(a.createdAt || 0) || 0) - (Date.parse(b.createdAt || 0) || 0));
+  let pruned = 0;
+  for (const issue of evictable) {
+    if (r.issues.length <= targetCount && totalSources <= targetSources) break;
+    r.issues = r.issues.filter(i => i.id !== issue.id);
+    totalSources -= (issue.sources?.length || 0);
+    pruned++;
+  }
+  return pruned;
+}
+
 export function matchesTopic(source,topic){return !!topic.enabled&&matchesResearchTopic(source,topic);}
 export class RadarStore{
  constructor(contentStore,{now=()=>Date.now(),focusMode='general'}={}){this.contentStore=contentStore;this.now=now;this.focusMode=focusMode}
@@ -84,7 +102,8 @@ export class RadarStore{
  saveChannel(body){return this.mutate(r=>{const url=canonicalUrl(body.url),u=new URL(url);if(!/(^|\.)youtube\.com$/.test(u.hostname)||!/^\/(channel\/UC[\w-]{22}|@[\w.%-]+)\/?$/.test(u.pathname))throw fail('Gunakan URL YouTube /@handle atau /channel/UC…');if(!['inspiration','competitor','reference'].includes(body.role))throw fail('Peran channel tidak valid.');if(r.channels.some(c=>c.url===url))throw fail('Channel sudah dipantau.',409);if(r.channels.length>=20)throw fail('Maksimal 20 channel.');const item={id:crypto.randomUUID(),url,role:body.role,enabled:true,revision:1,videos:[],snapshots:[]};r.channels.push(item);return item;});}
  async addSources(inputs,topicIds=[],issueId=null,{topicIdsByUrl}={}){
  if(!Array.isArray(inputs)||!inputs.length||inputs.length>100||inputs.some(x=>!x||typeof x!=='object'||Array.isArray(x)))throw fail('Daftar sumber Radar tidak valid.');
- return this.mutate(r=>{
+ return this.mutate((r,db)=>{
+  pruneEvictableIssues(r, db, 750, 1800);
   const added=[],match=createIssueMatcher();let addedCount=0;
   for(const input of inputs){
    if(r.retention?.enabled&&input.coverage!=='manual'&&!issueId&&[7,14].includes(r.retention.days)&&Number.isFinite(Date.parse(input.publishedAt))&&Date.parse(input.publishedAt)<this.now()-r.retention.days*86400000)continue;
@@ -110,6 +129,7 @@ export class RadarStore{
    let issue=issueId?find(r.issues,issueId):selection.issue;
    source.grouping=groupingProvenance(issueId?'manual_add':selection.ambiguousPartition?'needs_review':selection.match?.basis==='manual_rule'?'manual_rule':issue?'automatic':'anchor',now,selection?.match);
    if(!issue){
+    pruneEvictableIssues(r, db, 750, 1800);
     if(r.issues.length>=800)throw fail('Radar penuh (800 isu). Gabungkan atau hapus isu yang tidak diperlukan.');
     issue={id:crypto.randomUUID(),title:displayHeadline(title,source.publisher),status:source.coverage==='manual'?'saved':'new',topicIds:[],lenses:[],sources:[],contentIds:[],eventDate:null,createdAt:now,updatedAt:now,revision:1,...(selection?.ambiguousPartition?{groupPartition:selection.ambiguousPartition,groupingLocked:true,groupingReview:true}:{})};r.issues.unshift(issue);
    }else issue.revision++;
@@ -129,7 +149,8 @@ export class RadarStore{
   const at=new Date(this.now()).toISOString(),history=[...(target.groupingHistory||[]),...(source.groupingHistory||[]),{action:'merge',at,fromIssueId:source.id,sourceIds:source.sources.map(s=>s.id)}];target.groupingHistory=[...new Map(history.map(h=>[JSON.stringify(h),h])).values()].sort((a,b)=>String(a.at||'').localeCompare(String(b.at||''))).slice(-20);target.groupingReview=false;
   if(source.research){const a=target.research||{notes:'',checklist:[]},b=source.research,notes=[a.notes,b.notes].filter(Boolean).join('\n\n'),checklist=[...a.checklist,...b.checklist];if(checklist.length>60)throw fail('Gabungan checklist maksimal 60 butir.');target.research={notes,checklist};}
   target.sources.push(...source.sources.filter(s=>!target.sources.some(x=>x.url===s.url)));for(const k of ['topicIds','lenses','contentIds'])target[k]=[...new Set([...target[k],...source[k]])];target.groupingLocked=true;target.groupRevision=(target.groupRevision||1)+1;target.observations=[];target.revision++;target.updatedAt=at;r.issues=r.issues.filter(i=>i.id!==source.id);return target;});}
- split(id,body){return this.mutate(r=>{
+ split(id,body){return this.mutate((r,db)=>{
+  pruneEvictableIssues(r, db, 750, 1800);
   const original=find(r.issues,id);revision(original,body);
   const sourceIds=list(body.sourceIds,100);
   if(!sourceIds.length||sourceIds.length>=original.sources.length||sourceIds.some(sid=>!original.sources.some(source=>source.id===sid)))throw fail('Pilih sebagian sumber untuk dipisahkan; sisakan minimal satu sumber.');

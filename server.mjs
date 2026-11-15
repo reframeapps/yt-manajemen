@@ -87,7 +87,7 @@ let tokenGeneration = 0;
 let analyticsTokenGeneration = 0;
 let driveTokenGeneration=0;
 const driveBackup=new DriveBackup({snapshot:async()=>{if(!storage)throw Error('Backup memerlukan PostgreSQL.');return storage.snapshot();},loadToken:()=>loadToken('drive'),getAccessToken:()=>getAccessToken('drive'),getConnectionVersion:()=>driveTokenGeneration,readState:async()=>((await contentStore.read()).storageBackup||{}),saveState:(patch,guard)=>contentStore.mutate(db=>{guard();db.storageBackup={...(db.storageBackup||{}),...patch};return db.storageBackup;})});
-const radarRetention=new RadarRetention(radarStore,{backup:async()=>{if(!storage)throw Error('Backup PostgreSQL belum tersedia. Pembersihan ditunda.');if(!(await driveBackup.status()).connected)throw Error('Hubungkan Google Drive di Data & Backup. Pembersihan ditunda.');await storage.backup('manual');await driveBackup.run({force:true});}});
+const radarRetention=new RadarRetention(radarStore,{backup:async()=>{if(!storage)throw Error('Backup PostgreSQL belum tersedia. Pembersihan ditunda.');await storage.backup('manual');try{const drive=await driveBackup.status();if(drive?.connected)await driveBackup.run({force:true});}catch(e){console.warn('Drive backup notice during retention:',e.message);}}});
 const refreshPromises = new Map();
 let youtubeConnectionCheck=null;
 

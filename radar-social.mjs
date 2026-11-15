@@ -1,3 +1,69 @@
+
+export function generateFallbackTop5(rawSignals) {
+  const topSignals = (rawSignals || []).slice(0, 5);
+  return topSignals.map((item, idx) => ({
+    id: String(idx + 1),
+    title: String(item.title || item.topic || `Isu Publik Hangat #${idx + 1}`).trim(),
+    platform: ['X / Twitter', 'TikTok', 'Forum Publik'].includes(item.platform) ? item.platform : 'X / Twitter',
+    pillar: 'Investigasi',
+    viralityScore: 4,
+    netizenSummary: String(item.summary || item.snippet || item.title || '').trim(),
+    recommendedAngle: 'Bedah latar belakang, dampak kebijakan, dan data faktual di lapangan.',
+    suggestedHook: `Tahukah Anda ada kejanggalan besar di balik ramainya kasus ${item.title || 'ini'}?`,
+    sourceUrl: typeof item.sourceUrl === 'string' && /^https?:\/\//.test(item.sourceUrl) ? item.sourceUrl : ''
+  }));
+}
+
+export function parseSocialAiJson(rawText, fallbackSignals = []) {
+  if (!rawText || typeof rawText !== 'string') {
+    return generateFallbackTop5(fallbackSignals);
+  }
+  let clean = rawText.trim();
+  clean = clean.replace(/```(?:json)?([\s\S]*?)```/gi, '$1').replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```$/i, '').trim();
+  try {
+    const direct = JSON.parse(clean);
+    if (Array.isArray(direct) && direct.length) return direct;
+    if (direct && Array.isArray(direct.items) && direct.items.length) return direct.items;
+    if (direct && Array.isArray(direct.topics) && direct.topics.length) return direct.topics;
+  } catch {}
+
+  const firstBracket = clean.indexOf('[');
+  const lastBracket = clean.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    const arrayStr = clean.slice(firstBracket, lastBracket + 1).trim();
+    try {
+      const parsed = JSON.parse(arrayStr);
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    } catch {
+      try {
+        const repaired = arrayStr
+          .replace(/,\s*([\]}])/g, '$1')
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ');
+        const parsed = JSON.parse(repaired);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      } catch {}
+    }
+  }
+
+  const objects = [];
+  const objRegex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+  let match;
+  while ((match = objRegex.exec(clean)) !== null) {
+    try {
+      const obj = JSON.parse(match[0].replace(/,\s*([\]}])/g, '$1'));
+      if (obj && (obj.title || obj.recommendedAngle || obj.netizenSummary)) {
+        objects.push(obj);
+      }
+    } catch {}
+  }
+  if (objects.length > 0) return objects;
+
+  if (Array.isArray(fallbackSignals) && fallbackSignals.length) {
+    return generateFallbackTop5(fallbackSignals);
+  }
+  throw new Error('Gagal mengurai format kurasi AI menjadi JSON (respons AI kosong atau rusak).');
+}
+
 import crypto from 'node:crypto';
 import { safeFeed, parseFeed } from './radar-sync.mjs';
 
@@ -169,7 +235,8 @@ Format balasan: Keluarkan HANYA JSON array murni berisi tepat 5 objek (tanpa tan
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.3,
-            maxOutputTokens: 4000
+            maxOutputTokens: 4000,
+            response_mime_type: "application/json"
           }
         })
       });
