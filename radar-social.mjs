@@ -243,28 +243,26 @@ Format balasan: Keluarkan HANYA JSON array murni berisi tepat 5 objek (tanpa tan
 
       if (!response.ok) {
         const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || `Gemini API returned status ${response.status}`);
+        console.warn('Gemini API notice:', errJson?.error?.message || `Status ${response.status}`);
+        return generateFallbackTop5(rawSignals);
       }
 
       const data = await response.json();
       rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     } else if (this.ai && typeof this.ai.complete === 'function') {
-      rawText = await this.ai.complete('Output JSON only.', prompt);
+      try {
+        rawText = await this.ai.complete('Output JSON only.', prompt);
+      } catch (e) {
+        console.warn('AI provider notice:', e.message);
+        return generateFallbackTop5(rawSignals);
+      }
     } else {
-      throw new Error('API Key AI (Gemini) belum dikonfigurasi.');
+      return generateFallbackTop5(rawSignals);
     }
 
-    // Clean JSON markdown blocks if any
-    const cleanJson = rawText.trim().replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```$/i, '').trim();
-    let parsed;
-    try {
-      parsed = JSON.parse(cleanJson);
-    } catch (e) {
-      throw new Error('Gagal mengurai format kurasi AI menjadi JSON: ' + e.message);
-    }
-
+    const parsed = parseSocialAiJson(rawText, rawSignals);
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      throw new Error('Format hasil kurasi AI tidak valid (bukan array).');
+      return generateFallbackTop5(rawSignals);
     }
 
     // Sanitize and ensure exactly 5 items

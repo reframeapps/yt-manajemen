@@ -1,6 +1,9 @@
-export const APP_VERSION='4.78.0';
+export const APP_VERSION='4.78.1';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.78.1',date:'2026-11-15',title:'Ketahanan Pemindaian Radar Social Intelligence terhadap Lonjakan Beban AI (Gemini 503 High Demand)',changes:[
+    {type:'resilience',title:'Graceful Fallback Sinyal Mentah saat AI Sibuk (Status 503)',desc:'Menambahkan penanganan otomatis saat Gemini API mengalami lonjakan beban (high demand 503), kuota habis, atau kendala jaringan. Pemindaian Radar Social kini otomatis menghasilkan Top 5 berbasis sinyal mentah terpopuler tanpa memutus proses sinkronisasi radar.'}
+  ]},
   {version:'4.78.0',date:'2026-11-15',title:'Perbaikan Total Sinkronisasi Radar Konten, Pruning Kapasitas Otomatis & Ketahanan AI Social Scanner',changes:[
     {type:'fix',title:'Eliminasi Hard Cap Freeze Radar (Auto-Pruning Sliding Window FIFO)',desc:'Menghilangkan error pemblokiran "Radar penuh (800 isu)" yang membekukan sinkronisasi berita dan video baru. Radar kini menerapkan auto-pruning cerdas berbasis FIFO terhadap isu-isu lama tidak terlindungi (status new), menyisakan ruang secara otomatis tanpa kehilangan data naskah, catatan riset, atau kartu kanban.'},
     {type:'fix',title:'Pemisahan Ketergantungan Google Drive pada Pembersihan Data Retensi',desc:'Memperbaiki radarRetention agar pembersihan berkala data Radar lama (7/14 hari) tetap berjalan secara independen di PostgreSQL tanpa terblokir status koneksi Google Drive.'},
