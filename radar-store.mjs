@@ -7,6 +7,7 @@ import {selectIssue,groupingProvenance} from './radar-grouping.mjs';
 import {analyzeEditorial,compareEditorial,relateIssues,EDITORIAL_METHOD} from './radar-editorial.mjs';
 import {matchesResearchTopic} from './radar-research-plan.mjs';
 import {protectedIssue} from './radar-retention.mjs';
+import {evaluatePrecisionV6,PRECISION_V6_METHOD} from './radar-precision-v6.mjs';
 export const LENSES=[{id:'system',name:'The System & Capital',color:'#6b55d8',role:'Bedah struktur, uang, kekuasaan, dan kebijakan.'},{id:'history',name:'The Hidden History & Mechanics',color:'#22799a',role:'Sejarah, arsip, kronologi, dan data sebagai bukti.'},{id:'human',name:'The Human Mirror',color:'#b26930',role:'Dampak sehari-hari, empati, dan pergeseran perspektif.'}];
 export const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const txt=(v,required=false)=>{if(typeof v!=='string'||(required&&!v.trim()))throw fail('Teks wajib diisi dan harus valid.');return v.trim()};
@@ -54,6 +55,7 @@ export class RadarStore{
    if(!relevant){stats.isHot=false;stats.reason+=matched.length?' '+focus.reason:' Tidak cocok dengan topik aktif.';}
    const issue={...i,topicIds:[...new Set([...i.topicIds,...matched.map(t=>t.id)])],stats,focus};
    issue.editorial=analyzeEditorial(issue,{topics:r.topics,issues:r.issues,contents:db.contents,performance,now});
+   issue.precisionV6=evaluatePrecisionV6(issue,{topics:r.topics,contents:db.contents,now});
    if(r.focus.mode==='controversy'){issue.editorial.reasons.unshift(focus.reason);if(focus.eligible)issue.editorial.gaps.unshift('Cari bukti primer, dampak, dan tanggapan pihak yang dipersoalkan.');}
    const plan=issue.editorial.research;issue.editorial.researchCoverage={mentioned:plan.coverage.filter(d=>d.state==='mentioned').length,total:plan.coverage.length};
    if(!includeResearchPlans)delete issue.editorial.research;
@@ -61,10 +63,35 @@ export class RadarStore{
    return issue;
   });
   const hotIssues=issues.filter(i=>i.stats.isHot&&!['ignored','discussed'].includes(i.status)).sort((a,b)=>b.stats.score-a.stats.score||Date.parse(b.stats.latestPublishedAt)-Date.parse(a.stats.latestPublishedAt)||a.id.localeCompare(b.id));
+  const precisionBuckets = {
+   hot_verified: issues.filter(i=>i.precisionV6?.bucket==='hot_verified'&&!['ignored','discussed'].includes(i.status)),
+   early_signal: issues.filter(i=>i.precisionV6?.bucket==='early_signal'&&!['ignored','discussed'].includes(i.status)),
+   underreported: issues.filter(i=>i.precisionV6?.bucket==='underreported'&&!['ignored','discussed'].includes(i.status)),
+   material_update: issues.filter(i=>i.precisionV6?.bucket==='material_update'&&!['ignored','discussed'].includes(i.status)),
+   needs_factcheck: issues.filter(i=>i.precisionV6?.bucket==='needs_factcheck'&&!['ignored','discussed'].includes(i.status)),
+   watchlist: issues.filter(i=>i.precisionV6?.bucket==='watchlist'&&!['ignored','discussed'].includes(i.status))
+  };
   const relations=relateIssues(issues,now);for(const issue of issues)issue.relatedIssues=relations.get(issue.id)||[];
   const rankedIssues=issues.filter(i=>i.stats.relevant&&!['ignored','discussed'].includes(i.status)).sort(compareEditorial);
   const {reportArchive,aiCache,aiHistory,promptLibrary,...visible}=r;
   return {...visible,channels:r.channels.map(c=>analyzeChannel(c,r.topics,issues,now)),lenses:LENSES,issues,hotIssues,rankedIssueIds:rankedIssues.map(i=>i.id),methodology:RADAR_METHOD,editorialMethodology:EDITORIAL_METHOD,focusMethodology:RADAR_FOCUS_METHOD,
+   precisionMethodology: PRECISION_V6_METHOD,
+   precisionSummary: {
+    hot_verified: precisionBuckets.hot_verified.length,
+    early_signal: precisionBuckets.early_signal.length,
+    underreported: precisionBuckets.underreported.length,
+    material_update: precisionBuckets.material_update.length,
+    needs_factcheck: precisionBuckets.needs_factcheck.length,
+    watchlist: precisionBuckets.watchlist.length
+   },
+   precisionBucketIds: {
+    hot_verified: precisionBuckets.hot_verified.sort((a,b)=>b.precisionV6.priorityScore-a.precisionV6.priorityScore).map(i=>i.id),
+    early_signal: precisionBuckets.early_signal.sort((a,b)=>b.precisionV6.priorityScore-a.precisionV6.priorityScore).map(i=>i.id),
+    underreported: precisionBuckets.underreported.sort((a,b)=>b.precisionV6.priorityScore-a.precisionV6.priorityScore).map(i=>i.id),
+    material_update: precisionBuckets.material_update.sort((a,b)=>b.precisionV6.priorityScore-a.precisionV6.priorityScore).map(i=>i.id),
+    needs_factcheck: precisionBuckets.needs_factcheck.sort((a,b)=>b.precisionV6.priorityScore-a.precisionV6.priorityScore).map(i=>i.id),
+    watchlist: precisionBuckets.watchlist.sort((a,b)=>b.precisionV6.priorityScore-a.precisionV6.priorityScore).map(i=>i.id)
+   },
    radarSummary:{groups:issues.length,ranked:rankedIssues.length,hot:hotIssues.length,belowThreshold:issues.filter(i=>!i.stats.isHot).length,ratedAt:new Date(now).toISOString()},
    linkedContents:db.contents.map(c=>({id:c.id,title:c.title,format:c.format,youtubeVideoId:c.youtubeVideoId||''})),
    coverage:{YouTube:(r.sync.youtubeAt||r.channels.some(c=>c.enabled&&c.lastSyncAt))?'Dipantau':'Belum dipantau','Berita / Web':r.sync.newsAt?'Dipantau':'Belum dipantau',X:r.socialIntelligence?.lastScanAt?'Dipantau':'Belum dipantau',Instagram:'Belum dipantau',TikTok:r.socialIntelligence?.lastScanAt?'Dipantau':'Belum dipantau'}};

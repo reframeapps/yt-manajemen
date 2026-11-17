@@ -8,6 +8,7 @@ import { URL } from 'node:url';
 import { ContentStore } from './content-store.mjs';
 import { RadarStore } from './radar-store.mjs';
 import { RADAR_METHOD } from './radar-methodology.mjs';
+import { issueToKanbanPayload } from './radar-precision-v6.mjs';
 import { RadarSync } from './radar-sync.mjs';
 import {RadarMemory} from './radar-memory.mjs';
 import {buildRadarPerformance} from './radar-performance.mjs';
@@ -1408,6 +1409,17 @@ const server = http.createServer(async (req, res) => {
       const issue=(await radarStore.read()).issues.find(i=>i.id===groupingMatch[1]);
       if(!issue)return json(res,404,{error:'Isu tidak ditemukan.'});
       return json(res,200,explainIssueGrouping(issue),{'cache-control':'no-store'});
+    }
+    const kanbanIssueMatch=pathname.match(/^\/api\/radar\/issues\/([a-z0-9-]{1,60})\/to-kanban$/);
+    if(kanbanIssueMatch&&req.method==='POST'){
+      const id=kanbanIssueMatch[1],body=await readJson(req).catch(()=>({}));
+      const radarData=await radarStore.read();
+      const issue=radarData.issues.find(i=>i.id===id);
+      if(!issue)return json(res,404,{ok:false,error:'Isu tidak ditemukan.'});
+      const payload=issueToKanbanPayload(issue,{format:body.format||'long',pillarId:body.pillarId});
+      const newContent=await contentStore.create(payload,{fillEngine:true});
+      await radarStore.changeIssue(id,{revision:issue.revision,contentId:newContent.id}).catch(()=>{});
+      return json(res,201,{ok:true,content:newContent});
     }
     const channelFeedbackMatch=pathname.match(/^\/api\/radar\/channels\/([a-z0-9-]{1,60})\/feedback$/);
     if(channelFeedbackMatch&&req.method==='PATCH')return json(res,200,await radarStore.setVideoFeedback(channelFeedbackMatch[1],await readJson(req)));

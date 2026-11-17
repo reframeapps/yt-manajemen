@@ -341,7 +341,7 @@ Format balasan: Keluarkan HANYA JSON array murni berisi tepat 5 objek (tanpa tan
       hook: item.suggestedHook,
       format: 'long',
       stage: 'idea',
-      tags: `radar, sosmed, ${item.pillar.toLowerCase()}, investigasi`,
+      tags: `radar-v6, sosmed, ${item.pillar.toLowerCase()}, investigasi`,
       sources: item.sourceUrl ? [{ label: `${item.platform} (${item.pillar})`, url: item.sourceUrl, notes: item.netizenSummary }] : []
     };
 

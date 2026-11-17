@@ -1,6 +1,13 @@
-export const APP_VERSION='4.78.1';
+export const APP_VERSION='4.79.0';
 // Release dates follow WIB. This is the shipped application history, not user edits.
 export const RELEASES=[
+  {version:'4.79.0',date:'2026-11-17',title:'Precision Radar V6: Dual-Scoring (Prioritas vs Verifikasi), 6 Dashboard Buckets, Event Timeline & Early Signal Resilience',changes:[
+    {type:'feature',title:'Dual Scoring Terpisah (Priority Score 0-100 & Verification Status)',desc:'Memisahkan skor prioritas redaksi (Relevansi DNA 30, Dampak Sistemik 25, Kebaruan 20, Kecepatan Pertumbuhan 15, Kesiapan Bukti 10) dari validitas fakta (confirmed, multi_sourced, single_primary, material_update, disputed, needs_factcheck, unverified), mencegah tercampurnya viralitas/sensasi dengan kebenaran data.'},
+    {type:'feature',title:'6 Dashboard Bucket Intelligence Terstruktur',desc:'Menghadirkan klasifikasi 6 bucket cerdas: HOT VERIFIED (prioritas tinggi multi-media), EARLY SIGNAL (satu sumber primer terpercaya tanpa blokir syarat 3 media), UNDERREPORTED (berdampak publik sistemik namun minim peliputan), MATERIAL UPDATE (perkembangan baru signifikan dari peristiwa sebelumnya), NEEDS FACT-CHECK (klaim viral membingungkan / bersengketa), dan WATCHLIST (monitoring bertahap).'},
+    {type:'feature',title:'Kronologi & Histori Bukti Event Timeline',desc:'Menyajikan alur kronologi penerbitan lengkap dengan timestamp kejadian, penerbit asli, tautan rujukan, ringkasan bukti, dan lencana verifikasi sumber primer untuk investigasi independen.'},
+    {type:'feature',title:'Konversi 1-Klik Isu Radar ke Ide Kanban',desc:'Menambahkan tombol aksi langsung "⚡ Jadikan Ide Kanban" pada modal detail isu yang otomatis memetakan narasi, kronologi bukti, sumber terverifikasi, dan sudut pandang investigasi ke papan Kanban REFRAME.'},
+    {type:'resilience',title:'Proteksi Retensi & Single Primary Source Resilience',desc:'Melindungi isu dengan sumber primer (seperti BPK, KPK, regulasi resmi) dan bucket early signal dari auto-pruning, memastikan bukti investigasi berharga tidak hilang meskipun belum diliput media massa luas.'}
+  ]},
   {version:'4.78.1',date:'2026-11-15',title:'Ketahanan Pemindaian Radar Social Intelligence terhadap Lonjakan Beban AI (Gemini 503 High Demand)',changes:[
     {type:'resilience',title:'Graceful Fallback Sinyal Mentah saat AI Sibuk (Status 503)',desc:'Menambahkan penanganan otomatis saat Gemini API mengalami lonjakan beban (high demand 503), kuota habis, atau kendala jaringan. Pemindaian Radar Social kini otomatis menghasilkan Top 5 berbasis sinyal mentah terpopuler tanpa memutus proses sinkronisasi radar.'}
   ]},
