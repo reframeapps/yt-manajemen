@@ -371,7 +371,7 @@ export function evaluatePrecisionV6(issue, { topics = [], contents = [], now = D
 /**
  * Konversi entitas Isu Radar Precision V6 ke payload kartu Kanban (stage: 'idea')
  */
-export function issueToKanbanPayload(issue, { format = 'long', pillarId = 'Investigasi' } = {}) {
+export function issueToKanbanPayload(issue, { format = 'long', pillarId = '' } = {}) {
   const v6 = issue.precisionV6 || evaluatePrecisionV6(issue);
   const events = v6.eventHistory || [];
   const timelineText = events.slice(0, 5).map(e => `• [${e.timestamp ? e.timestamp.slice(0, 10) : 'Waktu N/A'}] ${e.publisher}: ${e.title}`).join('\n');
@@ -396,11 +396,13 @@ export function issueToKanbanPayload(issue, { format = 'long', pillarId = 'Inves
     verified: s.verification === 'verified'
   }));
 
+  const validFormat = format === 'short' || format === 'shorts' ? 'shorts' : (['long', 'live', 'other'].includes(format) ? format : 'long');
+
   return {
     title: issue.title,
     stage: 'idea',
-    format: ['short', 'long'].includes(format) ? format : 'long',
-    pillarId: pillarId || 'Investigasi',
+    format: validFormat,
+    pillarId: pillarId || '',
     brief,
     radarIssueId: issue.id,
     tags: `radar-v6, ${v6.bucket}, ${v6.verificationStatus}, investigasi`,

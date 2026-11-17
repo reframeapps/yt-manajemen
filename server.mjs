@@ -1416,7 +1416,9 @@ const server = http.createServer(async (req, res) => {
       const radarData=await radarStore.read();
       const issue=radarData.issues.find(i=>i.id===id);
       if(!issue)return json(res,404,{ok:false,error:'Isu tidak ditemukan.'});
-      const payload=issueToKanbanPayload(issue,{format:body.format||'long',pillarId:body.pillarId});
+      const db = await contentStore.read();
+      const validPillar = db.pillars.find(p => p.id === body.pillarId || p.name.toLowerCase() === (body.pillarId || '').toLowerCase());
+      const payload=issueToKanbanPayload(issue,{format:body.format||'long',pillarId:validPillar?.id||''});
       const newContent=await contentStore.create(payload,{fillEngine:true});
       await radarStore.changeIssue(id,{revision:issue.revision,contentId:newContent.id}).catch(()=>{});
       return json(res,201,{ok:true,content:newContent});
